@@ -40,5 +40,6 @@ setup(
     tests_require=[
         'pytest>=2.7.2',
         'mock',
+        'sqlalchemy_utils',
     ],
 )
