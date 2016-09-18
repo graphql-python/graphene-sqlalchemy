@@ -1,14 +1,9 @@
-from graphql.type import GraphQLObjectType, GraphQLInterfaceType
-from graphql import GraphQLInt
-from pytest import raises
 
-from graphene import Schema, Interface, ObjectType
+from graphene import Field, Int, Interface, ObjectType
 from graphene.relay import Node, is_node
-from ..types import SQLAlchemyObjectType
+
 from ..registry import Registry
-
-from graphene import Field, Int
-
+from ..types import SQLAlchemyObjectType
 from .models import Article, Reporter
 
 registry = Registry()
@@ -48,7 +43,15 @@ def test_sqlalchemy_interface():
 def test_objecttype_registered():
     assert issubclass(Character, ObjectType)
     assert Character._meta.model == Reporter
-    assert list(Character._meta.fields.keys()) == ['id', 'first_name', 'last_name', 'email', 'pets', 'articles', 'favorite_article']
+    assert list(
+        Character._meta.fields.keys()) == [
+        'id',
+        'first_name',
+        'last_name',
+        'email',
+        'pets',
+        'articles',
+        'favorite_article']
 
 
 # def test_sqlalchemynode_idfield():

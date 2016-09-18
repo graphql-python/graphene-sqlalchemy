@@ -1,11 +1,13 @@
 from singledispatch import singledispatch
 from sqlalchemy import types
-from sqlalchemy.orm import interfaces
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.orm import interfaces
 
-from graphene import Enum, ID, Boolean, Float, Int, String, List, Field, Dynamic
+from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
+                      String)
 from graphene.relay import is_node
 from graphene.types.json import JSONString
+
 from .fields import SQLAlchemyConnectionField
 
 try:

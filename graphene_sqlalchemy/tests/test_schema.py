@@ -1,9 +1,8 @@
 from py.test import raises
 
-from ..types import SQLAlchemyObjectType
-
-from .models import Reporter
 from ..registry import Registry
+from ..types import SQLAlchemyObjectType
+from .models import Reporter
 
 
 def test_should_raise_if_no_model():
@@ -16,6 +15,7 @@ def test_should_raise_if_no_model():
 def test_should_raise_if_model_is_invalid():
     with raises(Exception) as excinfo:
         class Character2(SQLAlchemyObjectType):
+
             class Meta:
                 model = 1
     assert 'valid SQLAlchemy Model' in str(excinfo.value)
@@ -28,7 +28,15 @@ def test_should_map_fields_correctly():
             model = Reporter
             registry = Registry()
 
-    assert list(ReporterType2._meta.fields.keys()) == ['id', 'first_name', 'last_name', 'email', 'pets', 'articles', 'favorite_article']
+    assert list(
+        ReporterType2._meta.fields.keys()) == [
+        'id',
+        'first_name',
+        'last_name',
+        'email',
+        'pets',
+        'articles',
+        'favorite_article']
 
 
 def test_should_map_only_few_fields():

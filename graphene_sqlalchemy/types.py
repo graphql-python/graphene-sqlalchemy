@@ -1,21 +1,21 @@
 from collections import OrderedDict
+
 import six
 from sqlalchemy.inspection import inspect as sqlalchemyinspect
 from sqlalchemy.orm.exc import NoResultFound
 
-from graphene import ObjectType, Field
+from graphene import Field, ObjectType
 from graphene.relay import is_node
+from graphene.types.objecttype import ObjectTypeMeta
+from graphene.types.options import Options
+from graphene.types.utils import merge, yank_fields_from_attrs
+from graphene.utils.is_base_type import is_base_type
+
 from .converter import (convert_sqlalchemy_column,
                         convert_sqlalchemy_composite,
                         convert_sqlalchemy_relationship)
-from .utils import is_mapped
-
-from graphene.types.objecttype import ObjectTypeMeta
-from graphene.types.options import Options
 from .registry import Registry, get_global_registry
-from graphene.utils.is_base_type import is_base_type
-from graphene.types.utils import yank_fields_from_attrs, merge
-from .utils import get_query
+from .utils import get_query, is_mapped
 
 
 def construct_fields(options):
@@ -96,7 +96,6 @@ class SQLAlchemyObjectTypeMeta(ObjectTypeMeta):
             '{}.Meta, received "{}".'
         ).format(name, options.model)
 
-
         cls = ObjectTypeMeta.__new__(cls, name, bases, dict(attrs, _meta=options))
 
         options.registry.register(cls)
@@ -116,6 +115,7 @@ class SQLAlchemyObjectTypeMeta(ObjectTypeMeta):
 
 
 class SQLAlchemyObjectType(six.with_metaclass(SQLAlchemyObjectTypeMeta, ObjectType)):
+
     @classmethod
     def is_type_of(cls, root, context, info):
         if isinstance(root, cls):
@@ -124,7 +124,7 @@ class SQLAlchemyObjectType(six.with_metaclass(SQLAlchemyObjectTypeMeta, ObjectTy
             raise Exception((
                 'Received incompatible instance "{}".'
             ).format(root))
-        return type(root) == cls._meta.model
+        return isinstance(root, cls._meta.model)
 
     @classmethod
     def get_query(cls, context):
@@ -138,8 +138,8 @@ class SQLAlchemyObjectType(six.with_metaclass(SQLAlchemyObjectTypeMeta, ObjectTy
         except NoResultFound:
             return None
 
-    def resolve_id(root, args, context, info):
+    def resolve_id(self, args, context, info):
         graphene_type = info.parent_type.graphene_type
         if is_node(graphene_type):
-            return root.__mapper__.primary_key_from_instance(root)[0]
-        return getattr(root, graphene_type._meta.id, None)
+            return self.__mapper__.primary_key_from_instance(self)[0]
+        return getattr(self, graphene_type._meta.id, None)

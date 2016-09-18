@@ -4,9 +4,9 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 import graphene
 from graphene.relay import Node
-from ..types import SQLAlchemyObjectType
-from ..fields import SQLAlchemyConnectionField
 
+from ..fields import SQLAlchemyConnectionField
+from ..types import SQLAlchemyObjectType
 from .models import Article, Base, Editor, Reporter
 
 db = create_engine('sqlite:///test_sqlalchemy.sqlite3')
@@ -250,7 +250,6 @@ def test_should_mutate_well(session):
             model = Editor
             interfaces = (Node, )
 
-
     class ReporterNode(SQLAlchemyObjectType):
 
         class Meta:
@@ -268,6 +267,7 @@ def test_should_mutate_well(session):
             interfaces = (Node, )
 
     class CreateArticle(graphene.Mutation):
+
         class Input:
             headline = graphene.String()
             reporter_id = graphene.ID()
@@ -279,7 +279,7 @@ def test_should_mutate_well(session):
         def mutate(cls, instance, args, context, info):
             new_article = Article(
                 headline=args.get('headline'),
-                reporter_id = args.get('reporter_id'),
+                reporter_id=args.get('reporter_id'),
             )
 
             session.add(new_article)

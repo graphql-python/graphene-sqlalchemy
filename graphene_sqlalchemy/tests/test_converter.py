@@ -1,20 +1,20 @@
 from py.test import raises
 from sqlalchemy import Column, Table, types
-from sqlalchemy.orm import composite
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy_utils import ChoiceType, ScalarListType
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import composite
+from sqlalchemy_utils import ChoiceType, ScalarListType
 
 import graphene
 from graphene.relay import Node
 from graphene.types.json import JSONString
+
 from ..converter import (convert_sqlalchemy_column,
                          convert_sqlalchemy_composite,
                          convert_sqlalchemy_relationship)
 from ..fields import SQLAlchemyConnectionField
-from ..types import SQLAlchemyObjectType
 from ..registry import Registry
-
+from ..types import SQLAlchemyObjectType
 from .models import Article, Pet, Reporter
 
 
@@ -136,6 +136,7 @@ def test_should_manytomany_convert_connectionorlist():
 
 def test_should_manytomany_convert_connectionorlist_list():
     class A(SQLAlchemyObjectType):
+
         class Meta:
             model = Pet
 
@@ -149,6 +150,7 @@ def test_should_manytomany_convert_connectionorlist_list():
 
 def test_should_manytomany_convert_connectionorlist_connection():
     class A(SQLAlchemyObjectType):
+
         class Meta:
             model = Pet
             interfaces = (Node, )
@@ -167,6 +169,7 @@ def test_should_manytoone_convert_connectionorlist():
 
 def test_should_manytoone_convert_connectionorlist_list():
     class A(SQLAlchemyObjectType):
+
         class Meta:
             model = Reporter
 
@@ -179,6 +182,7 @@ def test_should_manytoone_convert_connectionorlist_list():
 
 def test_should_manytoone_convert_connectionorlist_connection():
     class A(SQLAlchemyObjectType):
+
         class Meta:
             model = Reporter
             interfaces = (Node, )
@@ -192,6 +196,7 @@ def test_should_manytoone_convert_connectionorlist_connection():
 
 def test_should_onetoone_convert_field():
     class A(SQLAlchemyObjectType):
+
         class Meta:
             model = Article
             interfaces = (Node, )
@@ -230,6 +235,7 @@ def test_should_postgresql_hstore_convert():
 def test_should_composite_convert():
 
     class CompositeClass(object):
+
         def __init__(self, col1, col2):
             self.col1 = col1
             self.col2 = col2
@@ -253,6 +259,7 @@ def test_should_unknown_sqlalchemy_composite_raise_exception():
     with raises(Exception) as excinfo:
 
         class CompositeClass(object):
+
             def __init__(self, col1, col2):
                 self.col1 = col1
                 self.col2 = col2
