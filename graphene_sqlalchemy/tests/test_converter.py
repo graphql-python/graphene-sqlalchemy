@@ -4,7 +4,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import composite
 from sqlalchemy.sql.elements import Label
-from sqlalchemy_utils import ChoiceType, ScalarListType
+from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
 
 import graphene
 from graphene.relay import Node
@@ -132,6 +132,10 @@ def test_should_choice_convert_enum():
 
 def test_should_scalar_list_convert_list():
     assert_column_conversion(ScalarListType(), graphene.List)
+
+
+def test_should_jsontype_convert_jsonstring():
+    assert_column_conversion(JSONType(), JSONString)
 
 
 def test_should_manytomany_convert_connectionorlist():

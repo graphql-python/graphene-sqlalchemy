@@ -11,12 +11,15 @@ from graphene.types.json import JSONString
 from .fields import SQLAlchemyConnectionField
 
 try:
-    from sqlalchemy_utils import ChoiceType, ScalarListType
+    from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
 except ImportError:
     class ChoiceType(object):
         pass
 
     class ScalarListType(object):
+        pass
+
+    class JSONType(object):
         pass
 
 
@@ -133,4 +136,9 @@ def convert_postgres_array_to_list(type, column, registry=None):
 @convert_sqlalchemy_type.register(postgresql.JSON)
 @convert_sqlalchemy_type.register(postgresql.JSONB)
 def convert_json_to_string(type, column, registry=None):
+    return JSONString(description=column.doc, required=not(column.nullable))
+
+
+@convert_sqlalchemy_type.register(JSONType)
+def convert_json_type_to_string(type, column, registry=None):
     return JSONString(description=column.doc, required=not(column.nullable))
