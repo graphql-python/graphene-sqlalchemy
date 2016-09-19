@@ -1,8 +1,9 @@
 from py.test import raises
-from sqlalchemy import Column, Table, types
+from sqlalchemy import Column, Table, case, types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import composite
+from sqlalchemy.sql.elements import Label
 from sqlalchemy_utils import ChoiceType, ScalarListType
 
 import graphene
@@ -104,6 +105,12 @@ def test_should_float_convert_float():
 
 def test_should_numeric_convert_float():
     assert_column_conversion(types.Numeric(), graphene.Float)
+
+
+def test_should_label_convert_string():
+    label = Label('label_test', case([], else_="foo"), type_=types.Unicode())
+    graphene_type = convert_sqlalchemy_column(label)
+    assert isinstance(graphene_type, graphene.String)
 
 
 def test_should_choice_convert_enum():
