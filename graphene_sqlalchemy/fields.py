@@ -15,11 +15,15 @@ class SQLAlchemyConnectionField(ConnectionField):
     def model(self):
         return self.type._meta.node._meta.model
 
-    @staticmethod
-    def connection_resolver(resolver, connection, model, root, args, context, info):
+    @classmethod
+    def get_query(cls, model, context, info, args):
+        return get_query(model, context)
+
+    @classmethod
+    def connection_resolver(cls, resolver, connection, model, root, args, context, info):
         iterable = resolver(root, args, context, info)
         if iterable is None:
-            iterable = get_query(model, context)
+            iterable = cls.get_query(model, context, info, args)
         if isinstance(iterable, Query):
             _len = iterable.count()
         else:
