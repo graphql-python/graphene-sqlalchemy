@@ -87,7 +87,8 @@ def convert_sqlalchemy_type(type, column, registry=None):
 @convert_sqlalchemy_type.register(postgresql.ENUM)
 @convert_sqlalchemy_type.register(postgresql.UUID)
 def convert_column_to_string(type, column, registry=None):
-    return String(description=column.doc, required=not(column.nullable))
+    return String(description=getattr(column, 'doc', None),
+                  required=not(getattr(column, 'nullable', True)))
 
 
 @convert_sqlalchemy_type.register(types.SmallInteger)
