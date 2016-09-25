@@ -99,10 +99,10 @@ def convert_column_to_string(type, column, registry=None):
 @convert_sqlalchemy_type.register(types.Integer)
 def convert_column_to_int_or_id(type, column, registry=None):
     if column.primary_key:
-        return ID(description=column.doc, required=not(column.nullable))
+        return ID(description=column.doc, required=not (column.nullable))
     else:
         return Int(description=getattr(column, 'doc', None),
-                   required=not(getattr(column, 'nullable', True)))
+                   required=not (getattr(column, 'nullable', True)))
 
 
 @convert_sqlalchemy_type.register(types.Boolean)
