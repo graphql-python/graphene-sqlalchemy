@@ -1,5 +1,5 @@
-You are in the `next` unreleased version of Graphene-sqlalchemy (`1.0.dev`).
-Please read [UPGRADE-v1.0.md](https://github.com/graphql-python/graphene/blob/master/UPGRADE-v1.0.md) to learn how to upgrade.
+Please read [UPGRADE-v1.0.md](https://github.com/graphql-python/graphene/blob/master/UPGRADE-v1.0.md)
+to learn how to upgrade to Graphene `1.0`.
 
 ---
 
@@ -13,7 +13,7 @@ A [SQLAlchemy](http://www.sqlalchemy.org/) integration for [Graphene](http://gra
 For instaling graphene, just run this command in your shell
 
 ```bash
-pip install "graphene-sqlalchemy>=1.0.dev"
+pip install "graphene-sqlalchemy>=1.0"
 ```
 
 ## Examples
