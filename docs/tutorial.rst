@@ -196,7 +196,7 @@ from the command line.
 Go to `localhost:5000/graphql <http://localhost:5000/graphql>`__ and
 type your first query!
 
-.. code:: graphql
+.. code::
 
     {
       allEmployees {
