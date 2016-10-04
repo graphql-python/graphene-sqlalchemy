@@ -39,7 +39,6 @@ class SQLAlchemyConnectionField(ConnectionField):
             edge_type=connection.Edge,
         )
         connection.iterable = iterable
-        
         return connection
 
     def get_resolver(self, parent_resolver):
