@@ -74,3 +74,15 @@ def test_object_type():
     assert issubclass(Human, ObjectType)
     assert list(Human._meta.fields.keys()) == ['id', 'headline', 'reporter_id', 'reporter', 'pub_date']
     assert is_node(Human)
+
+
+def test_abstract_subclass():
+    registry = Registry()
+
+    class AbstractSubclass(SQLAlchemyObjectType):
+        class Meta:
+            registry = registry
+            abstract = True
+
+    assert issubclass(AbstractSubclass, SQLAlchemyObjectType)
+    assert len(registry._registry) == 0
