@@ -16,8 +16,10 @@ except ImportError:
     class ChoiceType(object):
         pass
 
+
     class ScalarListType(object):
         pass
+
 
     class JSONType(object):
         pass
@@ -34,7 +36,7 @@ def convert_sqlalchemy_relationship(relationship, registry):
         if (direction == interfaces.MANYTOONE or not relationship.uselist):
             return Field(_type)
         elif (direction == interfaces.ONETOMANY or
-              direction == interfaces.MANYTOMANY):
+                      direction == interfaces.MANYTOMANY):
             if is_node(_type):
                 return SQLAlchemyConnectionField(_type)
             return Field(List(_type))
@@ -64,7 +66,9 @@ def _register_composite_class(cls, registry=None):
 
     def inner(fn):
         registry.register_composite_converter(cls, fn)
+
     return inner
+
 
 convert_sqlalchemy_composite.register = _register_composite_class
 
@@ -91,7 +95,7 @@ def convert_sqlalchemy_type(type, column, registry=None):
 @convert_sqlalchemy_type.register(postgresql.UUID)
 def convert_column_to_string(type, column, registry=None):
     return String(description=getattr(column, 'doc', None),
-                  required=not(getattr(column, 'nullable', True)))
+                  required=not (getattr(column, 'nullable', True)))
 
 
 @convert_sqlalchemy_type.register(types.SmallInteger)
@@ -107,13 +111,13 @@ def convert_column_to_int_or_id(type, column, registry=None):
 
 @convert_sqlalchemy_type.register(types.Boolean)
 def convert_column_to_boolean(type, column, registry=None):
-    return Boolean(description=column.doc, required=not(column.nullable))
+    return Boolean(description=column.doc, required=not (column.nullable))
 
 
 @convert_sqlalchemy_type.register(types.Float)
 @convert_sqlalchemy_type.register(types.Numeric)
 def convert_column_to_float(type, column, registry=None):
-    return Float(description=column.doc, required=not(column.nullable))
+    return Float(description=column.doc, required=not (column.nullable))
 
 
 @convert_sqlalchemy_type.register(ChoiceType)
@@ -130,16 +134,23 @@ def convert_scalar_list_to_list(type, column, registry=None):
 @convert_sqlalchemy_type.register(postgresql.ARRAY)
 def convert_postgres_array_to_list(type, column, registry=None):
     graphene_type = convert_sqlalchemy_type(column.type.item_type, column)
-    return List(graphene_type, description=column.doc, required=not(column.nullable))
+    return List(graphene_type, description=column.doc, required=not (column.nullable))
 
 
 @convert_sqlalchemy_type.register(postgresql.HSTORE)
 @convert_sqlalchemy_type.register(postgresql.JSON)
 @convert_sqlalchemy_type.register(postgresql.JSONB)
 def convert_json_to_string(type, column, registry=None):
-    return JSONString(description=column.doc, required=not(column.nullable))
+    return JSONString(description=column.doc, required=not (column.nullable))
+
+
+@convert_sqlalchemy_type.register(postgresql.TSRANGE)
+@convert_sqlalchemy_type.register(postgresql.TSTZRANGE)
+def convert_posgres_range_to_string(type, column, registry=None):
+    graphene_type = convert_sqlalchemy_type(column.type.item_type, column)
+    return List(graphene_type, description=column.doc, required=not (column.nullable))
 
 
 @convert_sqlalchemy_type.register(JSONType)
 def convert_json_type_to_string(type, column, registry=None):
-    return JSONString(description=column.doc, required=not(column.nullable))
+    return JSONString(description=column.doc, required=not (column.nullable))
