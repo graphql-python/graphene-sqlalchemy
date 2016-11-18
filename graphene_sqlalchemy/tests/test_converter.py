@@ -52,7 +52,7 @@ def test_should_date_convert_string():
 
 
 def test_should_datetime_convert_string():
-    assert_column_conversion(types.DateTime(), graphene.String)
+    assert_column_conversion(types.DateTime(), graphene.DateTime)
 
 
 def test_should_time_convert_string():
