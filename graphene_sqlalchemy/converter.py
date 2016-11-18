@@ -66,6 +66,7 @@ def _register_composite_class(cls, registry=None):
         registry.register_composite_converter(cls, fn)
     return inner
 
+
 convert_sqlalchemy_composite.register = _register_composite_class
 
 
@@ -131,9 +132,10 @@ def convert_scalar_list_to_list(type, column, registry=None):
 
 
 @convert_sqlalchemy_type.register(postgresql.ARRAY)
-def convert_postgres_array_to_list(type, column, registry=None):
+def convert_postgres_array_to_list(_type, column, registry=None):
     graphene_type = convert_sqlalchemy_type(column.type.item_type, column)
-    return List(graphene_type, description=column.doc, required=not(column.nullable))
+    inner_type = type(graphene_type)
+    return List(inner_type, description=column.doc, required=not(column.nullable))
 
 
 @convert_sqlalchemy_type.register(postgresql.HSTORE)
