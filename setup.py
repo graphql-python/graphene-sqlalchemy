@@ -36,6 +36,7 @@ setup(
         'graphene>=1.0',
         'SQLAlchemy',
         'singledispatch>=3.4.0.3',
+        'iso8601',
     ],
     tests_require=[
         'pytest>=2.7.2',
