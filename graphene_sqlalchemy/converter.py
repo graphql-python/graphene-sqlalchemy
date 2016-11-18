@@ -95,7 +95,6 @@ def convert_column_to_string(type, column, registry=None):
 
 
 @convert_sqlalchemy_type.register(types.SmallInteger)
-#@convert_sqlalchemy_type.register(types.BigInteger)
 @convert_sqlalchemy_type.register(types.Integer)
 def convert_column_to_int_or_id(type, column, registry=None):
     if column.primary_key:
