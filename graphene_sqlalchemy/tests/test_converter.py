@@ -8,6 +8,7 @@ from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
 
 import graphene
 from graphene.relay import Node
+from graphene.types.datetime import DateTime
 from graphene.types.json import JSONString
 
 from ..converter import (convert_sqlalchemy_column,
@@ -52,7 +53,7 @@ def test_should_date_convert_string():
 
 
 def test_should_datetime_convert_string():
-    assert_column_conversion(types.DateTime(), graphene.DateTime)
+    assert_column_conversion(types.DateTime(), DateTime)
 
 
 def test_should_time_convert_string():
