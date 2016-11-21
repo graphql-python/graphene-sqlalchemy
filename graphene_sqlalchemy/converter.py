@@ -8,7 +8,7 @@ from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
 from graphene.relay import is_node
 from graphene.types.json import JSONString
 
-from .fields import SQLAlchemyConnectionField
+from .fields import createConnectionField
 
 try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
@@ -36,7 +36,7 @@ def convert_sqlalchemy_relationship(relationship, registry):
         elif (direction == interfaces.ONETOMANY or
               direction == interfaces.MANYTOMANY):
             if is_node(_type):
-                return SQLAlchemyConnectionField(_type)
+                return createConnectionField(_type)
             return Field(List(_type))
 
     return Dynamic(dynamic_type)
