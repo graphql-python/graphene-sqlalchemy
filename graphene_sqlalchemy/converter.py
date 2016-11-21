@@ -36,7 +36,7 @@ def convert_sqlalchemy_relationship(relationship, registry):
         elif (direction == interfaces.ONETOMANY or
               direction == interfaces.MANYTOMANY):
             if is_node(_type):
-                 return createConnectionField(_type)
+                return createConnectionField(_type)
             return Field(List(_type))
 
     return Dynamic(dynamic_type)
