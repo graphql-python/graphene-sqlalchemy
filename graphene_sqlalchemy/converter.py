@@ -93,11 +93,13 @@ def convert_column_to_string(type, column, registry=None):
     return String(description=getattr(column, 'doc', None),
                   required=not(getattr(column, 'nullable', True)))
 
+
 @convert_sqlalchemy_type.register(types.DateTime)
 def convert_column_to_datetime(type, column, registry=None):
     from graphene.types.datetime import DateTime
     return DateTime(description=getattr(column, 'doc', None),
-                  required=not(getattr(column, 'nullable', True)))
+                    required=not(getattr(column, 'nullable', True)))
+
 
 @convert_sqlalchemy_type.register(types.SmallInteger)
 @convert_sqlalchemy_type.register(types.BigInteger)
