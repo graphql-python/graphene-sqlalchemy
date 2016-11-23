@@ -11,6 +11,12 @@ from graphene.types.json import JSONString
 from .fields import SQLAlchemyConnectionField
 
 try:
+    from enum import Enum as PyEnum
+except ImportError:
+    # ChoiceType supports built-in enum and enum34
+    PyEnum = None
+
+try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
 except ImportError:
     class ChoiceType(object):
@@ -124,9 +130,21 @@ def convert_column_to_float(type, column, registry=None):
 
 
 @convert_sqlalchemy_type.register(ChoiceType)
-def convert_column_to_enum(type, column, registry=None):
+def convert_column_to_enum(type_, column, registry=None):
     name = '{}_{}'.format(column.table.name, column.name).upper()
-    return Enum(name, type.choices, description=column.doc)
+    if PyEnum is not None and isinstance(type_.choices, type) and issubclass(type_.choices, PyEnum):
+        enum_class = Enum.from_enum(type_.choices, description=column.doc)
+    else:
+        enum_class = Enum(name, type_.choices, description=column.doc)
+
+    def serialize(self, value):
+        enum_value = self._value_lookup.get(value.value)
+        if enum_value:
+            return enum_value.name
+        return None
+
+    enum_class.serialize = staticmethod(serialize)
+    return enum_class(required=not(column.nullable))
 
 
 @convert_sqlalchemy_type.register(ScalarListType)

@@ -4,7 +4,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import composite
 from sqlalchemy.sql.elements import Label
-from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
+from sqlalchemy_utils import Choice, ChoiceType, JSONType, ScalarListType
 
 import graphene
 from graphene.relay import Node
@@ -129,11 +129,21 @@ def test_should_choice_convert_enum():
 
     Table('translatedmodel', Base.metadata, column)
     graphene_type = convert_sqlalchemy_column(column)
-    assert issubclass(graphene_type, graphene.Enum)
+    assert isinstance(graphene_type, graphene.Enum)
     assert graphene_type._meta.name == 'TRANSLATEDMODEL_LANGUAGE'
     assert graphene_type._meta.description == 'Language'
     assert graphene_type._meta.enum.__members__['es'].value == 'Spanish'
     assert graphene_type._meta.enum.__members__['en'].value == 'English'
+    assert callable(graphene_type.serialize)
+
+    class MockEnumType:
+        _value_lookup = {
+            'Spanish': graphene_type._meta.enum.__members__['es'],
+            'English': graphene_type._meta.enum.__members__['en']
+        }
+    serialize = getattr(type(graphene_type), 'serialize')
+    assert serialize(MockEnumType(), Choice('es', 'Spanish')) == 'es'
+    assert serialize(MockEnumType(), Choice('fr', 'French')) is None
 
 
 def test_should_scalar_list_convert_list():
