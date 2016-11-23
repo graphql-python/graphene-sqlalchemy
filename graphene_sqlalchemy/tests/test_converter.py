@@ -85,7 +85,7 @@ def test_should_small_integer_convert_int():
 
 
 def test_should_big_integer_convert_int():
-    assert_column_conversion(types.BigInteger(), graphene.Int)
+    assert_column_conversion(types.BigInteger(), graphene.Float)
 
 
 def test_should_integer_convert_int():

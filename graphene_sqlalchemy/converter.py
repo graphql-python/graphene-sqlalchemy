@@ -102,7 +102,6 @@ def convert_column_to_datetime(type, column, registry=None):
 
 
 @convert_sqlalchemy_type.register(types.SmallInteger)
-@convert_sqlalchemy_type.register(types.BigInteger)
 @convert_sqlalchemy_type.register(types.Integer)
 def convert_column_to_int_or_id(type, column, registry=None):
     if column.primary_key:
@@ -118,6 +117,7 @@ def convert_column_to_boolean(type, column, registry=None):
 
 @convert_sqlalchemy_type.register(types.Float)
 @convert_sqlalchemy_type.register(types.Numeric)
+@convert_sqlalchemy_type.register(types.BigInteger)
 def convert_column_to_float(type, column, registry=None):
     return Float(description=column.doc, required=not(column.nullable))
 
