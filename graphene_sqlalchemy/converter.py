@@ -81,7 +81,6 @@ def convert_sqlalchemy_type(type, column, registry=None):
 
 
 @convert_sqlalchemy_type.register(types.Date)
-@convert_sqlalchemy_type.register(types.DateTime)
 @convert_sqlalchemy_type.register(types.Time)
 @convert_sqlalchemy_type.register(types.String)
 @convert_sqlalchemy_type.register(types.Text)
@@ -93,6 +92,13 @@ def convert_sqlalchemy_type(type, column, registry=None):
 def convert_column_to_string(type, column, registry=None):
     return String(description=getattr(column, 'doc', None),
                   required=not(getattr(column, 'nullable', True)))
+
+
+@convert_sqlalchemy_type.register(types.DateTime)
+def convert_column_to_datetime(type, column, registry=None):
+    from graphene.types.datetime import DateTime
+    return DateTime(description=getattr(column, 'doc', None),
+                    required=not(getattr(column, 'nullable', True)))
 
 
 @convert_sqlalchemy_type.register(types.SmallInteger)
