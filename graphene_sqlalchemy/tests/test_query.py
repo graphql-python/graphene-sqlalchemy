@@ -5,6 +5,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 import graphene
 from graphene.relay import Node
 
+from ..registry import reset_global_registry
 from ..fields import SQLAlchemyConnectionField
 from ..types import SQLAlchemyObjectType
 from .models import Article, Base, Editor, Reporter
@@ -14,6 +15,7 @@ db = create_engine('sqlite:///test_sqlalchemy.sqlite3')
 
 @pytest.yield_fixture(scope='function')
 def session():
+    reset_global_registry()
     connection = db.engine.connect()
     transaction = connection.begin()
     Base.metadata.create_all(connection)
