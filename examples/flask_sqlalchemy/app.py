@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from flask import Flask
 
 from database import db_session, init_db
