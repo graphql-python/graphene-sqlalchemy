@@ -23,6 +23,14 @@ except ImportError:
         pass
 
 
+def get_column_doc(column):
+    return getattr(column, 'doc', None)
+
+
+def is_column_nullable(column):
+    return bool(getattr(column, 'nullable', False))
+
+
 def convert_sqlalchemy_relationship(relationship, registry):
     direction = relationship.direction
     model = relationship.mapper.entity
@@ -90,64 +98,64 @@ def convert_sqlalchemy_type(type, column, registry=None):
 @convert_sqlalchemy_type.register(postgresql.ENUM)
 @convert_sqlalchemy_type.register(postgresql.UUID)
 def convert_column_to_string(type, column, registry=None):
-    return String(description=getattr(column, 'doc', None),
-                  required=not(getattr(column, 'nullable', True)))
+    return String(description=get_column_doc(column),
+                  required=not(is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(types.DateTime)
 def convert_column_to_datetime(type, column, registry=None):
     from graphene.types.datetime import DateTime
-    return DateTime(description=getattr(column, 'doc', None),
-                    required=not(getattr(column, 'nullable', True)))
+    return DateTime(description=get_column_doc(column),
+                    required=not(is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(types.SmallInteger)
 @convert_sqlalchemy_type.register(types.Integer)
 def convert_column_to_int_or_id(type, column, registry=None):
     if column.primary_key:
-        return ID(description=getattr(column, 'doc', None), required=not (getattr(column, 'nullable', None)))
+        return ID(description=get_column_doc(column), required=not (is_column_nullable(column)))
     else:
-        return Int(description=getattr(column, 'doc', None),
-                   required=not (getattr(column, 'nullable', True)))
+        return Int(description=get_column_doc(column),
+                   required=not (is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(types.Boolean)
 def convert_column_to_boolean(type, column, registry=None):
-    return Boolean(description=getattr(column, 'doc', None), required=not(getattr(column, 'nullable', None)))
+    return Boolean(description=get_column_doc(column), required=not(is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(types.Float)
 @convert_sqlalchemy_type.register(types.Numeric)
 @convert_sqlalchemy_type.register(types.BigInteger)
 def convert_column_to_float(type, column, registry=None):
-    return Float(description=getattr(column, 'doc', None), required=not(getattr(column, 'nullable', None)))
+    return Float(description=get_column_doc(column), required=not(is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(ChoiceType)
 def convert_column_to_enum(type, column, registry=None):
     name = '{}_{}'.format(column.table.name, column.name).upper()
-    return Enum(name, type.choices, description=getattr(column, 'doc', None))
+    return Enum(name, type.choices, description=get_column_doc(column))
 
 
 @convert_sqlalchemy_type.register(ScalarListType)
 def convert_scalar_list_to_list(type, column, registry=None):
-    return List(String, description=getattr(column, 'doc', None))
+    return List(String, description=get_column_doc(column))
 
 
 @convert_sqlalchemy_type.register(postgresql.ARRAY)
 def convert_postgres_array_to_list(_type, column, registry=None):
     graphene_type = convert_sqlalchemy_type(column.type.item_type, column)
     inner_type = type(graphene_type)
-    return List(inner_type, description=getattr(column, 'doc', None), required=not(getattr(column, 'nullable', None)))
+    return List(inner_type, description=get_column_doc(column), required=not(is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(postgresql.HSTORE)
 @convert_sqlalchemy_type.register(postgresql.JSON)
 @convert_sqlalchemy_type.register(postgresql.JSONB)
 def convert_json_to_string(type, column, registry=None):
-    return JSONString(description=getattr(column, 'doc', None), required=not(getattr(column, 'nullable', None)))
+    return JSONString(description=get_column_doc(column), required=not(is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(JSONType)
 def convert_json_type_to_string(type, column, registry=None):
-    return JSONString(description=getattr(column, 'doc', None), required=not(getattr(column, 'nullable', None)))
+    return JSONString(description=get_column_doc(column), required=not(is_column_nullable(column)))
