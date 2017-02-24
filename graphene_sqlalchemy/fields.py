@@ -1,14 +1,16 @@
 from functools import partial
 
+from sqlalchemy.orm.query import Query
+
 from graphene.relay import ConnectionField
 from graphene.relay.connection import PageInfo
 from graphql_relay.connection.arrayconnection import connection_from_list_slice
-from sqlalchemy.orm.query import Query
 
 from .utils import get_query
 
 
 class SQLAlchemyConnectionField(ConnectionField):
+
     @property
     def model(self):
         return self.type._meta.node._meta.model
