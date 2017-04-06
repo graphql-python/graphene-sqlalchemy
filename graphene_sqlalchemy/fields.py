@@ -28,7 +28,7 @@ class SQLAlchemyConnectionField(ConnectionField):
             _len = iterable.count()
         else:
             _len = len(iterable)
-        return connection_from_list_slice(
+        connection = connection_from_list_slice(
             iterable,
             args,
             slice_start=0,
@@ -38,6 +38,9 @@ class SQLAlchemyConnectionField(ConnectionField):
             pageinfo_type=PageInfo,
             edge_type=connection.Edge,
         )
+        connection.iterable = iterable
+        connection.length = _len
+        return connection
 
     def get_resolver(self, parent_resolver):
         return partial(self.connection_resolver, parent_resolver, self.type, self.model)
