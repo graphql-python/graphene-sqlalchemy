@@ -53,3 +53,8 @@ def createConnectionField(_type):
 def registerConnectionFieldFactory(factoryMethod):
     global __connectionFactory
     __connectionFactory = factoryMethod
+
+
+def unregisterConnectionFieldFactory():
+    global __connectionFactory
+    __connectionFactory = SQLAlchemyConnectionField
