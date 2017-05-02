@@ -1,4 +1,4 @@
-from graphene_sqlalchemy.fields import SQLAlchemyConnectionField, registerConnectionFieldFactory
+from graphene_sqlalchemy.fields import SQLAlchemyConnectionField, registerConnectionFieldFactory, unregisterConnectionFieldFactory
 import graphene
 
 def test_register():
@@ -25,5 +25,4 @@ def test_register():
         return LXConnectionField(table, filter=table.filter(), order_by=graphene.List(of_type=table.order_by))
 
     registerConnectionFieldFactory(createLXConnectionField)
-
-    
+    unregisterConnectionFieldFactory()
