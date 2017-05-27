@@ -15,7 +15,7 @@ from .converter import (convert_sqlalchemy_column,
                         convert_sqlalchemy_composite,
                         convert_sqlalchemy_relationship)
 from .registry import Registry, get_global_registry
-from .utils import get_query, is_mapped
+from .utils import get_query, is_mapped_class, is_mapped_instance
 
 
 def construct_fields(options):
@@ -91,7 +91,7 @@ class SQLAlchemyObjectTypeMeta(ObjectTypeMeta):
             'The attribute registry in {}.Meta needs to be an'
             ' instance of Registry, received "{}".'
         ).format(name, options.registry)
-        assert is_mapped(options.model), (
+        assert is_mapped_class(options.model), (
             'You need to pass a valid SQLAlchemy Model in '
             '{}.Meta, received "{}".'
         ).format(name, options.model)
@@ -120,7 +120,7 @@ class SQLAlchemyObjectType(six.with_metaclass(SQLAlchemyObjectTypeMeta, ObjectTy
     def is_type_of(cls, root, context, info):
         if isinstance(root, cls):
             return True
-        if not is_mapped(type(root)):
+        if not is_mapped_instance(root):
             raise Exception((
                 'Received incompatible instance "{}".'
             ).format(root))
