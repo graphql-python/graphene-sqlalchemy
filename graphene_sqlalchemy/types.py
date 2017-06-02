@@ -82,8 +82,14 @@ class SQLAlchemyObjectTypeMeta(ObjectTypeMeta):
             exclude_fields=(),
             id='id',
             interfaces=(),
-            registry=None
+            registry=None,
+            abstract=False,
         )
+
+        cls = ObjectTypeMeta.__new__(cls, name, bases, dict(attrs, _meta=options))
+
+        if options.abstract:
+            return cls
 
         if not options.registry:
             options.registry = get_global_registry()
@@ -95,8 +101,6 @@ class SQLAlchemyObjectTypeMeta(ObjectTypeMeta):
             'You need to pass a valid SQLAlchemy Model in '
             '{}.Meta, received "{}".'
         ).format(name, options.model)
-
-        cls = ObjectTypeMeta.__new__(cls, name, bases, dict(attrs, _meta=options))
 
         options.registry.register(cls)
 
@@ -115,6 +119,8 @@ class SQLAlchemyObjectTypeMeta(ObjectTypeMeta):
 
 
 class SQLAlchemyObjectType(six.with_metaclass(SQLAlchemyObjectTypeMeta, ObjectType)):
+    class Meta:
+        abstract = True
 
     @classmethod
     def is_type_of(cls, root, context, info):
