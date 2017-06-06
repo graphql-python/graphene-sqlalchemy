@@ -2,6 +2,7 @@ from collections import OrderedDict
 
 import six
 from sqlalchemy.inspection import inspect as sqlalchemyinspect
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm.exc import NoResultFound
 
 from graphene import Field, ObjectType
@@ -13,7 +14,8 @@ from graphene.utils.is_base_type import is_base_type
 
 from .converter import (convert_sqlalchemy_column,
                         convert_sqlalchemy_composite,
-                        convert_sqlalchemy_relationship)
+                        convert_sqlalchemy_relationship,
+                        convert_sqlalchemy_hybrid_method)
 from .registry import Registry, get_global_registry
 from .utils import get_query, is_mapped
 
@@ -46,6 +48,24 @@ def construct_fields(options):
             continue
         converted_composite = convert_sqlalchemy_composite(composite, options.registry)
         fields[name] = converted_composite
+
+    for hybrid_item in inspected_model.all_orm_descriptors:
+
+        if type(hybrid_item) == hybrid_property:
+            name = hybrid_item.__name__
+
+            is_not_in_only = only_fields and name not in only_fields
+            is_already_created = name in options.fields
+            is_excluded = name in exclude_fields or is_already_created
+
+            if is_not_in_only or is_excluded:
+            # We skip this field if we specify only_fields and is not
+            # in there. Or when we excldue this field in exclude_fields
+
+                continue
+            converted_hybrid_property = convert_sqlalchemy_hybrid_method(
+            hybrid_item)
+            fields[name] = converted_hybrid_property
 
     # Get all the columns for the relationships on the model
     for relationship in inspected_model.relationships:
