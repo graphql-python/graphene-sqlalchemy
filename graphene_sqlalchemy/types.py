@@ -141,5 +141,6 @@ class SQLAlchemyObjectType(six.with_metaclass(SQLAlchemyObjectTypeMeta, ObjectTy
     def resolve_id(self, args, context, info):
         graphene_type = info.parent_type.graphene_type
         if is_node(graphene_type):
-            return self.__mapper__.primary_key_from_instance(self)[0]
+            keys = self.__mapper__.primary_key_from_instance(self)
+            return tuple(keys) if len(keys) > 1 else keys[0]
         return getattr(self, graphene_type._meta.id, None)
