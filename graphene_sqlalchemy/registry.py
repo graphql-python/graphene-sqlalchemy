@@ -6,7 +6,7 @@ class Registry(object):
         self._registry_composites = {}
 
     def register(self, cls):
-        from .types import SQLAlchemyObjectType, SQLAlchemyObjectTypeMeta
+        from .types import SQLAlchemyObjectTypeMeta
         assert issubclass(type(cls), SQLAlchemyObjectTypeMeta), (
             'Only classes of type SQLAlchemyObjectTypeMeta can be registered, ',
             'received "{}"'
