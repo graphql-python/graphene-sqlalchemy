@@ -44,3 +44,20 @@ class SQLAlchemyConnectionField(ConnectionField):
 
     def get_resolver(self, parent_resolver):
         return partial(self.connection_resolver, parent_resolver, self.type, self.model)
+
+
+__connectionFactory = SQLAlchemyConnectionField
+
+
+def createConnectionField(_type):
+    return __connectionFactory(_type)
+
+
+def registerConnectionFieldFactory(factoryMethod):
+    global __connectionFactory
+    __connectionFactory = factoryMethod
+
+
+def unregisterConnectionFieldFactory():
+    global __connectionFactory
+    __connectionFactory = SQLAlchemyConnectionField
