@@ -27,7 +27,7 @@ def get_column_doc(column):
 
 
 def is_column_nullable(column):
-    return bool(getattr(column, 'nullable', False))
+    return bool(getattr(column, 'nullable', True))
 
 
 def convert_sqlalchemy_relationship(relationship, registry):
