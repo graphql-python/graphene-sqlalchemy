@@ -137,4 +137,5 @@ class SQLAlchemyObjectType(ObjectType):
     # @annotate(info=ResolveInfo)
     def resolve_id(self):
         # graphene_type = info.parent_type.graphene_type
-        return self.__mapper__.primary_key_from_instance(self)[0]
+        keys = self.__mapper__.primary_key_from_instance(self)
+        return tuple(keys) if len(keys) > 1 else keys[0]
