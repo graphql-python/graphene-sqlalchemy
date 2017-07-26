@@ -71,6 +71,19 @@ def test_node_replacedfield():
 
 
 def test_object_type():
+
+
+    class Human(SQLAlchemyObjectType):
+        '''Human description'''
+
+        pub_date = Int()
+
+        class Meta:
+            model = Article
+            # exclude_fields = ('id', )
+            registry = registry
+            interfaces = (Node, )
+
     assert issubclass(Human, ObjectType)
-    assert list(Human._meta.fields.keys()) == ['id', 'headline', 'reporter_id', 'reporter', 'pub_date']
+    assert list(Human._meta.fields.keys()) == ['id', 'headline', 'pub_date', 'reporter_id', 'reporter']
     assert is_node(Human)

@@ -19,6 +19,16 @@ class SQLAlchemyConnectionField(ConnectionField):
     def get_query(cls, model, context, info, args):
         return get_query(model, context)
 
+    @property
+    def type(self):
+        from .types import SQLAlchemyObjectType
+        _type = super(ConnectionField, self).type
+        assert issubclass(_type, SQLAlchemyObjectType), (
+            "SQLAlchemyConnectionField only accepts SQLAlchemyObjectType types"
+        )
+        assert _type._meta.connection, "The type {} doesn't have a connection".format(_type.__name__)
+        return _type._meta.connection
+
     @classmethod
     def connection_resolver(cls, resolver, connection, model, root, args, context, info):
         iterable = resolver(root, args, context, info)

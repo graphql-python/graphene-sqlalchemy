@@ -1,15 +1,12 @@
 from collections import OrderedDict
 
-import six
 from sqlalchemy.inspection import inspect as sqlalchemyinspect
 from sqlalchemy.orm.exc import NoResultFound
 
-from graphene import Field, ObjectType
-from graphene.relay import is_node
-from graphene.types.objecttype import ObjectTypeMeta
-from graphene.types.options import Options
-from graphene.types.utils import merge, yank_fields_from_attrs
-from graphene.utils.is_base_type import is_base_type
+from graphene import Field  # , annotate, ResolveInfo
+from graphene.relay import Connection, Node
+from graphene.types.objecttype import ObjectType, ObjectTypeOptions
+from graphene.types.utils import yank_fields_from_attrs
 
 from .converter import (convert_sqlalchemy_column,
                         convert_sqlalchemy_composite,
@@ -18,103 +15,102 @@ from .registry import Registry, get_global_registry
 from .utils import get_query, is_mapped
 
 
-def construct_fields(options):
-    only_fields = options.only_fields
-    exclude_fields = options.exclude_fields
-    inspected_model = sqlalchemyinspect(options.model)
+def construct_fields(model, registry, only_fields, exclude_fields):
+    inspected_model = sqlalchemyinspect(model)
 
     fields = OrderedDict()
 
     for name, column in inspected_model.columns.items():
         is_not_in_only = only_fields and name not in only_fields
-        is_already_created = name in options.fields
-        is_excluded = name in exclude_fields or is_already_created
+        # is_already_created = name in options.fields
+        is_excluded = name in exclude_fields  # or is_already_created
         if is_not_in_only or is_excluded:
             # We skip this field if we specify only_fields and is not
             # in there. Or when we excldue this field in exclude_fields
             continue
-        converted_column = convert_sqlalchemy_column(column, options.registry)
+        converted_column = convert_sqlalchemy_column(column, registry)
         fields[name] = converted_column
 
     for name, composite in inspected_model.composites.items():
         is_not_in_only = only_fields and name not in only_fields
-        is_already_created = name in options.fields
-        is_excluded = name in exclude_fields or is_already_created
+        # is_already_created = name in options.fields
+        is_excluded = name in exclude_fields  # or is_already_created
         if is_not_in_only or is_excluded:
             # We skip this field if we specify only_fields and is not
             # in there. Or when we excldue this field in exclude_fields
             continue
-        converted_composite = convert_sqlalchemy_composite(composite, options.registry)
+        converted_composite = convert_sqlalchemy_composite(composite, registry)
         fields[name] = converted_composite
 
     # Get all the columns for the relationships on the model
     for relationship in inspected_model.relationships:
         is_not_in_only = only_fields and relationship.key not in only_fields
-        is_already_created = relationship.key in options.fields
-        is_excluded = relationship.key in exclude_fields or is_already_created
+        # is_already_created = relationship.key in options.fields
+        is_excluded = relationship.key in exclude_fields  # or is_already_created
         if is_not_in_only or is_excluded:
             # We skip this field if we specify only_fields and is not
             # in there. Or when we excldue this field in exclude_fields
             continue
-        converted_relationship = convert_sqlalchemy_relationship(relationship, options.registry)
+        converted_relationship = convert_sqlalchemy_relationship(relationship, registry)
         name = relationship.key
         fields[name] = converted_relationship
 
     return fields
 
 
-class SQLAlchemyObjectTypeMeta(ObjectTypeMeta):
+class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
+    model = None  # type: Model
+    registry = None  # type: Registry
+    connection = None  # type: Type[Connection]
+    id = None  # type: str
 
-    @staticmethod
-    def __new__(cls, name, bases, attrs):
-        # Also ensure initialization is only performed for subclasses of Model
-        # (excluding Model class itself).
-        if not is_base_type(bases, SQLAlchemyObjectTypeMeta):
-            return type.__new__(cls, name, bases, attrs)
 
-        options = Options(
-            attrs.pop('Meta', None),
-            name=name,
-            description=attrs.pop('__doc__', None),
-            model=None,
-            local_fields=None,
-            only_fields=(),
-            exclude_fields=(),
-            id='id',
-            interfaces=(),
-            registry=None
-        )
-
-        if not options.registry:
-            options.registry = get_global_registry()
-        assert isinstance(options.registry, Registry), (
-            'The attribute registry in {}.Meta needs to be an'
-            ' instance of Registry, received "{}".'
-        ).format(name, options.registry)
-        assert is_mapped(options.model), (
+class SQLAlchemyObjectType(ObjectType):
+    @classmethod
+    def __init_subclass_with_meta__(cls, model=None, registry=None, skip_registry=False,
+                                    only_fields=(), exclude_fields=(), connection=None,
+                                    use_connection=None, interfaces=(), id=None, **options):
+        assert is_mapped(model), (
             'You need to pass a valid SQLAlchemy Model in '
             '{}.Meta, received "{}".'
-        ).format(name, options.model)
+        ).format(cls.__name__, model)
 
-        cls = ObjectTypeMeta.__new__(cls, name, bases, dict(attrs, _meta=options))
+        if not registry:
+            registry = get_global_registry()
 
-        options.registry.register(cls)
+        assert isinstance(registry, Registry), (
+            'The attribute registry in {} needs to be an instance of '
+            'Registry, received "{}".'
+        ).format(cls.__name__, registry)
 
-        options.sqlalchemy_fields = yank_fields_from_attrs(
-            construct_fields(options),
+        sqla_fields = yank_fields_from_attrs(
+            construct_fields(model, registry, only_fields, exclude_fields),
             _as=Field,
         )
-        options.fields = merge(
-            options.interface_fields,
-            options.sqlalchemy_fields,
-            options.base_fields,
-            options.local_fields
-        )
 
-        return cls
+        if use_connection is None and interfaces:
+            use_connection = any((issubclass(interface, Node) for interface in interfaces))
 
+        if use_connection and not connection:
+            # We create the connection automatically
+            connection = Connection.create_type('{}Connection'.format(cls.__name__), node=cls)
 
-class SQLAlchemyObjectType(six.with_metaclass(SQLAlchemyObjectTypeMeta, ObjectType)):
+        if connection is not None:
+            assert issubclass(connection, Connection), (
+                "The connection must be a Connection. Received {}"
+            ).format(connection.__name__)
+
+        _meta = SQLAlchemyObjectTypeOptions(cls)
+        _meta.model = model
+        _meta.registry = registry
+        _meta.fields = sqla_fields
+        _meta.connection = connection
+        _meta.id = id or 'id'
+
+        super(SQLAlchemyObjectType, cls).__init_subclass_with_meta__(_meta=_meta, interfaces=interfaces, **options)
+
+        if not skip_registry:
+            registry.register(cls)
 
     @classmethod
     def is_type_of(cls, root, context, info):
@@ -138,8 +134,7 @@ class SQLAlchemyObjectType(six.with_metaclass(SQLAlchemyObjectTypeMeta, ObjectTy
         except NoResultFound:
             return None
 
-    def resolve_id(self, args, context, info):
-        graphene_type = info.parent_type.graphene_type
-        if is_node(graphene_type):
-            return self.__mapper__.primary_key_from_instance(self)[0]
-        return getattr(self, graphene_type._meta.id, None)
+    # @annotate(info=ResolveInfo)
+    def resolve_id(self):
+        # graphene_type = info.parent_type.graphene_type
+        return self.__mapper__.primary_key_from_instance(self)[0]

@@ -277,11 +277,10 @@ def test_should_mutate_well(session):
         ok = graphene.Boolean()
         article = graphene.Field(ArticleNode)
 
-        @classmethod
-        def mutate(cls, instance, args, context, info):
+        def mutate(self, headline, reporter_id):
             new_article = Article(
-                headline=args.get('headline'),
-                reporter_id=args.get('reporter_id'),
+                headline=headline,
+                reporter_id=reporter_id,
             )
 
             session.add(new_article)

@@ -34,6 +34,12 @@ class Reporter(Base):
     articles = relationship('Article', backref='reporter')
     favorite_article = relationship("Article", uselist=False)
 
+    # total = column_property(
+    #     select([
+    #         func.cast(func.count(PersonInfo.id), Float)
+    #     ])
+    # )
+
 
 class Article(Base):
     __tablename__ = 'articles'
