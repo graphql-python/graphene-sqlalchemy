@@ -1,8 +1,8 @@
 from py.test import raises
-from sqlalchemy import Column, Table, case, types
+from sqlalchemy import Column, Table, case, types, select, func
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import composite
+from sqlalchemy.orm import composite, column_property
 from sqlalchemy.sql.elements import Label
 from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
 
@@ -134,6 +134,23 @@ def test_should_choice_convert_enum():
     assert graphene_type._meta.description == 'Language'
     assert graphene_type._meta.enum.__members__['es'].value == 'Spanish'
     assert graphene_type._meta.enum.__members__['en'].value == 'English'
+
+
+def test_should_columproperty_convert():
+
+    Base = declarative_base()
+
+    class Test(Base):
+        __tablename__ = 'test'
+        id = Column(types.Integer, primary_key=True)
+        column = column_property(
+            select([func.sum(func.cast(id, types.Integer))]).where(
+                id==1
+            )
+        )
+
+    graphene_type = convert_sqlalchemy_column(Test.column)
+    assert graphene_type.kwargs['required'] == False
 
 
 def test_should_scalar_list_convert_list():
