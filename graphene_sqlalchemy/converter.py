@@ -10,7 +10,7 @@ from graphene.types.json import JSONString
 from .fields import SQLAlchemyConnectionField
 
 try:
-    from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
+    from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
 except ImportError:
     class ChoiceType(object):
         pass
@@ -47,7 +47,10 @@ def convert_sqlalchemy_relationship(relationship, registry):
             return Field(List(_type))
 
     return Dynamic(dynamic_type)
-
+    
+def convert_sqlalchemy_hybrid_method(hybrid_item):
+     return String(description=getattr(hybrid_item, '__doc__', None),
+                   required=False)
 
 def convert_sqlalchemy_composite(composite, registry):
     converter = registry.get_converter_for_composite(composite.composite_class)
@@ -96,6 +99,7 @@ def convert_sqlalchemy_type(type, column, registry=None):
 @convert_sqlalchemy_type.register(types.Enum)
 @convert_sqlalchemy_type.register(postgresql.ENUM)
 @convert_sqlalchemy_type.register(postgresql.UUID)
+@convert_sqlalchemy_type.register(TSVectorType)
 def convert_column_to_string(type, column, registry=None):
     return String(description=get_column_doc(column),
                   required=not(is_column_nullable(column)))
