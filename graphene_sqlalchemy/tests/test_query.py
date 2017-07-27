@@ -270,7 +270,7 @@ def test_should_mutate_well(session):
 
     class CreateArticle(graphene.Mutation):
 
-        class Input:
+        class Arguments:
             headline = graphene.String()
             reporter_id = graphene.ID()
 

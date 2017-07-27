@@ -4,7 +4,7 @@ from graphene.relay import Node, is_node
 import six
 
 from ..registry import Registry
-from ..types import SQLAlchemyObjectType, SQLAlchemyObjectTypeMeta
+from ..types import SQLAlchemyObjectType
 from .models import Article, Reporter
 
 registry = Registry()
