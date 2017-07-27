@@ -2,6 +2,7 @@ from functools import partial
 
 from sqlalchemy.orm.query import Query
 
+from graphene import final_resolver
 from graphene.relay import ConnectionField
 from graphene.relay.connection import PageInfo
 from graphql_relay.connection.arrayconnection import connection_from_list_slice
@@ -53,7 +54,7 @@ class SQLAlchemyConnectionField(ConnectionField):
         return connection
 
     def get_resolver(self, parent_resolver):
-        return partial(self.connection_resolver, parent_resolver, self.type, self.model)
+        return final_resolver(partial(self.connection_resolver, parent_resolver, self.type, self.model))
 
 
 __connectionFactory = SQLAlchemyConnectionField
