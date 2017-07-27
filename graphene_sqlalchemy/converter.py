@@ -7,7 +7,7 @@ from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
                       String)
 from graphene.types.json import JSONString
 
-from .fields import SQLAlchemyConnectionField
+from .fields import createConnectionField
 
 try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
@@ -43,7 +43,7 @@ def convert_sqlalchemy_relationship(relationship, registry):
         elif (direction == interfaces.ONETOMANY or
               direction == interfaces.MANYTOMANY):
             if _type._meta.connection:
-                return SQLAlchemyConnectionField(_type)
+                return createConnectionField(_type)
             return Field(List(_type))
 
     return Dynamic(dynamic_type)
