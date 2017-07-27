@@ -1,4 +1,6 @@
-from sqlalchemy.ext.declarative.api import DeclarativeMeta
+from sqlalchemy.exc import ArgumentError
+from sqlalchemy.orm import class_mapper, object_mapper
+from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
 
 
 def get_session(context):
@@ -16,5 +18,19 @@ def get_query(model, context):
     return query
 
 
-def is_mapped(obj):
-    return isinstance(obj, DeclarativeMeta)
+def is_mapped_class(cls):
+    try:
+        class_mapper(cls)
+    except (ArgumentError, UnmappedClassError):
+        return False
+    else:
+        return True
+
+
+def is_mapped_instance(cls):
+    try:
+        object_mapper(cls)
+    except (ArgumentError, UnmappedInstanceError):
+        return False
+    else:
+        return True
