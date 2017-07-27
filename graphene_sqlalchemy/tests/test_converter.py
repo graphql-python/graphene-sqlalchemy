@@ -8,6 +8,7 @@ from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
 
 import graphene
 from graphene.relay import Node
+from graphene.types.datetime import DateTime
 from graphene.types.json import JSONString
 
 from ..converter import (convert_sqlalchemy_column,
@@ -52,7 +53,7 @@ def test_should_date_convert_string():
 
 
 def test_should_datetime_convert_string():
-    assert_column_conversion(types.DateTime(), graphene.String)
+    assert_column_conversion(types.DateTime(), DateTime)
 
 
 def test_should_time_convert_string():
@@ -84,7 +85,7 @@ def test_should_small_integer_convert_int():
 
 
 def test_should_big_integer_convert_int():
-    assert_column_conversion(types.BigInteger(), graphene.Int)
+    assert_column_conversion(types.BigInteger(), graphene.Float)
 
 
 def test_should_integer_convert_int():
@@ -112,6 +113,11 @@ def test_should_label_convert_string():
     graphene_type = convert_sqlalchemy_column(label)
     assert isinstance(graphene_type, graphene.String)
 
+
+def test_should_label_convert_int():
+    label = Label('int_label_test', case([], else_="foo"), type_=types.Integer())
+    graphene_type = convert_sqlalchemy_column(label)
+    assert isinstance(graphene_type, graphene.Int)
 
 def test_should_choice_convert_enum():
     TYPES = [

@@ -95,8 +95,6 @@ Create ``flask_sqlalchemy/schema.py`` and type the following:
     from graphene_sqlalchemy import SQLAlchemyObjectType, SQLAlchemyConnectionField
     from models import db_session, Department as DepartmentModel, Employee as EmployeeModel
 
-    schema = graphene.Schema()
-
 
     class Department(SQLAlchemyObjectType):
         class Meta:
@@ -114,7 +112,7 @@ Create ``flask_sqlalchemy/schema.py`` and type the following:
         node = relay.Node.Field()
         all_employees = SQLAlchemyConnectionField(Employee)
 
-    schema.query = Query
+    schema = graphene.Schema(query=Query)
 
 Creating GraphQL and GraphiQL views in Flask
 --------------------------------------------

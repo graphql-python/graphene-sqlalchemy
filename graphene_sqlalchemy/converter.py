@@ -11,7 +11,7 @@ from graphene.types.json import JSONString
 from .fields import SQLAlchemyConnectionField
 
 try:
-    from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
+    from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
 except ImportError:
     class ChoiceType(object):
         pass
@@ -21,6 +21,14 @@ except ImportError:
 
     class JSONType(object):
         pass
+
+
+def get_column_doc(column):
+    return getattr(column, 'doc', None)
+
+
+def is_column_nullable(column):
+    return bool(getattr(column, 'nullable', True))
 
 
 def convert_sqlalchemy_relationship(relationship, registry):
@@ -40,7 +48,10 @@ def convert_sqlalchemy_relationship(relationship, registry):
             return Field(List(_type))
 
     return Dynamic(dynamic_type)
-
+    
+def convert_sqlalchemy_hybrid_method(hybrid_item):
+     return String(description=getattr(hybrid_item, '__doc__', None),
+                   required=False)
 
 def convert_sqlalchemy_composite(composite, registry):
     converter = registry.get_converter_for_composite(composite.composite_class)
@@ -66,6 +77,7 @@ def _register_composite_class(cls, registry=None):
         registry.register_composite_converter(cls, fn)
     return inner
 
+
 convert_sqlalchemy_composite.register = _register_composite_class
 
 
@@ -80,7 +92,6 @@ def convert_sqlalchemy_type(type, column, registry=None):
 
 
 @convert_sqlalchemy_type.register(types.Date)
-@convert_sqlalchemy_type.register(types.DateTime)
 @convert_sqlalchemy_type.register(types.Time)
 @convert_sqlalchemy_type.register(types.String)
 @convert_sqlalchemy_type.register(types.Text)
@@ -89,56 +100,66 @@ def convert_sqlalchemy_type(type, column, registry=None):
 @convert_sqlalchemy_type.register(types.Enum)
 @convert_sqlalchemy_type.register(postgresql.ENUM)
 @convert_sqlalchemy_type.register(postgresql.UUID)
+@convert_sqlalchemy_type.register(TSVectorType)
 def convert_column_to_string(type, column, registry=None):
-    return String(description=getattr(column, 'doc', None),
-                  required=not(getattr(column, 'nullable', True)))
+    return String(description=get_column_doc(column),
+                  required=not(is_column_nullable(column)))
+
+
+@convert_sqlalchemy_type.register(types.DateTime)
+def convert_column_to_datetime(type, column, registry=None):
+    from graphene.types.datetime import DateTime
+    return DateTime(description=get_column_doc(column),
+                    required=not(is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(types.SmallInteger)
-@convert_sqlalchemy_type.register(types.BigInteger)
 @convert_sqlalchemy_type.register(types.Integer)
 def convert_column_to_int_or_id(type, column, registry=None):
     if column.primary_key:
-        return ID(description=column.doc, required=not(column.nullable))
+        return ID(description=get_column_doc(column), required=not (is_column_nullable(column)))
     else:
-        return Int(description=column.doc, required=not(column.nullable))
+        return Int(description=get_column_doc(column),
+                   required=not (is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(types.Boolean)
 def convert_column_to_boolean(type, column, registry=None):
-    return Boolean(description=column.doc, required=not(column.nullable))
+    return Boolean(description=get_column_doc(column), required=not(is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(types.Float)
 @convert_sqlalchemy_type.register(types.Numeric)
+@convert_sqlalchemy_type.register(types.BigInteger)
 def convert_column_to_float(type, column, registry=None):
-    return Float(description=column.doc, required=not(column.nullable))
+    return Float(description=get_column_doc(column), required=not(is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(ChoiceType)
 def convert_column_to_enum(type, column, registry=None):
     name = '{}_{}'.format(column.table.name, column.name).upper()
-    return Enum(name, type.choices, description=column.doc)
+    return Enum(name, type.choices, description=get_column_doc(column))
 
 
 @convert_sqlalchemy_type.register(ScalarListType)
 def convert_scalar_list_to_list(type, column, registry=None):
-    return List(String, description=column.doc)
+    return List(String, description=get_column_doc(column))
 
 
 @convert_sqlalchemy_type.register(postgresql.ARRAY)
-def convert_postgres_array_to_list(type, column, registry=None):
+def convert_postgres_array_to_list(_type, column, registry=None):
     graphene_type = convert_sqlalchemy_type(column.type.item_type, column)
-    return List(graphene_type, description=column.doc, required=not(column.nullable))
+    inner_type = type(graphene_type)
+    return List(inner_type, description=get_column_doc(column), required=not(is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(postgresql.HSTORE)
 @convert_sqlalchemy_type.register(postgresql.JSON)
 @convert_sqlalchemy_type.register(postgresql.JSONB)
 def convert_json_to_string(type, column, registry=None):
-    return JSONString(description=column.doc, required=not(column.nullable))
+    return JSONString(description=get_column_doc(column), required=not(is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(JSONType)
 def convert_json_type_to_string(type, column, registry=None):
-    return JSONString(description=column.doc, required=not(column.nullable))
+    return JSONString(description=get_column_doc(column), required=not(is_column_nullable(column)))
