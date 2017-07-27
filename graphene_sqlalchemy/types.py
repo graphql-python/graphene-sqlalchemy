@@ -89,7 +89,8 @@ class SQLAlchemyObjectTypeMeta(ObjectTypeMeta):
     def __new__(cls, name, bases, attrs):
         # Also ensure initialization is only performed for subclasses of Model
         # (excluding Model class itself).
-        if not is_base_type(bases, SQLAlchemyObjectTypeMeta):
+        if not is_base_type(bases, SQLAlchemyObjectTypeMeta) or \
+                ('Meta' in attrs and getattr(attrs['Meta'], 'abstract', False)):
             return type.__new__(cls, name, bases, attrs)
 
         options = Options(
