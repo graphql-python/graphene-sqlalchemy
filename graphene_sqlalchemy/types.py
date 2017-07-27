@@ -50,16 +50,17 @@ def construct_fields(model, registry, only_fields, exclude_fields):
             name = hybrid_item.__name__
 
             is_not_in_only = only_fields and name not in only_fields
-            is_already_created = name in options.fields
-            is_excluded = name in exclude_fields or is_already_created
+            # is_already_created = name in options.fields
+            is_excluded = name in exclude_fields  # or is_already_created
 
             if is_not_in_only or is_excluded:
-            # We skip this field if we specify only_fields and is not
-            # in there. Or when we excldue this field in exclude_fields
-
+                # We skip this field if we specify only_fields and is not
+                # in there. Or when we excldue this field in exclude_fields
                 continue
+
             converted_hybrid_property = convert_sqlalchemy_hybrid_method(
-            hybrid_item)
+                hybrid_item
+            )
             fields[name] = converted_hybrid_property
 
     # Get all the columns for the relationships on the model
