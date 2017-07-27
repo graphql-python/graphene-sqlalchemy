@@ -6,10 +6,11 @@ class Registry(object):
         self._registry_composites = {}
 
     def register(self, cls):
-        from .types import SQLAlchemyObjectType
-        assert issubclass(
-            cls, SQLAlchemyObjectType), 'Only SQLAlchemyObjectType can be registered, received "{}"'.format(
-            cls.__name__)
+        from .types import SQLAlchemyObjectTypeMeta
+        assert issubclass(type(cls), SQLAlchemyObjectTypeMeta), (
+            'Only classes of type SQLAlchemyObjectTypeMeta can be registered, ',
+            'received "{}"'
+        ).format(cls.__name__)
         assert cls._meta.registry == self, 'Registry for a Model have to match.'
         # assert self.get_type_for_model(cls._meta.model) in [None, cls], (
         #     'SQLAlchemy model "{}" already associated with '
