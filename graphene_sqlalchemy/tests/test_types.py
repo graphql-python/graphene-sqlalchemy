@@ -1,9 +1,10 @@
 
 from graphene import Field, Int, Interface, ObjectType
 from graphene.relay import Node, is_node
+import six
 
 from ..registry import Registry
-from ..types import SQLAlchemyObjectType
+from ..types import SQLAlchemyObjectType, SQLAlchemyObjectTypeMeta
 from .models import Article, Reporter
 
 registry = Registry()
@@ -74,3 +75,31 @@ def test_object_type():
     assert issubclass(Human, ObjectType)
     assert list(Human._meta.fields.keys()) == ['id', 'headline', 'reporter_id', 'reporter', 'pub_date']
     assert is_node(Human)
+
+
+
+# Test Custom SQLAlchemyObjectType Implementation
+class CustomSQLAlchemyObjectType(SQLAlchemyObjectType):
+    class Meta:
+        abstract = True
+
+
+class CustomCharacter(CustomSQLAlchemyObjectType):
+    '''Character description'''
+    class Meta:
+        model = Reporter
+        registry = registry
+
+
+def test_custom_objecttype_registered():
+    assert issubclass(CustomCharacter, ObjectType)
+    assert CustomCharacter._meta.model == Reporter
+    assert list(
+        CustomCharacter._meta.fields.keys()) == [
+        'id',
+        'first_name',
+        'last_name',
+        'email',
+        'pets',
+        'articles',
+        'favorite_article']

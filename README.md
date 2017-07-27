@@ -68,6 +68,38 @@ query = '''
 result = schema.execute(query, context_value={'session': db_session})
 ```
 
+You may also subclass SQLAlchemyObjectType by providing `abstract = True` in
+your subclasses Meta:
+```python
+from graphene_sqlalchemy import SQLAlchemyObjectType
+
+class ActiveSQLAlchemyObjectType(SQLAlchemyObjectType):
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def get_node(cls, id, context, info):
+        return cls.get_query(context).\
+            filter(and_(
+                cls._meta.model.deleted_at==None,
+                cls._meta.model.id==id,
+            )).\
+            first()
+
+class User(ActiveSQLAlchemyObjectType):
+    class Meta:
+        model = UserModel
+
+class Query(graphene.ObjectType):
+    users = graphene.List(User)
+
+    def resolve_users(self, args, context, info):
+        query = User.get_query(context) # SQLAlchemy query
+        return query.all()
+
+schema = graphene.Schema(query=Query)
+```
+
 To learn more check out the following [examples](examples/):
 
 * **Full example**: [Flask SQLAlchemy example](examples/flask_sqlalchemy)
