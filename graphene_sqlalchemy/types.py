@@ -14,7 +14,7 @@ from .converter import (convert_sqlalchemy_column,
                         convert_sqlalchemy_relationship,
                         convert_sqlalchemy_hybrid_method)
 from .registry import Registry, get_global_registry
-from .utils import get_query, is_mapped
+from .utils import get_query, is_mapped_class, is_mapped_instance
 
 
 def construct_fields(model, registry, only_fields, exclude_fields):
@@ -90,7 +90,7 @@ class SQLAlchemyObjectType(ObjectType):
     def __init_subclass_with_meta__(cls, model=None, registry=None, skip_registry=False,
                                     only_fields=(), exclude_fields=(), connection=None,
                                     use_connection=None, interfaces=(), id=None, **options):
-        assert is_mapped(model), (
+        assert is_mapped_class(model), (
             'You need to pass a valid SQLAlchemy Model in '
             '{}.Meta, received "{}".'
         ).format(cls.__name__, model)
@@ -136,7 +136,7 @@ class SQLAlchemyObjectType(ObjectType):
     def is_type_of(cls, root, context, info):
         if isinstance(root, cls):
             return True
-        if not is_mapped(type(root)):
+        if not is_mapped_instance(root):
             raise Exception((
                 'Received incompatible instance "{}".'
             ).format(root))

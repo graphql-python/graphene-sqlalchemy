@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import mapper, relationship
 
 Base = declarative_base()
 
@@ -47,3 +47,14 @@ class Article(Base):
     headline = Column(String(100))
     pub_date = Column(Date())
     reporter_id = Column(Integer(), ForeignKey('reporters.id'))
+
+
+class ReflectedEditor(type):
+    """Same as Editor, but using reflected table."""
+    @classmethod
+    def __subclasses__(cls):
+        return []
+
+editor_table = Table('editors', Base.metadata, autoload=True)
+
+mapper(ReflectedEditor, editor_table)
