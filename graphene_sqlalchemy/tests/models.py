@@ -43,7 +43,7 @@ class Article(Base):
     reporter_id = Column(Integer(), ForeignKey('reporters.id'))
 
 
-class ReflectedEditor:
+class ReflectedEditor(object):
     """Same as Editor, but using reflected table."""
 
 editor_table = Table('editors', Base.metadata, autoload=True)
