@@ -39,7 +39,7 @@ def convert_sqlalchemy_relationship(relationship, registry):
         _type = registry.get_type_for_model(model)
         if not _type:
             return None
-        if (direction == interfaces.MANYTOONE or not relationship.uselist):
+        if direction == interfaces.MANYTOONE or not relationship.uselist:
             return Field(_type)
         elif (direction == interfaces.ONETOMANY or
               direction == interfaces.MANYTOMANY):
@@ -48,10 +48,12 @@ def convert_sqlalchemy_relationship(relationship, registry):
             return Field(List(_type))
 
     return Dynamic(dynamic_type)
-    
+
+
 def convert_sqlalchemy_hybrid_method(hybrid_item):
-     return String(description=getattr(hybrid_item, '__doc__', None),
-                   required=False)
+    return String(description=getattr(hybrid_item, '__doc__', None),
+                  required=False)
+
 
 def convert_sqlalchemy_composite(composite, registry):
     converter = registry.get_converter_for_composite(composite.composite_class)
