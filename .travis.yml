@@ -23,12 +23,11 @@ install:
 - |
   if [ "$TEST_TYPE" = build ]; then
     pip install pytest==3.0.2 pytest-cov pytest-benchmark coveralls six mock sqlalchemy_utils
-    pip install -e .
-    python setup.py develop
   elif [ "$TEST_TYPE" = lint ]; then
     pip install flake8
-    pip install -e .
   fi
+  pip install -e .
+  python setup.py develop
 script:
 - |
   if [ "$TEST_TYPE" = lint ]; then
