@@ -2,7 +2,6 @@ from functools import partial
 
 from sqlalchemy.orm.query import Query
 
-from graphene import final_resolver
 from graphene.relay import ConnectionField
 from graphene.relay.connection import PageInfo
 from graphql_relay.connection.arrayconnection import connection_from_list_slice
@@ -17,8 +16,8 @@ class SQLAlchemyConnectionField(ConnectionField):
         return self.type._meta.node._meta.model
 
     @classmethod
-    def get_query(cls, model, context, info, args):
-        return get_query(model, context)
+    def get_query(cls, model, info, **args):
+        return get_query(model, info.context)
 
     @property
     def type(self):
@@ -31,10 +30,10 @@ class SQLAlchemyConnectionField(ConnectionField):
         return _type._meta.connection
 
     @classmethod
-    def connection_resolver(cls, resolver, connection, model, root, args, context, info):
-        iterable = resolver(root, args, context, info)
+    def connection_resolver(cls, resolver, connection, model, root, info, **args):
+        iterable = resolver(root, info, **args)
         if iterable is None:
-            iterable = cls.get_query(model, context, info, args)
+            iterable = cls.get_query(model, info, **args)
         if isinstance(iterable, Query):
             _len = iterable.count()
         else:
@@ -54,7 +53,7 @@ class SQLAlchemyConnectionField(ConnectionField):
         return connection
 
     def get_resolver(self, parent_resolver):
-        return final_resolver(partial(self.connection_resolver, parent_resolver, self.type, self.model))
+        return partial(self.connection_resolver, parent_resolver, self.type, self.model)
 
 
 __connectionFactory = SQLAlchemyConnectionField

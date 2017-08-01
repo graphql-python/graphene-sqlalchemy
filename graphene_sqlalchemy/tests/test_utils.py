@@ -1,4 +1,4 @@
-from graphene import ObjectType, Schema, String, annotate, Context
+from graphene import ObjectType, Schema, String
 
 from ..utils import get_session
 
@@ -9,9 +9,8 @@ def test_get_session():
     class Query(ObjectType):
         x = String()
 
-        @annotate(context=Context)
-        def resolve_x(self, context):
-            return get_session(context)
+        def resolve_x(self, info):
+            return get_session(info.context)
 
     query = '''
         query ReporterQuery {

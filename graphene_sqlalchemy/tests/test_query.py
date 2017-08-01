@@ -277,7 +277,7 @@ def test_should_mutate_well(session):
         ok = graphene.Boolean()
         article = graphene.Field(ArticleNode)
 
-        def mutate(self, headline, reporter_id):
+        def mutate(self, info, headline, reporter_id):
             new_article = Article(
                 headline=headline,
                 reporter_id=reporter_id,

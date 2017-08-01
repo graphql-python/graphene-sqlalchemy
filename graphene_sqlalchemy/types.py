@@ -134,7 +134,7 @@ class SQLAlchemyObjectType(ObjectType):
             registry.register(cls)
 
     @classmethod
-    def is_type_of(cls, root, context, info):
+    def is_type_of(cls, root, info):
         if isinstance(root, cls):
             return True
         if not is_mapped_instance(root):
@@ -144,19 +144,18 @@ class SQLAlchemyObjectType(ObjectType):
         return isinstance(root, cls._meta.model)
 
     @classmethod
-    def get_query(cls, context):
+    def get_query(cls, info):
         model = cls._meta.model
-        return get_query(model, context)
+        return get_query(model, info.context)
 
     @classmethod
-    def get_node(cls, id, context, info):
+    def get_node(cls, info, id):
         try:
-            return cls.get_query(context).get(id)
+            return cls.get_query(info).get(id)
         except NoResultFound:
             return None
 
-    # @annotate(info=ResolveInfo)
-    def resolve_id(self):
+    def resolve_id(self, info):
         # graphene_type = info.parent_type.graphene_type
         keys = self.__mapper__.primary_key_from_instance(self)
         return tuple(keys) if len(keys) > 1 else keys[0]
