@@ -1,8 +1,18 @@
 from setuptools import find_packages, setup
+import sys
+import ast
+import re
+
+_version_re = re.compile(r'__version__\s+=\s+(.*)')
+
+with open('graphene_django/__init__.py', 'rb') as f:
+    version = str(ast.literal_eval(_version_re.search(
+        f.read().decode('utf-8')).group(1)))
+
 
 setup(
     name='graphene-sqlalchemy',
-    version='2.0.dev2017072601',
+    version=version,
 
     description='Graphene SQLAlchemy integration',
     long_description=open('README.rst').read(),
