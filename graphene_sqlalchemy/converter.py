@@ -5,7 +5,6 @@ from sqlalchemy.orm import interfaces
 
 from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
                       String)
-from graphene.relay import is_node
 from graphene.types.json import JSONString
 
 from .fields import createConnectionField
@@ -43,15 +42,17 @@ def convert_sqlalchemy_relationship(relationship, registry):
             return Field(_type)
         elif (direction == interfaces.ONETOMANY or
               direction == interfaces.MANYTOMANY):
-            if is_node(_type):
+            if _type._meta.connection:
                 return createConnectionField(_type)
             return Field(List(_type))
 
     return Dynamic(dynamic_type)
-    
+
+
 def convert_sqlalchemy_hybrid_method(hybrid_item):
-     return String(description=getattr(hybrid_item, '__doc__', None),
-                   required=False)
+    return String(description=getattr(hybrid_item, '__doc__', None),
+                  required=False)
+
 
 def convert_sqlalchemy_composite(composite, registry):
     converter = registry.get_converter_for_composite(composite.composite_class)

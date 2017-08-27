@@ -34,6 +34,12 @@ class Reporter(Base):
     articles = relationship('Article', backref='reporter')
     favorite_article = relationship("Article", uselist=False)
 
+    # total = column_property(
+    #     select([
+    #         func.cast(func.count(PersonInfo.id), Float)
+    #     ])
+    # )
+
 
 class Article(Base):
     __tablename__ = 'articles'
@@ -43,8 +49,11 @@ class Article(Base):
     reporter_id = Column(Integer(), ForeignKey('reporters.id'))
 
 
-class ReflectedEditor:
+class ReflectedEditor(type):
     """Same as Editor, but using reflected table."""
+    @classmethod
+    def __subclasses__(cls):
+        return []
 
 editor_table = Table('editors', Base.metadata, autoload=True)
 
