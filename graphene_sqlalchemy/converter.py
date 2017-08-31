@@ -10,16 +10,10 @@ from graphene.types.json import JSONString
 from .fields import createConnectionField
 
 try:
-    from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
+    from sqlalchemy_utils import (
+        ChoiceType, JSONType, ScalarListType, TSVectorType)
 except ImportError:
-    class ChoiceType(object):
-        pass
-
-    class ScalarListType(object):
-        pass
-
-    class JSONType(object):
-        pass
+    ChoiceType = JSONType = ScalarListType = TSVectorType = object
 
 
 def get_column_doc(column):
