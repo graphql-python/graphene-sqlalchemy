@@ -32,10 +32,9 @@ def convert_sqlalchemy_relationship(relationship, registry):
         _type = registry.get_type_for_model(model)
         if not _type:
             return None
-        if (direction == interfaces.MANYTOONE or not relationship.uselist):
+        if direction == interfaces.MANYTOONE or not relationship.uselist:
             return Field(_type)
-        elif (direction == interfaces.ONETOMANY or
-              direction == interfaces.MANYTOMANY):
+        elif direction in (interfaces.ONETOMANY, interfaces.MANYTOMANY):
             if _type._meta.connection:
                 return createConnectionField(_type)
             return Field(List(_type))
