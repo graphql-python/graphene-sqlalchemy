@@ -48,7 +48,7 @@ class Query(graphene.ObjectType):
     users = graphene.List(User)
 
     def resolve_users(self, info):
-        query = User.get_query(info.context)  # SQLAlchemy query
+        query = User.get_query(info)  # SQLAlchemy query
         return query.all()
 
 schema = graphene.Schema(query=Query)
@@ -79,7 +79,7 @@ class ActiveSQLAlchemyObjectType(SQLAlchemyObjectType):
 
     @classmethod
     def get_node(cls, info, id):
-        return cls.get_query(info.context).filter(
+        return cls.get_query(info).filter(
             and_(cls._meta.model.deleted_at==None,
                  cls._meta.model.id==id)
             ).first()
@@ -92,7 +92,7 @@ class Query(graphene.ObjectType):
     users = graphene.List(User)
 
     def resolve_users(self, info):
-        query = User.get_query(info.context)  # SQLAlchemy query
+        query = User.get_query(info)  # SQLAlchemy query
         return query.all()
 
 schema = graphene.Schema(query=Query)
