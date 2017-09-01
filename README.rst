@@ -54,7 +54,7 @@ following:
         users = graphene.List(User)
 
         def resolve_users(self, info):
-            query = User.get_query(info.context) # SQLAlchemy query
+            query = User.get_query(info)  # SQLAlchemy query
             return query.all()
 
     schema = graphene.Schema(query=Query)
