@@ -28,7 +28,7 @@ def construct_fields(model, registry, only_fields, exclude_fields):
         is_excluded = name in exclude_fields  # or is_already_created
         if is_not_in_only or is_excluded:
             # We skip this field if we specify only_fields and is not
-            # in there. Or when we excldue this field in exclude_fields
+            # in there. Or when we exclude this field in exclude_fields
             continue
         converted_column = convert_sqlalchemy_column(column, registry)
         fields[name] = converted_column
@@ -39,7 +39,7 @@ def construct_fields(model, registry, only_fields, exclude_fields):
         is_excluded = name in exclude_fields  # or is_already_created
         if is_not_in_only or is_excluded:
             # We skip this field if we specify only_fields and is not
-            # in there. Or when we excldue this field in exclude_fields
+            # in there. Or when we exclude this field in exclude_fields
             continue
         converted_composite = convert_sqlalchemy_composite(composite, registry)
         fields[name] = converted_composite
@@ -55,7 +55,7 @@ def construct_fields(model, registry, only_fields, exclude_fields):
 
             if is_not_in_only or is_excluded:
                 # We skip this field if we specify only_fields and is not
-                # in there. Or when we excldue this field in exclude_fields
+                # in there. Or when we exclude this field in exclude_fields
                 continue
 
             converted_hybrid_property = convert_sqlalchemy_hybrid_method(
@@ -70,7 +70,7 @@ def construct_fields(model, registry, only_fields, exclude_fields):
         is_excluded = relationship.key in exclude_fields  # or is_already_created
         if is_not_in_only or is_excluded:
             # We skip this field if we specify only_fields and is not
-            # in there. Or when we excldue this field in exclude_fields
+            # in there. Or when we exclude this field in exclude_fields
             continue
         converted_relationship = convert_sqlalchemy_relationship(relationship, registry)
         name = relationship.key
