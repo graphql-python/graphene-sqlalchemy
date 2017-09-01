@@ -98,8 +98,6 @@ def convert_sqlalchemy_type(type, column, registry=None):
 @convert_sqlalchemy_type.register(types.Text)
 @convert_sqlalchemy_type.register(types.Unicode)
 @convert_sqlalchemy_type.register(types.UnicodeText)
-@convert_sqlalchemy_type.register(types.Enum)
-@convert_sqlalchemy_type.register(postgresql.ENUM)
 @convert_sqlalchemy_type.register(postgresql.UUID)
 @convert_sqlalchemy_type.register(TSVectorType)
 def convert_column_to_string(type, column, registry=None):
@@ -134,6 +132,16 @@ def convert_column_to_boolean(type, column, registry=None):
 @convert_sqlalchemy_type.register(types.BigInteger)
 def convert_column_to_float(type, column, registry=None):
     return Float(description=get_column_doc(column), required=not(is_column_nullable(column)))
+
+
+@convert_sqlalchemy_type.register(types.Enum)
+def convert_enum_to_enum(type, column, registry=None):
+    try:
+        items = type.enum_class.__members__.items()
+    except AttributeError:
+        items = zip(type.enums, type.enums)
+    return Field(Enum(type.name, items),
+        description=get_column_doc(column), required=not(is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(ChoiceType)
