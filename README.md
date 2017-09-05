@@ -13,7 +13,7 @@ A [SQLAlchemy](http://www.sqlalchemy.org/) integration for [Graphene](http://gra
 For instaling graphene, just run this command in your shell
 
 ```bash
-pip install "graphene-sqlalchemy>=2.0"
+pip install "graphene-sqlalchemy>=2.0.dev"
 ```
 
 ## Examples
