@@ -9,7 +9,7 @@ from .utils import (
     get_session
 )
 
-__version__ = '2.0.dev2017083101'
+__version__ = '2.0.0'
 
 __all__ = [
     '__version__',

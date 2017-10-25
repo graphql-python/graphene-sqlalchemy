@@ -43,7 +43,7 @@ setup(
 
     install_requires=[
         'six>=1.10.0',
-        'graphene>=2.0.dev',
+        'graphene>=2.0',
         'SQLAlchemy',
         'singledispatch>=3.4.0.3',
         'iso8601',
