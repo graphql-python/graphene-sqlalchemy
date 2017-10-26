@@ -8,3 +8,4 @@ Contents:
 
    tutorial
    tips
+   examples
