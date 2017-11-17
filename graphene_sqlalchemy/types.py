@@ -1,20 +1,17 @@
+import six
 from collections import OrderedDict
-
-from sqlalchemy.inspection import inspect as sqlalchemyinspect
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm.exc import NoResultFound
-
-from graphene import Field  # , annotate, ResolveInfo
+from graphene import Field, List, String  # , annotate, ResolveInfo
 from graphene.relay import Connection, Node
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.inspection import inspect as sqlalchemyinspect
+from sqlalchemy.orm.exc import NoResultFound
 
-from .converter import (convert_sqlalchemy_column,
-                        convert_sqlalchemy_composite,
-                        convert_sqlalchemy_relationship,
-                        convert_sqlalchemy_hybrid_method)
+from .converter import convert_sqlalchemy_column, convert_sqlalchemy_composite, convert_sqlalchemy_hybrid_method, \
+    convert_sqlalchemy_relationship
 from .registry import Registry, get_global_registry
-from .utils import get_query, is_mapped_class, is_mapped_instance
+from .utils import get_operator_function, get_query, get_snake_or_camel_attr, is_mapped_class, is_mapped_instance
 
 
 def construct_fields(model, registry, only_fields, exclude_fields):
@@ -139,8 +136,8 @@ class SQLAlchemyObjectType(ObjectType):
             return True
         if not is_mapped_instance(root):
             raise Exception((
-                'Received incompatible instance "{}".'
-            ).format(root))
+                                'Received incompatible instance "{}".'
+                            ).format(root))
         return isinstance(root, cls._meta.model)
 
     @classmethod
@@ -159,3 +156,76 @@ class SQLAlchemyObjectType(ObjectType):
         # graphene_type = info.parent_type.graphene_type
         keys = self.__mapper__.primary_key_from_instance(self)
         return tuple(keys) if len(keys) > 1 else keys[0]
+
+
+class SQLAlchemyList(List):
+    def __init__(self, of_type, exclude_fields=(), include_fields=(), operator=None, order_by=(), *args, **kwargs):
+        columns_dict = self.build_columns_dict(of_type)
+
+        if include_fields:
+            columns_dict = {k: columns_dict[k] for k in include_fields}
+        for exclude_field in exclude_fields:
+            if exclude_field in columns_dict.keys():
+                del columns_dict[exclude_field]
+
+        kwargs.update(**columns_dict)
+        kwargs['operator'] = String(description="Operator to use for filtering")
+        kwargs['order_by'] = List(String, description="Fields to use for results ordering")
+
+        default_operator = get_operator_function(operator)
+        if isinstance(order_by, six.string_types):
+            order_by = (order_by,)
+        default_order_by = order_by
+
+        def filters_resolver(self, info, **kwargs):
+            operator = default_operator
+            if 'operator' in kwargs:
+                operator = get_operator_function(kwargs['operator'])
+
+            query = of_type.get_query(info)
+
+            for (k, v) in kwargs.items():
+                if hasattr(of_type._meta.model, k):
+                    query = query.filter(operator(get_snake_or_camel_attr(of_type._meta.model, k), v))
+
+            order_by = default_order_by
+            if 'order_by' in kwargs:
+                order_by = kwargs['order_by']
+
+            for order_by_item in order_by:
+                if order_by_item.lower().endswith(' asc'):
+                    order_by_item = order_by_item[:-len(' asc')]
+                    query = query.order_by(get_snake_or_camel_attr(of_type._meta.model, order_by_item).asc())
+                elif order_by_item.lower().endswith(' desc'):
+                    order_by_item = order_by_item[:-len(' desc')]
+                    query = query.order_by(get_snake_or_camel_attr(of_type._meta.model, order_by_item).desc())
+                else:
+                    query = query.order_by(get_snake_or_camel_attr(of_type._meta.model, order_by_item))
+
+            query_transformer = getattr(info.parent_type.graphene_type, 'query_' + info.field_name, False)
+            if callable(query_transformer):
+                transformed_query = query_transformer(info.parent_type.graphene_type(), info, query, **kwargs)
+                if transformed_query:
+                    query = transformed_query
+
+            return query.all()
+
+        kwargs['resolver'] = filters_resolver
+        super(SQLAlchemyList, self).__init__(of_type, *args, **kwargs)
+
+    @staticmethod
+    def build_columns_dict(of_type):
+        columns_dict = {}
+        inspected_model = sqlalchemyinspect(of_type._meta.model)
+        for column in inspected_model.columns:
+            column.nullable = True  # Set nullable to false to build an optional graph type
+            graphene_type = convert_sqlalchemy_column(column)
+            columns_dict[column.name] = graphene_type
+        return columns_dict
+
+    def __eq__(self, other):
+        return isinstance(other, SQLAlchemyList) and (
+            self.of_type == other.of_type and
+            self.args == other.args and
+            self.kwargs == other.kwargs
+        )
