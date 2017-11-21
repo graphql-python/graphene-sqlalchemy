@@ -186,4 +186,4 @@ def test_passing_incorrect_connection_instance():
                 connection = 'spam'
                 registry = registry
 
-    assert str(excinfo.value) == "The connection must be a Connection. Received <class 'str'>"
+    assert "The connection must be a Connection. Received" in str(excinfo.value)

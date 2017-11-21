@@ -122,9 +122,7 @@ class SQLAlchemyObjectType(ObjectType):
             elif not connection:
                 # Create connection type automatically using graphene.relay.Connection
                 cnx = Connection.create_type('{}Connection'.format(cls.__name__), node=cls)
-            elif isinstance(connection, Connection):
-                cnx = connection.create_type(connection.__name__, node=cls)
-            elif connection:
+            else:
                 cnx = connection
 
         if cnx is not None:
