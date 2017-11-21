@@ -1,10 +1,10 @@
-
-from graphene import Field, Int, Interface, ObjectType
+from graphene import Field, Int, Interface, ObjectType, Connection, Schema
 from graphene.relay import Node, is_node
-import six
+import pytest
 
 from ..registry import Registry
 from ..types import SQLAlchemyObjectType
+from ..fields import SQLAlchemyConnectionField
 from .models import Article, Reporter
 
 registry = Registry()
@@ -72,8 +72,6 @@ def test_node_replacedfield():
 
 
 def test_object_type():
-
-
     class Human(SQLAlchemyObjectType):
         '''Human description'''
 
@@ -88,7 +86,6 @@ def test_object_type():
     assert issubclass(Human, ObjectType)
     assert list(Human._meta.fields.keys()) == ['id', 'headline', 'pub_date', 'reporter_id', 'reporter']
     assert is_node(Human)
-
 
 
 # Test Custom SQLAlchemyObjectType Implementation
@@ -116,3 +113,77 @@ def test_custom_objecttype_registered():
         'pets',
         'articles',
         'favorite_article']
+
+
+def test_custom_connection(session, setup_fixtures):
+    exp_counter = 123
+
+    class CustomConnection(Connection):
+        class Meta:
+            abstract = True
+
+        counter = Int()
+
+        @staticmethod
+        def resolve_counter(*args, **kwargs):
+            return exp_counter
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            connection = CustomConnection
+            interfaces = (Node,)
+            registry = registry
+
+    class Query(ObjectType):
+        articles = SQLAlchemyConnectionField(ArticleType)
+
+    schema = Schema(query=Query)
+    result = schema.execute("query { articles { counter edges { node { headline }}}}",
+                            context_value={'session': session})
+
+    assert not result.errors
+    assert result.data['articles']['counter'] == exp_counter
+    assert result.data['articles']['edges'][0]['node']['headline'] == 'Hi!'
+
+
+def test_automatically_created_connection():
+    expected = "ArticleTypeConnection"
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
+            registry = registry
+
+    assert ArticleType._meta.connection.__name__ == expected
+
+
+def test_passing_connection_instance():
+    expected = "CnxHumanType"
+
+    class HumanType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (Node,)
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
+            connection = Connection.create_type(expected, node=HumanType)
+            registry = registry
+
+    assert ArticleType._meta.connection.__name__ == expected
+
+
+def test_passing_incorrect_connection_instance():
+    with pytest.raises(AssertionError) as excinfo:
+        class ArticleType(SQLAlchemyObjectType):
+            class Meta:
+                model = Article
+                interfaces = (Node,)
+                connection = 'spam'
+                registry = registry
+
+    assert "The connection must be a Connection. Received" in str(excinfo.value)

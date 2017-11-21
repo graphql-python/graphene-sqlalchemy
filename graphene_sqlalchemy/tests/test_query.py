@@ -1,54 +1,12 @@
-import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
-
 import graphene
 from graphene.relay import Node
 
-from ..registry import reset_global_registry
+from .models import Article, Editor, Reporter
 from ..fields import SQLAlchemyConnectionField
 from ..types import SQLAlchemyObjectType
-from .models import Article, Base, Editor, Pet, Reporter
-
-db = create_engine('sqlite:///test_sqlalchemy.sqlite3')
 
 
-@pytest.yield_fixture(scope='function')
-def session():
-    reset_global_registry()
-    connection = db.engine.connect()
-    transaction = connection.begin()
-    Base.metadata.create_all(connection)
-
-    # options = dict(bind=connection, binds={})
-    session_factory = sessionmaker(bind=connection)
-    session = scoped_session(session_factory)
-
-    yield session
-
-    # Finalize test here
-    transaction.rollback()
-    connection.close()
-    session.remove()
-
-
-def setup_fixtures(session):
-    pet = Pet(name='Lassie', pet_kind='dog')
-    session.add(pet)
-    reporter = Reporter(first_name='ABA', last_name='X')
-    session.add(reporter)
-    reporter2 = Reporter(first_name='ABO', last_name='Y')
-    session.add(reporter2)
-    article = Article(headline='Hi!')
-    article.reporter = reporter
-    session.add(article)
-    editor = Editor(name="John")
-    session.add(editor)
-    session.commit()
-
-
-def test_should_query_well(session):
-    setup_fixtures(session)
+def test_should_query_well(session, setup_fixtures):
 
     class ReporterType(SQLAlchemyObjectType):
 
@@ -95,42 +53,7 @@ def test_should_query_well(session):
     assert result.data == expected
 
 
-def test_should_query_enums(session):
-    setup_fixtures(session)
-
-    class PetType(SQLAlchemyObjectType):
-
-        class Meta:
-            model = Pet
-
-    class Query(graphene.ObjectType):
-        pet = graphene.Field(PetType)
-
-        def resolve_pet(self, *args, **kwargs):
-            return session.query(Pet).first()
-
-    query = '''
-        query PetQuery {
-          pet {
-            name,
-            petKind
-          }
-        }
-    '''
-    expected = {
-        'pet': {
-            'name': 'Lassie',
-            'petKind': 'dog'
-        }
-    }
-    schema = graphene.Schema(query=Query)
-    result = schema.execute(query)
-    assert not result.errors
-    assert result.data == expected, result.data
-
-
-def test_should_node(session):
-    setup_fixtures(session)
+def test_should_node(session, setup_fixtures):
 
     class ReporterNode(SQLAlchemyObjectType):
 
@@ -229,8 +152,7 @@ def test_should_node(session):
     assert result.data == expected
 
 
-def test_should_custom_identifier(session):
-    setup_fixtures(session)
+def test_should_custom_identifier(session, setup_fixtures):
 
     class EditorNode(SQLAlchemyObjectType):
 
@@ -279,8 +201,7 @@ def test_should_custom_identifier(session):
     assert result.data == expected
 
 
-def test_should_mutate_well(session):
-    setup_fixtures(session)
+def test_should_mutate_well(session, setup_fixtures):
 
     class EditorNode(SQLAlchemyObjectType):
 
