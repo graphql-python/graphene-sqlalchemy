@@ -131,7 +131,7 @@ def test_custom_connection(session, setup_fixtures):
         def resolve_counter(*args, **kwargs):
             return exp_counter
 
-    class ArticleType(SQLAlchemyObjectType, interfaces=[Node]):
+    class ArticleType(SQLAlchemyObjectType):
         class Meta:
             model = Article
             connection = CustomConnection
