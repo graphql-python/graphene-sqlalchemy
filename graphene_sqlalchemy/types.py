@@ -113,22 +113,24 @@ class SQLAlchemyObjectType(ObjectType):
         if use_connection is None and interfaces:
             use_connection = any((issubclass(interface, Node) for interface in interfaces))
 
-        if use_connection and not connection:
-            # We create the connection automatically
-            connection = Connection.create_type('{}Connection'.format(cls.__name__), node=cls)
-
         cnx = None
         if use_connection:
-            if not connection:
-                # We create the connection automatically
+            if connection and isclass(connection) and issubclass(connection, Connection) and \
+                    not hasattr(connection, '_meta'):
+                # Create connection type automatically using given class
+                cnx = connection.create_type('{}Connection'.format(cls.__name__), node=cls)
+            elif not connection:
+                # Create connection type automatically using graphene.relay.Connection
                 cnx = Connection.create_type('{}Connection'.format(cls.__name__), node=cls)
-            elif connection and issubclass(connection, Connection):
-                if isclass(connection) and issubclass(connection, Connection):
-                    cnx = connection.create_type('{}Connection'.format(cls.__name__), node=cls)
-                else:
-                    cnx = connection
+            elif isinstance(connection, Connection):
+                cnx = connection.create_type(connection.__name__, node=cls)
+            elif connection:
+                cnx = connection
 
         if cnx is not None:
+            assert isclass(cnx), (
+                "The connection must be a Connection. Received {}"
+            ).format(type(cnx))
             assert issubclass(cnx, Connection), (
                 "The connection must be a Connection. Received {}"
             ).format(cnx.__name__)

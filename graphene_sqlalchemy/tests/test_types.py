@@ -1,6 +1,6 @@
-
 from graphene import Field, Int, Interface, ObjectType, Connection, Schema
 from graphene.relay import Node, is_node
+import pytest
 
 from ..registry import Registry
 from ..types import SQLAlchemyObjectType
@@ -72,8 +72,6 @@ def test_node_replacedfield():
 
 
 def test_object_type():
-
-
     class Human(SQLAlchemyObjectType):
         '''Human description'''
 
@@ -88,7 +86,6 @@ def test_object_type():
     assert issubclass(Human, ObjectType)
     assert list(Human._meta.fields.keys()) == ['id', 'headline', 'pub_date', 'reporter_id', 'reporter']
     assert is_node(Human)
-
 
 
 # Test Custom SQLAlchemyObjectType Implementation
@@ -148,3 +145,45 @@ def test_custom_connection(session, setup_fixtures):
     assert not result.errors
     assert result.data['articles']['counter'] == exp_counter
     assert result.data['articles']['edges'][0]['node']['headline'] == 'Hi!'
+
+
+def test_automatically_created_connection():
+    expected = "ArticleTypeConnection"
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
+            registry = registry
+
+    assert ArticleType._meta.connection.__name__ == expected
+
+
+def test_passing_connection_instance():
+    expected = "CnxHumanType"
+
+    class HumanType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (Node,)
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
+            connection = Connection.create_type(expected, node=HumanType)
+            registry = registry
+
+    assert ArticleType._meta.connection.__name__ == expected
+
+
+def test_passing_incorrect_connection_instance():
+    with pytest.raises(AssertionError) as excinfo:
+        class ArticleType(SQLAlchemyObjectType):
+            class Meta:
+                model = Article
+                interfaces = (Node,)
+                connection = 'spam'
+                registry = registry
+
+    assert str(excinfo.value) == "The connection must be a Connection. Received <class 'str'>"
