@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from inspect import isclass
 
 from sqlalchemy.inspection import inspect as sqlalchemyinspect
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -116,16 +117,27 @@ class SQLAlchemyObjectType(ObjectType):
             # We create the connection automatically
             connection = Connection.create_type('{}Connection'.format(cls.__name__), node=cls)
 
-        if connection is not None:
-            assert issubclass(connection, Connection), (
+        cnx = None
+        if use_connection:
+            if not connection:
+                # We create the connection automatically
+                cnx = Connection.create_type('{}Connection'.format(cls.__name__), node=cls)
+            elif connection and issubclass(connection, Connection):
+                if isclass(connection) and issubclass(connection, Connection):
+                    cnx = connection.create_type('{}Connection'.format(cls.__name__), node=cls)
+                else:
+                    cnx = connection
+
+        if cnx is not None:
+            assert issubclass(cnx, Connection), (
                 "The connection must be a Connection. Received {}"
-            ).format(connection.__name__)
+            ).format(cnx.__name__)
 
         _meta = SQLAlchemyObjectTypeOptions(cls)
         _meta.model = model
         _meta.registry = registry
         _meta.fields = sqla_fields
-        _meta.connection = connection
+        _meta.connection = cnx
         _meta.id = id or 'id'
 
         super(SQLAlchemyObjectType, cls).__init_subclass_with_meta__(_meta=_meta, interfaces=interfaces, **options)
