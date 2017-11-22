@@ -8,7 +8,7 @@ class Registry(object):
     def register(self, cls):
         from .types import SQLAlchemyObjectType
         assert issubclass(cls, SQLAlchemyObjectType), (
-            'Only classes of type SQLAlchemyObjectType can be registered, ',
+            'Only classes of type SQLAlchemyObjectType can be registered, '
             'received "{}"'
         ).format(cls.__name__)
         assert cls._meta.registry == self, 'Registry for a Model have to match.'
