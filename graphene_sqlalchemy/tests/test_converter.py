@@ -1,3 +1,5 @@
+import enum
+
 from py.test import raises
 from sqlalchemy import Column, Table, case, types, select, func
 from sqlalchemy.dialects import postgresql
@@ -24,7 +26,8 @@ def assert_column_conversion(sqlalchemy_type, graphene_field, **kwargs):
     column = Column(sqlalchemy_type, doc='Custom Help Text', **kwargs)
     graphene_type = convert_sqlalchemy_column(column)
     assert isinstance(graphene_type, graphene_field)
-    field = graphene_type.Field()
+    field = graphene_type if isinstance(
+        graphene_type, graphene.Field) else graphene_type.Field()
     assert field.description == 'Custom Help Text'
     return field
 
@@ -76,8 +79,18 @@ def test_should_unicodetext_convert_string():
     assert_column_conversion(types.UnicodeText(), graphene.String)
 
 
-def test_should_enum_convert_string():
-    assert_column_conversion(types.Enum(), graphene.String)
+def test_should_enum_convert_enum():
+    field = assert_column_conversion(
+        types.Enum(enum.Enum('one', 'two')), graphene.Field)
+    field_type = field.type()
+    assert isinstance(field_type, graphene.Enum)
+    assert hasattr(field_type, 'two')
+    field = assert_column_conversion(
+        types.Enum('one', 'two', name='two_numbers'), graphene.Field)
+    field_type = field.type()
+    assert field_type.__class__.__name__ == 'two_numbers'
+    assert isinstance(field_type, graphene.Enum)
+    assert hasattr(field_type, 'two')
 
 
 def test_should_small_integer_convert_int():
@@ -118,6 +131,7 @@ def test_should_label_convert_int():
     label = Label('int_label_test', case([], else_="foo"), type_=types.Integer())
     graphene_type = convert_sqlalchemy_column(label)
     assert isinstance(graphene_type, graphene.Int)
+
 
 def test_should_choice_convert_enum():
     TYPES = [
@@ -247,7 +261,12 @@ def test_should_postgresql_uuid_convert():
 
 
 def test_should_postgresql_enum_convert():
-    assert_column_conversion(postgresql.ENUM(), graphene.String)
+    field = assert_column_conversion(postgresql.ENUM(
+        enum.Enum('one', 'two'), name='two_numbers'), graphene.Field)
+    field_type = field.type()
+    assert field_type.__class__.__name__ == 'two_numbers'
+    assert isinstance(field_type, graphene.Enum)
+    assert hasattr(field_type, 'two')
 
 
 def test_should_postgresql_array_convert():

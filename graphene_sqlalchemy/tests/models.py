@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 
-from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table
+import enum
+
+from sqlalchemy import Column, Date, Enum, ForeignKey, Integer, String, Table
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import mapper, relationship
 
@@ -21,6 +23,7 @@ class Pet(Base):
     __tablename__ = 'pets'
     id = Column(Integer(), primary_key=True)
     name = Column(String(30))
+    pet_kind = Column(Enum('cat', 'dog', name='pet_kind'), nullable=False)
     reporter_id = Column(Integer(), ForeignKey('reporters.id'))
 
 
