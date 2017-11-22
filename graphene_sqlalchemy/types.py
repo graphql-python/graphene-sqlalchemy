@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from inspect import isclass
 
 from sqlalchemy.inspection import inspect as sqlalchemyinspect
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -112,20 +113,31 @@ class SQLAlchemyObjectType(ObjectType):
         if use_connection is None and interfaces:
             use_connection = any((issubclass(interface, Node) for interface in interfaces))
 
-        if use_connection and not connection:
-            # We create the connection automatically
-            connection = Connection.create_type('{}Connection'.format(cls.__name__), node=cls)
+        cnx = None
+        if use_connection:
+            if connection and isclass(connection) and issubclass(connection, Connection) and \
+                    not hasattr(connection, '_meta'):
+                # Create connection type automatically using given class
+                cnx = connection.create_type('{}Connection'.format(cls.__name__), node=cls)
+            elif not connection:
+                # Create connection type automatically using graphene.relay.Connection
+                cnx = Connection.create_type('{}Connection'.format(cls.__name__), node=cls)
+            else:
+                cnx = connection
 
-        if connection is not None:
-            assert issubclass(connection, Connection), (
+        if cnx is not None:
+            assert isclass(cnx), (
                 "The connection must be a Connection. Received {}"
-            ).format(connection.__name__)
+            ).format(type(cnx))
+            assert issubclass(cnx, Connection), (
+                "The connection must be a Connection. Received {}"
+            ).format(cnx.__name__)
 
         _meta = SQLAlchemyObjectTypeOptions(cls)
         _meta.model = model
         _meta.registry = registry
         _meta.fields = sqla_fields
-        _meta.connection = connection
+        _meta.connection = cnx
         _meta.id = id or 'id'
 
         super(SQLAlchemyObjectType, cls).__init_subclass_with_meta__(_meta=_meta, interfaces=interfaces, **options)
