@@ -4,7 +4,7 @@ from graphene.relay import Node, is_node
 import six
 
 from ..registry import Registry
-from ..types import SQLAlchemyObjectType
+from ..types import SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
 from .models import Article, Reporter
 
 registry = Registry()
@@ -116,3 +116,40 @@ def test_custom_objecttype_registered():
         'pets',
         'articles',
         'favorite_article']
+
+
+# Test Custom SQLAlchemyObjectType with Custom Options
+class CustomOptions(SQLAlchemyObjectTypeOptions):
+    custom_option = None
+
+
+class SQLAlchemyObjectTypeWithCustomOptions(SQLAlchemyObjectType):
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def __init_subclass_with_meta__(cls, custom_option=None, **options):
+        _meta = CustomOptions(cls)
+        _meta.custom_option = custom_option
+        super().__init_subclass_with_meta__(_meta=_meta, **options)
+
+
+class ReporterWithCustomOptions(SQLAlchemyObjectTypeWithCustomOptions):
+    class Meta:
+        model = Reporter
+        custom_option = 'custom_option'
+
+
+def test_objecttype_with_custom_options():
+    assert issubclass(ReporterWithCustomOptions, ObjectType)
+    assert ReporterWithCustomOptions._meta.model == Reporter
+    assert list(
+        ReporterWithCustomOptions._meta.fields.keys()) == [
+               'id',
+               'first_name',
+               'last_name',
+               'email',
+               'pets',
+               'articles',
+               'favorite_article']
+    assert ReporterWithCustomOptions._meta.custom_option == 'custom_option'
