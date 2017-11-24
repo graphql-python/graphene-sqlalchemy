@@ -131,7 +131,7 @@ class SQLAlchemyObjectTypeWithCustomOptions(SQLAlchemyObjectType):
     def __init_subclass_with_meta__(cls, custom_option=None, **options):
         _meta = CustomOptions(cls)
         _meta.custom_option = custom_option
-        super().__init_subclass_with_meta__(_meta=_meta, **options)
+        super(SQLAlchemyObjectTypeWithCustomOptions, cls).__init_subclass_with_meta__(_meta=_meta, **options)
 
 
 class ReporterWithCustomOptions(SQLAlchemyObjectTypeWithCustomOptions):
