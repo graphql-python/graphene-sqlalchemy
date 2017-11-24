@@ -153,3 +153,28 @@ def test_objecttype_with_custom_options():
                'articles',
                'favorite_article']
     assert ReporterWithCustomOptions._meta.custom_option == 'custom_option'
+
+
+class ReporterWithCustomOptionsAndField(SQLAlchemyObjectTypeWithCustomOptions):
+    class Meta:
+        model = Reporter
+        custom_option = 'custom_option'
+
+    custom_field = Field(Int())
+
+
+def test_objecttype_with_custom_options_and_field():
+    assert issubclass(ReporterWithCustomOptions, ObjectType)
+    assert ReporterWithCustomOptions._meta.model == Reporter
+    assert list(
+        ReporterWithCustomOptionsAndField._meta.fields.keys()) == [
+               'id',
+               'first_name',
+               'last_name',
+               'email',
+               'pets',
+               'articles',
+               'favorite_article',
+                'custom_field']
+    assert ReporterWithCustomOptionsAndField._meta.custom_option == 'custom_option'
+    assert isinstance(ReporterWithCustomOptionsAndField._meta.fields['custom_field'].type, Int)
