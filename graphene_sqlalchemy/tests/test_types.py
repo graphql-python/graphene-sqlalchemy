@@ -1,4 +1,4 @@
-
+from collections import OrderedDict
 from graphene import Field, Int, Interface, ObjectType
 from graphene.relay import Node, is_node
 import six
@@ -121,6 +121,7 @@ def test_custom_objecttype_registered():
 # Test Custom SQLAlchemyObjectType with Custom Options
 class CustomOptions(SQLAlchemyObjectTypeOptions):
     custom_option = None
+    custom_fields = None
 
 
 class SQLAlchemyObjectTypeWithCustomOptions(SQLAlchemyObjectType):
@@ -128,9 +129,10 @@ class SQLAlchemyObjectTypeWithCustomOptions(SQLAlchemyObjectType):
         abstract = True
 
     @classmethod
-    def __init_subclass_with_meta__(cls, custom_option=None, **options):
+    def __init_subclass_with_meta__(cls, custom_option=None, custom_fields=None, **options):
         _meta = CustomOptions(cls)
         _meta.custom_option = custom_option
+        _meta.fields = custom_fields
         super(SQLAlchemyObjectTypeWithCustomOptions, cls).__init_subclass_with_meta__(_meta=_meta, **options)
 
 
@@ -138,6 +140,7 @@ class ReporterWithCustomOptions(SQLAlchemyObjectTypeWithCustomOptions):
     class Meta:
         model = Reporter
         custom_option = 'custom_option'
+        custom_fields = OrderedDict([('custom_field', Field(Int()))])
 
 
 def test_objecttype_with_custom_options():
@@ -145,6 +148,7 @@ def test_objecttype_with_custom_options():
     assert ReporterWithCustomOptions._meta.model == Reporter
     assert list(
         ReporterWithCustomOptions._meta.fields.keys()) == [
+               'custom_field',
                'id',
                'first_name',
                'last_name',
@@ -153,28 +157,4 @@ def test_objecttype_with_custom_options():
                'articles',
                'favorite_article']
     assert ReporterWithCustomOptions._meta.custom_option == 'custom_option'
-
-
-class ReporterWithCustomOptionsAndField(SQLAlchemyObjectTypeWithCustomOptions):
-    class Meta:
-        model = Reporter
-        custom_option = 'custom_option'
-
-    custom_field = Field(Int())
-
-
-def test_objecttype_with_custom_options_and_field():
-    assert issubclass(ReporterWithCustomOptions, ObjectType)
-    assert ReporterWithCustomOptions._meta.model == Reporter
-    assert list(
-        ReporterWithCustomOptionsAndField._meta.fields.keys()) == [
-               'id',
-               'first_name',
-               'last_name',
-               'email',
-               'pets',
-               'articles',
-               'favorite_article',
-                'custom_field']
-    assert ReporterWithCustomOptionsAndField._meta.custom_option == 'custom_option'
-    assert isinstance(ReporterWithCustomOptionsAndField._meta.fields['custom_field'].type, Int)
+    assert isinstance(ReporterWithCustomOptions._meta.fields['custom_field'].type, Int)
