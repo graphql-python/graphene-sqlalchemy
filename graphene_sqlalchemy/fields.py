@@ -1,3 +1,4 @@
+from collections import Iterable
 from functools import partial
 
 from sqlalchemy.orm.query import Query
@@ -16,8 +17,11 @@ class SQLAlchemyConnectionField(ConnectionField):
         return self.type._meta.node._meta.model
 
     @classmethod
-    def get_query(cls, model, info, **args):
-        return get_query(model, info.context)
+    def get_query(cls, model, info, sort=None, **args):
+        query = get_query(model, info.context)
+        if sort is not None:
+            query = query.order_by(*sort) if isinstance(sort, Iterable) else query.order_by(sort)
+        return query
 
     @property
     def type(self):
