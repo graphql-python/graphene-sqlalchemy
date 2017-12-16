@@ -42,16 +42,28 @@ def _symbol_name(column_name, is_asc):
     return column_name + ('_asc' if is_asc else '_desc')
 
 
+class EnumValue(str):
+    '''Subclass of str that stores a string value and the sort order of the column'''
+    def __new__(cls, str_value, order):
+        return super(EnumValue, cls).__new__(cls, str_value)
+
+    def __init__(self, str_value, order):
+        super(EnumValue, self).__init__()
+        self.order = order
+
+
 def _sort_enum_for_model(cls, name=None, symbol_name=_symbol_name):
     name = name or cls.__name__ + 'SortEnum'
     items = []
     default = []
     for column in inspect(cls).columns.values():
-        asc = symbol_name(column.name, True), [column.name, 'asc']
-        desc = symbol_name(column.name, False), [column.name, 'desc']
+        asc_name = symbol_name(column.name, True)
+        asc_value = EnumValue(asc_name, column.asc())
+        desc_name = symbol_name(column.name, False)
+        desc_value = EnumValue(desc_name, column.desc())
         if column.primary_key:
-            default.append(asc[1])
-        items.extend((asc, desc))
+            default.append(asc_value)
+        items.extend(((asc_name, asc_value), (desc_name, desc_value)))
     return Enum(name, items), default
 
 
