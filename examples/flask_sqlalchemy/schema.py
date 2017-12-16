@@ -35,7 +35,7 @@ SortEnumEmployee = utils.sort_enum_for_model(
 class Query(graphene.ObjectType):
     node = relay.Node.Field()
     all_employees = SQLAlchemyConnectionField(
-        Employee, sort=graphene.Argument(SortEnumEmployee, default_value=EmployeeModel.id))
+        Employee, sort=graphene.Argument(SortEnumEmployee, default_value=['id', 'asc']))
     all_roles = SQLAlchemyConnectionField(Role, sort=utils.sort_argument_for_model(RoleModel))
     all_departments = SQLAlchemyConnectionField(Department)
 

@@ -47,8 +47,8 @@ def _sort_enum_for_model(cls, name=None, symbol_name=_symbol_name):
     items = []
     default = []
     for column in inspect(cls).columns.values():
-        asc = symbol_name(column.name, True), column.asc()
-        desc = symbol_name(column.name, False), column.desc()
+        asc = symbol_name(column.name, True), [column.name, 'asc']
+        desc = symbol_name(column.name, False), [column.name, 'desc']
         if column.primary_key:
             default.append(asc[1])
         items.extend((asc, desc))
