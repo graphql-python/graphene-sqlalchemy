@@ -34,10 +34,13 @@ SortEnumEmployee = utils.sort_enum_for_model(
 
 class Query(graphene.ObjectType):
     node = relay.Node.Field()
+    # Supports sorting only over one field
     all_employees = SQLAlchemyConnectionField(Employee, sort=graphene.Argument(SortEnumEmployee,
             default_value=utils.EnumValue('id_asc', EmployeeModel.id.asc())))
-    all_roles = SQLAlchemyConnectionField(Role, sort=utils.sort_argument_for_model(RoleModel))
-    all_departments = SQLAlchemyConnectionField(Department)
+    # Add sort over multiple fields, sorting by default over the primary key
+    all_roles = SQLAlchemyConnectionField(Role)
+    # Disable sorting over this field
+    all_departments = SQLAlchemyConnectionField(Department, sort=None)
 
 
 schema = graphene.Schema(query=Query, types=[Department, Employee, Role])
