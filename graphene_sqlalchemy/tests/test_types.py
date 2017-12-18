@@ -1,10 +1,10 @@
 
 from graphene import Field, Int, Interface, ObjectType
-from graphene.relay import Node, is_node
+from graphene.relay import Node, is_node, Connection
 import six
 
 from ..registry import Registry
-from ..types import SQLAlchemyObjectType
+from ..types import SQLAlchemyObjectType, ConnectionWithCount
 from .models import Article, Reporter
 
 registry = Registry()
@@ -116,3 +116,22 @@ def test_custom_objecttype_registered():
         'pets',
         'articles',
         'favorite_article']
+
+def test_total_count():
+    class TotalCount(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node, )
+            registry = registry
+
+    class NoTotalCount(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (Node, )
+            registry = registry
+            total_count = False
+
+    assert issubclass(TotalCount._meta.connection, ConnectionWithCount)
+    assert not issubclass(NoTotalCount._meta.connection, ConnectionWithCount)
+    assert issubclass(TotalCount._meta.connection, Connection)
+    assert issubclass(NoTotalCount._meta.connection, Connection)

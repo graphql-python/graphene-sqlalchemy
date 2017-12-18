@@ -25,6 +25,8 @@ class Role(SQLAlchemyObjectType):
     class Meta:
         model = RoleModel
         interfaces = (relay.Node, )
+        # Disable the total count on this connection
+        total_count = False
 
 
 class Query(graphene.ObjectType):
