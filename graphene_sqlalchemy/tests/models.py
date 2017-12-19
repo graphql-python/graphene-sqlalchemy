@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 
-from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table
+import enum
+
+from sqlalchemy import Column, Date, Enum, ForeignKey, Integer, String, Table
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import mapper, relationship
 
@@ -21,6 +23,7 @@ class Pet(Base):
     __tablename__ = 'pets'
     id = Column(Integer(), primary_key=True)
     name = Column(String(30))
+    pet_kind = Column(Enum('cat', 'dog', name='pet_kind'), nullable=False)
     reporter_id = Column(Integer(), ForeignKey('reporters.id'))
 
 
@@ -34,6 +37,12 @@ class Reporter(Base):
     articles = relationship('Article', backref='reporter')
     favorite_article = relationship("Article", uselist=False)
 
+    # total = column_property(
+    #     select([
+    #         func.cast(func.count(PersonInfo.id), Float)
+    #     ])
+    # )
+
 
 class Article(Base):
     __tablename__ = 'articles'
@@ -43,8 +52,11 @@ class Article(Base):
     reporter_id = Column(Integer(), ForeignKey('reporters.id'))
 
 
-class ReflectedEditor:
+class ReflectedEditor(type):
     """Same as Editor, but using reflected table."""
+    @classmethod
+    def __subclasses__(cls):
+        return []
 
 editor_table = Table('editors', Base.metadata, autoload=True)
 

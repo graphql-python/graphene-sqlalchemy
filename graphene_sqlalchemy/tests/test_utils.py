@@ -9,8 +9,8 @@ def test_get_session():
     class Query(ObjectType):
         x = String()
 
-        def resolve_x(self, args, context, info):
-            return get_session(context)
+        def resolve_x(self, info):
+            return get_session(info.context)
 
     query = '''
         query ReporterQuery {

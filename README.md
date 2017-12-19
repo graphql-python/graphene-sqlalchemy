@@ -1,5 +1,5 @@
-Please read [UPGRADE-v1.0.md](https://github.com/graphql-python/graphene/blob/master/UPGRADE-v1.0.md)
-to learn how to upgrade to Graphene `1.0`.
+Please read [UPGRADE-v2.0.md](https://github.com/graphql-python/graphene/blob/master/UPGRADE-v2.0.md)
+to learn how to upgrade to Graphene `2.0`.
 
 ---
 
@@ -13,7 +13,7 @@ A [SQLAlchemy](http://www.sqlalchemy.org/) integration for [Graphene](http://gra
 For instaling graphene, just run this command in your shell
 
 ```bash
-pip install "graphene-sqlalchemy>=1.0"
+pip install "graphene-sqlalchemy>=2.0"
 ```
 
 ## Examples
@@ -47,8 +47,8 @@ class User(SQLAlchemyObjectType):
 class Query(graphene.ObjectType):
     users = graphene.List(User)
 
-    def resolve_users(self, args, context, info):
-        query = User.get_query(context) # SQLAlchemy query
+    def resolve_users(self, info):
+        query = User.get_query(info)  # SQLAlchemy query
         return query.all()
 
 schema = graphene.Schema(query=Query)
@@ -78,13 +78,11 @@ class ActiveSQLAlchemyObjectType(SQLAlchemyObjectType):
         abstract = True
 
     @classmethod
-    def get_node(cls, id, context, info):
-        return cls.get_query(context).\
-            filter(and_(
-                cls._meta.model.deleted_at==None,
-                cls._meta.model.id==id,
-            )).\
-            first()
+    def get_node(cls, info, id):
+        return cls.get_query(info).filter(
+            and_(cls._meta.model.deleted_at==None,
+                 cls._meta.model.id==id)
+            ).first()
 
 class User(ActiveSQLAlchemyObjectType):
     class Meta:
@@ -93,8 +91,8 @@ class User(ActiveSQLAlchemyObjectType):
 class Query(graphene.ObjectType):
     users = graphene.List(User)
 
-    def resolve_users(self, args, context, info):
-        query = User.get_query(context) # SQLAlchemy query
+    def resolve_users(self, info):
+        query = User.get_query(info)  # SQLAlchemy query
         return query.all()
 
 schema = graphene.Schema(query=Query)

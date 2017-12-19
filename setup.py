@@ -1,8 +1,18 @@
 from setuptools import find_packages, setup
+import sys
+import ast
+import re
+
+_version_re = re.compile(r'__version__\s+=\s+(.*)')
+
+with open('graphene_sqlalchemy/__init__.py', 'rb') as f:
+    version = str(ast.literal_eval(_version_re.search(
+        f.read().decode('utf-8')).group(1)))
+
 
 setup(
     name='graphene-sqlalchemy',
-    version='1.1.1',
+    version=version,
 
     description='Graphene SQLAlchemy integration',
     long_description=open('README.rst').read(),
@@ -33,7 +43,7 @@ setup(
 
     install_requires=[
         'six>=1.10.0',
-        'graphene>=1.0',
+        'graphene>=2.0',
         'SQLAlchemy',
         'singledispatch>=3.4.0.3',
         'iso8601',

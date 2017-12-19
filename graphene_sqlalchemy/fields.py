@@ -16,14 +16,24 @@ class SQLAlchemyConnectionField(ConnectionField):
         return self.type._meta.node._meta.model
 
     @classmethod
-    def get_query(cls, model, context, info, args):
-        return get_query(model, context)
+    def get_query(cls, model, info, **args):
+        return get_query(model, info.context)
+
+    @property
+    def type(self):
+        from .types import SQLAlchemyObjectType
+        _type = super(ConnectionField, self).type
+        assert issubclass(_type, SQLAlchemyObjectType), (
+            "SQLAlchemyConnectionField only accepts SQLAlchemyObjectType types"
+        )
+        assert _type._meta.connection, "The type {} doesn't have a connection".format(_type.__name__)
+        return _type._meta.connection
 
     @classmethod
-    def connection_resolver(cls, resolver, connection, model, root, args, context, info):
-        iterable = resolver(root, args, context, info)
+    def connection_resolver(cls, resolver, connection, model, root, info, **args):
+        iterable = resolver(root, info, **args)
         if iterable is None:
-            iterable = cls.get_query(model, context, info, args)
+            iterable = cls.get_query(model, info, **args)
         if isinstance(iterable, Query):
             _len = iterable.count()
         else:
