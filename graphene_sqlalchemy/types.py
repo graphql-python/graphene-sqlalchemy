@@ -4,7 +4,7 @@ from sqlalchemy.inspection import inspect as sqlalchemyinspect
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm.exc import NoResultFound
 
-from graphene import Field  # , annotate, ResolveInfo
+from graphene import Field, Int, NonNull
 from graphene.relay import Connection, Node
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
@@ -86,11 +86,22 @@ class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
     id = None  # type: str
 
 
+class ConnectionWithCount(Connection):
+    '''Class that adds `totalCount` to a connection field'''
+    class Meta:
+        abstract = True
+
+    total_count = NonNull(Int)
+
+    def resolve_total_count(self, info, **kwargs):
+        return self.length
+
+
 class SQLAlchemyObjectType(ObjectType):
     @classmethod
     def __init_subclass_with_meta__(cls, model=None, registry=None, skip_registry=False,
                                     only_fields=(), exclude_fields=(), connection=None,
-                                    use_connection=None, interfaces=(), id=None, **options):
+                                    use_connection=None, interfaces=(), id=None, total_count=True, **options):
         assert is_mapped_class(model), (
             'You need to pass a valid SQLAlchemy Model in '
             '{}.Meta, received "{}".'
@@ -114,7 +125,8 @@ class SQLAlchemyObjectType(ObjectType):
 
         if use_connection and not connection:
             # We create the connection automatically
-            connection = Connection.create_type('{}Connection'.format(cls.__name__), node=cls)
+            connection_class = ConnectionWithCount if total_count else Connection
+            connection = connection_class.create_type('{}Connection'.format(cls.__name__), node=cls)
 
         if connection is not None:
             assert issubclass(connection, Connection), (

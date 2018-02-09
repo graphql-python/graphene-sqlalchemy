@@ -365,3 +365,33 @@ def test_should_mutate_well(session):
     result = schema.execute(query, context_value={'session': session})
     assert not result.errors
     assert result.data == expected
+
+
+def test_should_return_total_count(session):
+    setup_fixtures(session)
+
+    class ReporterNode(SQLAlchemyObjectType):
+
+        class Meta:
+            model = Reporter
+            interfaces = (Node, )
+
+    class Query(graphene.ObjectType):
+        all_article = SQLAlchemyConnectionField(ReporterNode)
+
+    query = '''
+        {
+          allArticle {
+            totalCount
+          }
+        }
+    '''
+    expected = {
+        'allArticle': {
+            'totalCount': session.query(Reporter).count()
+        },
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={'session': session})
+    assert not result.errors
+    assert result.data == expected
