@@ -22,9 +22,9 @@ def test_register():
             return SQLAlchemyConnectionField.connection_resolver(LXResolver, connection, model, root, args, context, info)
 
     def createLXConnectionField(table):
-        class LXConnection(graphene.relay.Connection, node=table):
-            pass
-
+        class LXConnection(graphene.relay.Connection):
+            class Meta:
+                node = table
         return LXConnectionField(LXConnection, filter=table.filter(), order_by=graphene.List(of_type=table.order_by))
 
     registerConnectionFieldFactory(createLXConnectionField)
