@@ -118,7 +118,7 @@ class SQLAlchemyObjectType(ObjectType):
 
         if connection is not None:
             if not issubclass(connection, Connection) and hasattr(connection, '__call__'):
-               connection = connection()
+                connection = connection()
 
             assert issubclass(connection, Connection), (
                 "The connection must be a Connection. Received {}"
