@@ -98,10 +98,12 @@ class Query(graphene.ObjectType):
 schema = graphene.Schema(query=Query)
 ```
 
+### Full Examples
+
 To learn more check out the following [examples](examples/):
 
-* **Full example**: [Flask SQLAlchemy example](examples/flask_sqlalchemy)
-
+- [Flask SQLAlchemy example](examples/flask_sqlalchemy)
+- [Nameko SQLAlchemy example](examples/nameko_sqlalchemy)
 
 ## Contributing
 
