@@ -139,7 +139,7 @@ def test_should_node(session):
             interfaces = (Node, )
 
         @classmethod
-        def get_node(cls, id, info):
+        def get_node(cls, info, id):
             return Reporter(id=2, first_name='Cookie Monster')
 
     class ArticleNode(SQLAlchemyObjectType):
@@ -152,11 +152,15 @@ def test_should_node(session):
         # def get_node(cls, id, info):
         #     return Article(id=1, headline='Article node')
 
+    class ArticleConnection(graphene.relay.Connection):
+        class Meta:
+            node = ArticleNode
+
     class Query(graphene.ObjectType):
         node = Node.Field()
         reporter = graphene.Field(ReporterNode)
         article = graphene.Field(ArticleNode)
-        all_articles = SQLAlchemyConnectionField(ArticleNode)
+        all_articles = SQLAlchemyConnectionField(ArticleConnection)
 
         def resolve_reporter(self, *args, **kwargs):
             return session.query(Reporter).first()
@@ -238,9 +242,13 @@ def test_should_custom_identifier(session):
             model = Editor
             interfaces = (Node, )
 
+    class EditorConnection(graphene.relay.Connection):
+        class Meta:
+            node = EditorNode
+
     class Query(graphene.ObjectType):
         node = Node.Field()
-        all_editors = SQLAlchemyConnectionField(EditorNode)
+        all_editors = SQLAlchemyConnectionField(EditorConnection)
 
     query = '''
         query EditorQuery {

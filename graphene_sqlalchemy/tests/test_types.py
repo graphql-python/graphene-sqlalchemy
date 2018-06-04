@@ -1,11 +1,13 @@
 from collections import OrderedDict
 from graphene import Field, Int, Interface, ObjectType
-from graphene.relay import Node, is_node
+from graphene.relay import Node, is_node, Connection
 import six
+from promise import Promise
 
 from ..registry import Registry
 from ..types import SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
 from .models import Article, Reporter
+from ..fields import SQLAlchemyConnectionField
 
 registry = Registry()
 
@@ -158,3 +160,13 @@ def test_objecttype_with_custom_options():
                'favorite_article']
     assert ReporterWithCustomOptions._meta.custom_option == 'custom_option'
     assert isinstance(ReporterWithCustomOptions._meta.fields['custom_field'].type, Int)
+
+
+def test_promise_connection_resolver():
+    class TestConnection(Connection):
+        class Meta:
+            node = ReporterWithCustomOptions
+
+    resolver = lambda *args, **kwargs: Promise.resolve([])
+    result = SQLAlchemyConnectionField.connection_resolver(resolver, TestConnection, ReporterWithCustomOptions, None, None)
+    assert result is not None
