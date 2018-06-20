@@ -9,7 +9,7 @@ from graphql_relay.connection.arrayconnection import connection_from_list_slice
 from .utils import get_query, sort_argument_for_model
 
 
-class _UnsortedSQLAlchemyConnectionField(ConnectionField):
+class UnsortedSQLAlchemyConnectionField(ConnectionField):
 
     @property
     def model(self):
@@ -20,9 +20,9 @@ class _UnsortedSQLAlchemyConnectionField(ConnectionField):
         query = get_query(model, info.context)
         if sort is not None:
             if isinstance(sort, str):
-                query = query.order_by(sort.order)
+                query = query.order_by(sort.value)
             else:
-                query = query.order_by(*(value.order for value in sort))
+                query = query.order_by(*(col.value for col in sort))
         return query
 
     @property
@@ -62,7 +62,7 @@ class _UnsortedSQLAlchemyConnectionField(ConnectionField):
         return partial(self.connection_resolver, parent_resolver, self.type, self.model)
 
 
-class SQLAlchemyConnectionField(_UnsortedSQLAlchemyConnectionField):
+class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
 
     def __init__(self, type, *args, **kwargs):
         if 'sort' not in kwargs:
@@ -72,7 +72,7 @@ class SQLAlchemyConnectionField(_UnsortedSQLAlchemyConnectionField):
         super(SQLAlchemyConnectionField, self).__init__(type, *args, **kwargs)
 
 
-__connectionFactory = _UnsortedSQLAlchemyConnectionField
+__connectionFactory = UnsortedSQLAlchemyConnectionField
 
 
 def createConnectionField(_type):
@@ -86,4 +86,4 @@ def registerConnectionFieldFactory(factoryMethod):
 
 def unregisterConnectionFieldFactory():
     global __connectionFactory
-    __connectionFactory = _UnsortedSQLAlchemyConnectionField
+    __connectionFactory = UnsortedSQLAlchemyConnectionField
