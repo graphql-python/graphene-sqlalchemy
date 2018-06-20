@@ -8,6 +8,7 @@ from graphene.relay import Node
 from ..registry import reset_global_registry
 from ..fields import SQLAlchemyConnectionField
 from ..types import SQLAlchemyObjectType
+from ..utils import sort_argument_for_model, sort_enum_for_model
 from .models import Article, Base, Editor, Pet, Reporter
 
 db = create_engine('sqlite:///test_sqlalchemy.sqlite3')
@@ -365,3 +366,147 @@ def test_should_mutate_well(session):
     result = schema.execute(query, context_value={'session': session})
     assert not result.errors
     assert result.data == expected
+
+
+def sort_setup(session):
+    pets = [
+        Pet(id=2, name='Lassie', pet_kind='dog'),
+        Pet(id=22, name='Alf', pet_kind='cat'),
+        Pet(id=3, name='Barf', pet_kind='dog')
+    ]
+    session.add_all(pets)
+    session.commit()
+
+
+def test_sort(session):
+    sort_setup(session)
+
+    class PetNode(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            interfaces = (Node, )
+
+    class Query(graphene.ObjectType):
+        defaultSort = SQLAlchemyConnectionField(PetNode)
+        nameSort = SQLAlchemyConnectionField(PetNode)
+        multipleSort = SQLAlchemyConnectionField(PetNode)
+        descSort = SQLAlchemyConnectionField(PetNode)
+        singleColumnSort = SQLAlchemyConnectionField(
+            PetNode, sort=graphene.Argument(sort_enum_for_model(Pet)))
+        noDefaultSort = SQLAlchemyConnectionField(
+            PetNode, sort=sort_argument_for_model(Pet, False))
+        noSort = SQLAlchemyConnectionField(PetNode, sort=None)
+
+    query = '''
+        query sortTest {
+            defaultSort{
+                edges{
+                    node{
+                        id
+                    }
+                }
+            }
+            nameSort(sort: name_asc){
+                edges{
+                    node{
+                        name
+                    }
+                }
+            }
+            multipleSort(sort: [pet_kind_asc, name_desc]){
+                edges{
+                    node{
+                        name
+                        petKind
+                    }
+                }
+            }
+            descSort(sort: [name_desc]){
+                edges{
+                    node{
+                        name
+                    }
+                }
+            }
+            singleColumnSort(sort: name_desc){
+                edges{
+                    node{
+                        name
+                    }
+                }
+            }
+            noDefaultSort(sort: name_asc){
+                edges{
+                    node{
+                        name
+                    }
+                }
+            }
+        }
+    '''
+
+    def makeNodes(nodeList):
+        nodes = [{'node': item} for item in nodeList]
+        return {'edges': nodes}
+
+    expected = {
+        'defaultSort': makeNodes([{'id': 'UGV0Tm9kZToy'}, {'id': 'UGV0Tm9kZToz'}, {'id': 'UGV0Tm9kZToyMg=='}]),
+        'nameSort': makeNodes([{'name': 'Alf'}, {'name': 'Barf'}, {'name': 'Lassie'}]),
+        'noDefaultSort': makeNodes([{'name': 'Alf'}, {'name': 'Barf'}, {'name': 'Lassie'}]),
+        'multipleSort': makeNodes([
+            {'name': 'Alf', 'petKind': 'cat'},
+            {'name': 'Lassie', 'petKind': 'dog'},
+            {'name': 'Barf', 'petKind': 'dog'}
+        ]),
+        'descSort': makeNodes([{'name': 'Lassie'}, {'name': 'Barf'}, {'name': 'Alf'}]),
+        'singleColumnSort': makeNodes([{'name': 'Lassie'}, {'name': 'Barf'}, {'name': 'Alf'}]),
+    }  # yapf: disable
+
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={'session': session})
+    assert not result.errors
+    assert result.data == expected
+
+    queryError = '''
+        query sortTest {
+            singleColumnSort(sort: [pet_kind_asc, name_desc]){
+                edges{
+                    node{
+                        name
+                    }
+                }
+            }
+        }
+    '''
+    result = schema.execute(queryError, context_value={'session': session})
+    assert result.errors is not None
+
+    queryNoSort = '''
+        query sortTest {
+            noDefaultSort{
+                edges{
+                    node{
+                        name
+                    }
+                }
+            }
+            noSort{
+                edges{
+                    node{
+                        name
+                    }
+                }
+            }
+        }
+    '''
+
+    expectedNoSort = {
+        'noDefaultSort': makeNodes([{'name': 'Alf'}, {'name': 'Barf'}, {'name': 'Lassie'}]),
+        'noSort': makeNodes([{'name': 'Alf'}, {'name': 'Barf'}, {'name': 'Lassie'}]),
+    }  # yapf: disable
+
+    result = schema.execute(queryNoSort, context_value={'session': session})
+    assert not result.errors
+    for key, value in result.data.items():
+        assert set(node['node']['name'] for node in value['edges']) == set(
+            node['node']['name'] for node in expectedNoSort[key]['edges'])
