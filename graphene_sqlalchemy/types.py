@@ -90,7 +90,7 @@ class SQLAlchemyObjectType(ObjectType):
     @classmethod
     def __init_subclass_with_meta__(cls, model=None, registry=None, skip_registry=False,
                                     only_fields=(), exclude_fields=(), connection=None,
-                                    use_connection=None, interfaces=(), id=None, **options):
+                                    use_connection=None, interfaces=(), id=None, _meta=None, **options):
         assert is_mapped_class(model), (
             'You need to pass a valid SQLAlchemy Model in '
             '{}.Meta, received "{}".'
@@ -121,10 +121,17 @@ class SQLAlchemyObjectType(ObjectType):
                 "The connection must be a Connection. Received {}"
             ).format(connection.__name__)
 
-        _meta = SQLAlchemyObjectTypeOptions(cls)
+        if not _meta:
+            _meta = SQLAlchemyObjectTypeOptions(cls)
+
         _meta.model = model
         _meta.registry = registry
-        _meta.fields = sqla_fields
+
+        if _meta.fields:
+            _meta.fields.update(sqla_fields)
+        else:
+            _meta.fields = sqla_fields
+
         _meta.connection = connection
         _meta.id = id or 'id'
 

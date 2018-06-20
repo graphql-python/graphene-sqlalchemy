@@ -1,11 +1,13 @@
-
+from collections import OrderedDict
 from graphene import Field, Int, Interface, ObjectType
-from graphene.relay import Node, is_node
+from graphene.relay import Node, is_node, Connection
 import six
+from promise import Promise
 
 from ..registry import Registry
-from ..types import SQLAlchemyObjectType
+from ..types import SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
 from .models import Article, Reporter
+from ..fields import SQLAlchemyConnectionField
 
 registry = Registry()
 
@@ -116,3 +118,55 @@ def test_custom_objecttype_registered():
         'pets',
         'articles',
         'favorite_article']
+
+
+# Test Custom SQLAlchemyObjectType with Custom Options
+class CustomOptions(SQLAlchemyObjectTypeOptions):
+    custom_option = None
+    custom_fields = None
+
+
+class SQLAlchemyObjectTypeWithCustomOptions(SQLAlchemyObjectType):
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def __init_subclass_with_meta__(cls, custom_option=None, custom_fields=None, **options):
+        _meta = CustomOptions(cls)
+        _meta.custom_option = custom_option
+        _meta.fields = custom_fields
+        super(SQLAlchemyObjectTypeWithCustomOptions, cls).__init_subclass_with_meta__(_meta=_meta, **options)
+
+
+class ReporterWithCustomOptions(SQLAlchemyObjectTypeWithCustomOptions):
+    class Meta:
+        model = Reporter
+        custom_option = 'custom_option'
+        custom_fields = OrderedDict([('custom_field', Field(Int()))])
+
+
+def test_objecttype_with_custom_options():
+    assert issubclass(ReporterWithCustomOptions, ObjectType)
+    assert ReporterWithCustomOptions._meta.model == Reporter
+    assert list(
+        ReporterWithCustomOptions._meta.fields.keys()) == [
+               'custom_field',
+               'id',
+               'first_name',
+               'last_name',
+               'email',
+               'pets',
+               'articles',
+               'favorite_article']
+    assert ReporterWithCustomOptions._meta.custom_option == 'custom_option'
+    assert isinstance(ReporterWithCustomOptions._meta.fields['custom_field'].type, Int)
+
+
+def test_promise_connection_resolver():
+    class TestConnection(Connection):
+        class Meta:
+            node = ReporterWithCustomOptions
+
+    resolver = lambda *args, **kwargs: Promise.resolve([])
+    result = SQLAlchemyConnectionField.connection_resolver(resolver, TestConnection, ReporterWithCustomOptions, None, None)
+    assert result is not None

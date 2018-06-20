@@ -36,7 +36,7 @@ def convert_sqlalchemy_relationship(relationship, registry):
             return Field(_type)
         elif direction in (interfaces.ONETOMANY, interfaces.MANYTOMANY):
             if _type._meta.connection:
-                return createConnectionField(_type)
+                return createConnectionField(_type._meta.connection)
             return Field(List(_type))
 
     return Dynamic(dynamic_type)
@@ -92,6 +92,8 @@ def convert_sqlalchemy_type(type, column, registry=None):
 @convert_sqlalchemy_type.register(types.Unicode)
 @convert_sqlalchemy_type.register(types.UnicodeText)
 @convert_sqlalchemy_type.register(postgresql.UUID)
+@convert_sqlalchemy_type.register(postgresql.INET)
+@convert_sqlalchemy_type.register(postgresql.CIDR)
 @convert_sqlalchemy_type.register(TSVectorType)
 def convert_column_to_string(type, column, registry=None):
     return String(description=get_column_doc(column),

@@ -1,2 +1,2 @@
 # Docs template
-https://github.com/graphql-python/graphene-python.org/archive/docs.zip
+http://graphene-python.org/sphinx_graphene_theme.zip

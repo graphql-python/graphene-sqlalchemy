@@ -1,5 +1,5 @@
 from functools import partial
-
+from promise import is_thenable, Promise
 from sqlalchemy.orm.query import Query
 
 from graphene.relay import ConnectionField
@@ -25,38 +25,37 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
                 query = query.order_by(*(col.value for col in sort))
         return query
 
-    @property
-    def type(self):
-        from .types import SQLAlchemyObjectType
-        _type = super(ConnectionField, self).type
-        assert issubclass(_type, SQLAlchemyObjectType), (
-            "SQLAlchemyConnectionField only accepts SQLAlchemyObjectType types"
-        )
-        assert _type._meta.connection, "The type {} doesn't have a connection".format(_type.__name__)
-        return _type._meta.connection
-
     @classmethod
-    def connection_resolver(cls, resolver, connection, model, root, info, **args):
-        iterable = resolver(root, info, **args)
-        if iterable is None:
-            iterable = cls.get_query(model, info, **args)
-        if isinstance(iterable, Query):
-            _len = iterable.count()
+    def resolve_connection(cls, connection_type, model, info, args, resolved):
+        if resolved is None:
+            resolved = cls.get_query(model, info, **args)
+        if isinstance(resolved, Query):
+            _len = resolved.count()
         else:
-            _len = len(iterable)
+            _len = len(resolved)
         connection = connection_from_list_slice(
-            iterable,
+            resolved,
             args,
             slice_start=0,
             list_length=_len,
             list_slice_length=_len,
-            connection_type=connection,
+            connection_type=connection_type,
             pageinfo_type=PageInfo,
-            edge_type=connection.Edge,
+            edge_type=connection_type.Edge,
         )
-        connection.iterable = iterable
+        connection.iterable = resolved
         connection.length = _len
         return connection
+
+    @classmethod
+    def connection_resolver(cls, resolver, connection_type, model, root, info, **args):
+        resolved = resolver(root, info, **args)
+
+        on_resolve = partial(cls.resolve_connection, connection_type, model, info, args)
+        if is_thenable(resolved):
+            return Promise.resolve(resolved).then(on_resolve)
+
+        return on_resolve(resolved)
 
     def get_resolver(self, parent_resolver):
         return partial(self.connection_resolver, parent_resolver, self.type, self.model)
