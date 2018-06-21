@@ -3,7 +3,7 @@ Schema Examples
 
 
 Search all Models with Union
------------------
+----------------------------
 
 .. code:: python
 
@@ -11,12 +11,22 @@ Search all Models with Union
         class Meta:
             model = BookModel
             interfaces = (relay.Node,)
-    
-    
+
+
+    class BookConnection(relay.Connection):
+        class Meta:
+            node = Book
+
+
     class Author(SQLAlchemyObjectType):
         class Meta:
             model = AuthorModel
             interfaces = (relay.Node,)
+
+
+    class AuthorConnection(relay.Connection):
+        class Meta:
+            node = Author
 
 
     class SearchResult(graphene.Union):
@@ -29,8 +39,8 @@ Search all Models with Union
         search = graphene.List(SearchResult, q=graphene.String())  # List field for search results
         
         # Normal Fields
-        all_books = SQLAlchemyConnectionField(Book)
-        all_authors = SQLAlchemyConnectionField(Author)
+        all_books = SQLAlchemyConnectionField(BookConnection)
+        all_authors = SQLAlchemyConnectionField(AuthorConnection)
 
         def resolve_search(self, info, **args):
             q = args.get("q")  # Search query
@@ -47,13 +57,13 @@ Search all Models with Union
             # Query Authors
             authors = author_query.filter(AuthorModel.name.contains(q)).all()
 
-        return authors + books  # Combine lists
+            return authors + books  # Combine lists
 
     schema = graphene.Schema(query=Query, types=[Book, Author, SearchResult])
     
 Example GraphQL query
 
-.. code:: GraphQL
+.. code::
 
     book(id: "Qm9vazow") {
         id
