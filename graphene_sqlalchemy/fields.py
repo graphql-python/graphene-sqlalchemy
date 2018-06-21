@@ -69,7 +69,7 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
             try:
                 model = type.Edge.node._type._meta.model
                 kwargs.setdefault('sort', sort_argument_for_model(model))
-            except Exception as e:
+            except Exception:
                 raise Exception(
                     'Cannot create sort argument for {}. A model is required. Set the "sort" argument'
                     ' to None to disabling the creation of the sort query argument'.format(type.__name__)
