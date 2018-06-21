@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 import graphene
-from graphene.relay import Node
+from graphene.relay import Connection, Node
 
 from ..registry import reset_global_registry
 from ..fields import SQLAlchemyConnectionField
@@ -153,7 +153,7 @@ def test_should_node(session):
         # def get_node(cls, id, info):
         #     return Article(id=1, headline='Article node')
 
-    class ArticleConnection(graphene.relay.Connection):
+    class ArticleConnection(Connection):
         class Meta:
             node = ArticleNode
 
@@ -243,7 +243,7 @@ def test_should_custom_identifier(session):
             model = Editor
             interfaces = (Node, )
 
-    class EditorConnection(graphene.relay.Connection):
+    class EditorConnection(Connection):
         class Meta:
             node = EditorNode
 
@@ -394,16 +394,20 @@ def test_sort(session):
             model = Pet
             interfaces = (Node, )
 
+    class PetConnection(Connection):
+        class Meta:
+            node = PetNode
+
     class Query(graphene.ObjectType):
-        defaultSort = SQLAlchemyConnectionField(PetNode)
-        nameSort = SQLAlchemyConnectionField(PetNode)
-        multipleSort = SQLAlchemyConnectionField(PetNode)
-        descSort = SQLAlchemyConnectionField(PetNode)
+        defaultSort = SQLAlchemyConnectionField(PetConnection)
+        nameSort = SQLAlchemyConnectionField(PetConnection)
+        multipleSort = SQLAlchemyConnectionField(PetConnection)
+        descSort = SQLAlchemyConnectionField(PetConnection)
         singleColumnSort = SQLAlchemyConnectionField(
-            PetNode, sort=graphene.Argument(sort_enum_for_model(Pet)))
+            PetConnection, sort=graphene.Argument(sort_enum_for_model(Pet)))
         noDefaultSort = SQLAlchemyConnectionField(
-            PetNode, sort=sort_argument_for_model(Pet, False))
-        noSort = SQLAlchemyConnectionField(PetNode, sort=None)
+            PetConnection, sort=sort_argument_for_model(Pet, False))
+        noSort = SQLAlchemyConnectionField(PetConnection, sort=None)
 
     query = '''
         query sortTest {

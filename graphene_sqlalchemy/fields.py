@@ -2,7 +2,7 @@ from functools import partial
 from promise import is_thenable, Promise
 from sqlalchemy.orm.query import Query
 
-from graphene.relay import ConnectionField
+from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import PageInfo
 from graphql_relay.connection.arrayconnection import connection_from_list_slice
 
@@ -64,9 +64,17 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
 class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
 
     def __init__(self, type, *args, **kwargs):
-        if 'sort' not in kwargs:
-            kwargs.setdefault('sort', sort_argument_for_model(type._meta.model))
-        elif kwargs['sort'] is None:
+        if 'sort' not in kwargs and issubclass(type, Connection):
+            # Let super class raise if type is not a Connection
+            try:
+                model = type.Edge.node._type._meta.model
+                kwargs.setdefault('sort', sort_argument_for_model(model))
+            except Exception as e:
+                raise Exception(
+                    'Cannot create sort argument for {}. A model is required. Set the "sort" argument'
+                    ' to None to disabling the creation of the sort query argument'.format(type.__name__)
+                )
+        elif 'sort' in kwargs and kwargs['sort'] is None:
             del kwargs['sort']
         super(SQLAlchemyConnectionField, self).__init__(type, *args, **kwargs)
 
