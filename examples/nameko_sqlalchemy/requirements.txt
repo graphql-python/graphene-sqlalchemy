@@ -1,0 +1,4 @@
+graphene[sqlalchemy]
+SQLAlchemy==1.0.11
+nameko
+graphql-server-core
