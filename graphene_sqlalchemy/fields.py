@@ -2,22 +2,28 @@ from functools import partial
 from promise import is_thenable, Promise
 from sqlalchemy.orm.query import Query
 
-from graphene.relay import ConnectionField
+from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import PageInfo
 from graphql_relay.connection.arrayconnection import connection_from_list_slice
 
-from .utils import get_query
+from .utils import get_query, sort_argument_for_model
 
 
-class SQLAlchemyConnectionField(ConnectionField):
+class UnsortedSQLAlchemyConnectionField(ConnectionField):
 
     @property
     def model(self):
         return self.type._meta.node._meta.model
 
     @classmethod
-    def get_query(cls, model, info, **args):
-        return get_query(model, info.context)
+    def get_query(cls, model, info, sort=None, **args):
+        query = get_query(model, info.context)
+        if sort is not None:
+            if isinstance(sort, str):
+                query = query.order_by(sort.value)
+            else:
+                query = query.order_by(*(col.value for col in sort))
+        return query
 
     @classmethod
     def resolve_connection(cls, connection_type, model, info, args, resolved):
@@ -55,7 +61,25 @@ class SQLAlchemyConnectionField(ConnectionField):
         return partial(self.connection_resolver, parent_resolver, self.type, self.model)
 
 
-__connectionFactory = SQLAlchemyConnectionField
+class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
+
+    def __init__(self, type, *args, **kwargs):
+        if 'sort' not in kwargs and issubclass(type, Connection):
+            # Let super class raise if type is not a Connection
+            try:
+                model = type.Edge.node._type._meta.model
+                kwargs.setdefault('sort', sort_argument_for_model(model))
+            except Exception:
+                raise Exception(
+                    'Cannot create sort argument for {}. A model is required. Set the "sort" argument'
+                    ' to None to disabling the creation of the sort query argument'.format(type.__name__)
+                )
+        elif 'sort' in kwargs and kwargs['sort'] is None:
+            del kwargs['sort']
+        super(SQLAlchemyConnectionField, self).__init__(type, *args, **kwargs)
+
+
+__connectionFactory = UnsortedSQLAlchemyConnectionField
 
 
 def createConnectionField(_type):
@@ -69,4 +93,4 @@ def registerConnectionFieldFactory(factoryMethod):
 
 def unregisterConnectionFieldFactory():
     global __connectionFactory
-    __connectionFactory = SQLAlchemyConnectionField
+    __connectionFactory = UnsortedSQLAlchemyConnectionField

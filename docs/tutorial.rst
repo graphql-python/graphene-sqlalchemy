@@ -102,15 +102,28 @@ Create ``flask_sqlalchemy/schema.py`` and type the following:
             interfaces = (relay.Node, )
 
 
+    class DepartmentConnection(relay.Connection):
+        class Meta:
+            node = Department
+
+
     class Employee(SQLAlchemyObjectType):
         class Meta:
             model = EmployeeModel
             interfaces = (relay.Node, )
 
 
+    class EmployeeConnection(relay.Connection):
+        class Meta:
+            node = Employee
+
+
     class Query(graphene.ObjectType):
         node = relay.Node.Field()
-        all_employees = SQLAlchemyConnectionField(Employee)
+        # Allows sorting over multiple columns, by default over the primary key
+        all_employees = SQLAlchemyConnectionField(EmployeeConnection)
+        # Disable sorting over this field
+        all_departments = SQLAlchemyConnectionField(DepartmentConnection, sort=None)
 
     schema = graphene.Schema(query=Query)
 

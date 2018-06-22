@@ -2,9 +2,6 @@
 Tips
 ====
 
-Tips
-====
-
 Querying
 --------
 
@@ -30,3 +27,61 @@ For make querying to the database work, there are two alternatives:
 If you don't specify any, the following error will be displayed:
 
 ``A query in the model Base or a session in the schema is required for querying.``
+
+Sorting
+-------
+
+By default the SQLAlchemyConnectionField sorts the result elements over the primary key(s). 
+The query has a `sort` argument which allows to sort over a different column(s)
+
+Given the model
+
+.. code:: python
+
+    class Pet(Base):
+        __tablename__ = 'pets'
+        id = Column(Integer(), primary_key=True)
+        name = Column(String(30))
+        pet_kind = Column(Enum('cat', 'dog', name='pet_kind'), nullable=False)
+
+
+    class PetNode(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+
+
+    class PetConnection(Connection):
+        class Meta:
+            node = PetNone
+
+
+    class Query(ObjectType):
+        allPets = SQLAlchemyConnectionField(PetConnection)
+
+some of the allowed queries are
+
+-  Sort in ascending order over the `name` column
+
+.. code::
+
+    allPets(sort: name_asc){
+        edges {
+            node {
+                name
+            }
+        }
+    }
+
+-  Sort in descending order over the `per_kind` column and in ascending order over the `name` column
+
+.. code::
+
+    allPets(sort: [pet_kind_desc, name_asc]) {
+        edges {
+            node {
+                name
+                petKind
+            }
+        }
+    }
+
