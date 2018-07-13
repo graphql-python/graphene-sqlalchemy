@@ -12,6 +12,16 @@ from .utils import get_query, sort_argument_for_model
 class UnsortedSQLAlchemyConnectionField(ConnectionField):
 
     @property
+    def type(self):
+        from .types import SQLAlchemyObjectType
+        _type = super(ConnectionField, self).type
+        if issubclass(_type, Connection):
+            return _type
+        assert issubclass(_type, SQLAlchemyObjectType), "SQLALchemyConnectionField only accepts SQLAlchemyObjectType types, not {}".format(_type.__name__)
+        assert _type._meta.connection, "The type {} doesn't have a connection".format(_type.__name__)
+        return _type._meta.connection
+
+    @property
     def model(self):
         return self.type._meta.node._meta.model
 
