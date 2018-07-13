@@ -17,7 +17,9 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
         _type = super(ConnectionField, self).type
         if issubclass(_type, Connection):
             return _type
-        assert issubclass(_type, SQLAlchemyObjectType), "SQLALchemyConnectionField only accepts SQLAlchemyObjectType types, not {}".format(_type.__name__)
+        assert issubclass(_type, SQLAlchemyObjectType), (
+            "SQLALchemyConnectionField only accepts SQLAlchemyObjectType types, not {}"
+        ).format(_type.__name__)
         assert _type._meta.connection, "The type {} doesn't have a connection".format(_type.__name__)
         return _type._meta.connection
 
