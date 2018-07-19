@@ -6,16 +6,18 @@ from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
 
 
 def get_session(context):
-    return context.get('session')
+    return context.get("session")
 
 
 def get_query(model, context):
-    query = getattr(model, 'query', None)
+    query = getattr(model, "query", None)
     if not query:
         session = get_session(context)
         if not session:
-            raise Exception('A query in the model Base or a session in the schema is required for querying.\n'
-                            'Read more http://graphene-python.org/docs/sqlalchemy/tips/#querying')
+            raise Exception(
+                "A query in the model Base or a session in the schema is required for querying.\n"
+                "Read more http://graphene-python.org/docs/sqlalchemy/tips/#querying"
+            )
         query = session.query(model)
     return query
 
@@ -39,11 +41,11 @@ def is_mapped_instance(cls):
 
 
 def _symbol_name(column_name, is_asc):
-    return column_name + ('_asc' if is_asc else '_desc')
+    return column_name + ("_asc" if is_asc else "_desc")
 
 
 class EnumValue(str):
-    '''Subclass of str that stores a string and an arbitrary value in the "value" property'''
+    """Subclass of str that stores a string and an arbitrary value in the "value" property"""
 
     def __new__(cls, str_value, value):
         return super(EnumValue, cls).__new__(cls, str_value)
@@ -58,7 +60,7 @@ _ENUM_CACHE = {}
 
 
 def _sort_enum_for_model(cls, name=None, symbol_name=_symbol_name):
-    name = name or cls.__name__ + 'SortEnum'
+    name = name or cls.__name__ + "SortEnum"
     if name in _ENUM_CACHE:
         return _ENUM_CACHE[name]
     items = []
@@ -77,7 +79,7 @@ def _sort_enum_for_model(cls, name=None, symbol_name=_symbol_name):
 
 
 def sort_enum_for_model(cls, name=None, symbol_name=_symbol_name):
-    '''Create Graphene Enum for sorting a SQLAlchemy class query
+    """Create Graphene Enum for sorting a SQLAlchemy class query
 
     Parameters
     - cls : Sqlalchemy model class
@@ -92,15 +94,15 @@ def sort_enum_for_model(cls, name=None, symbol_name=_symbol_name):
     Returns
     - Enum
         The Graphene enumerator
-    '''
+    """
     enum, _ = _sort_enum_for_model(cls, name, symbol_name)
     return enum
 
 
 def sort_argument_for_model(cls, has_default=True):
-    '''Returns a Graphene argument for the sort field that accepts a list of sorting directions for a model.
+    """Returns a Graphene argument for the sort field that accepts a list of sorting directions for a model.
     If `has_default` is True (the default) it will sort the result by the primary key(s)
-    '''
+    """
     enum, default = _sort_enum_for_model(cls)
     if not has_default:
         default = None

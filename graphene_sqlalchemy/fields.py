@@ -10,17 +10,19 @@ from .utils import get_query, sort_argument_for_model
 
 
 class UnsortedSQLAlchemyConnectionField(ConnectionField):
-
     @property
     def type(self):
         from .types import SQLAlchemyObjectType
+
         _type = super(ConnectionField, self).type
         if issubclass(_type, Connection):
             return _type
         assert issubclass(_type, SQLAlchemyObjectType), (
             "SQLALchemyConnectionField only accepts SQLAlchemyObjectType types, not {}"
         ).format(_type.__name__)
-        assert _type._meta.connection, "The type {} doesn't have a connection".format(_type.__name__)
+        assert _type._meta.connection, "The type {} doesn't have a connection".format(
+            _type.__name__
+        )
         return _type._meta.connection
 
     @property
@@ -74,20 +76,21 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
 
 
 class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
-
     def __init__(self, type, *args, **kwargs):
-        if 'sort' not in kwargs and issubclass(type, Connection):
+        if "sort" not in kwargs and issubclass(type, Connection):
             # Let super class raise if type is not a Connection
             try:
                 model = type.Edge.node._type._meta.model
-                kwargs.setdefault('sort', sort_argument_for_model(model))
+                kwargs.setdefault("sort", sort_argument_for_model(model))
             except Exception:
                 raise Exception(
                     'Cannot create sort argument for {}. A model is required. Set the "sort" argument'
-                    ' to None to disabling the creation of the sort query argument'.format(type.__name__)
+                    " to None to disabling the creation of the sort query argument".format(
+                        type.__name__
+                    )
                 )
-        elif 'sort' in kwargs and kwargs['sort'] is None:
-            del kwargs['sort']
+        elif "sort" in kwargs and kwargs["sort"] is None:
+            del kwargs["sort"]
         super(SQLAlchemyConnectionField, self).__init__(type, *args, **kwargs)
 
 

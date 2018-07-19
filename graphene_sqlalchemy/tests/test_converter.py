@@ -13,9 +13,11 @@ from graphene.relay import Node
 from graphene.types.datetime import DateTime
 from graphene.types.json import JSONString
 
-from ..converter import (convert_sqlalchemy_column,
-                         convert_sqlalchemy_composite,
-                         convert_sqlalchemy_relationship)
+from ..converter import (
+    convert_sqlalchemy_column,
+    convert_sqlalchemy_composite,
+    convert_sqlalchemy_relationship,
+)
 from ..fields import UnsortedSQLAlchemyConnectionField
 from ..registry import Registry
 from ..types import SQLAlchemyObjectType
@@ -23,19 +25,24 @@ from .models import Article, Pet, Reporter
 
 
 def assert_column_conversion(sqlalchemy_type, graphene_field, **kwargs):
-    column = Column(sqlalchemy_type, doc='Custom Help Text', **kwargs)
+    column = Column(sqlalchemy_type, doc="Custom Help Text", **kwargs)
     graphene_type = convert_sqlalchemy_column(column)
     assert isinstance(graphene_type, graphene_field)
-    field = graphene_type if isinstance(
-        graphene_type, graphene.Field) else graphene_type.Field()
-    assert field.description == 'Custom Help Text'
+    field = (
+        graphene_type
+        if isinstance(graphene_type, graphene.Field)
+        else graphene_type.Field()
+    )
+    assert field.description == "Custom Help Text"
     return field
 
 
-def assert_composite_conversion(composite_class, composite_columns, graphene_field,
-                                registry, **kwargs):
-    composite_column = composite(composite_class, *composite_columns,
-                                 doc='Custom Help Text', **kwargs)
+def assert_composite_conversion(
+    composite_class, composite_columns, graphene_field, registry, **kwargs
+):
+    composite_column = composite(
+        composite_class, *composite_columns, doc="Custom Help Text", **kwargs
+    )
     graphene_type = convert_sqlalchemy_composite(composite_column, registry)
     assert isinstance(graphene_type, graphene_field)
     field = graphene_type.Field()
@@ -48,7 +55,7 @@ def assert_composite_conversion(composite_class, composite_columns, graphene_fie
 def test_should_unknown_sqlalchemy_field_raise_exception():
     with raises(Exception) as excinfo:
         convert_sqlalchemy_column(None)
-    assert 'Don\'t know how to convert the SQLAlchemy field' in str(excinfo.value)
+    assert "Don't know how to convert the SQLAlchemy field" in str(excinfo.value)
 
 
 def test_should_date_convert_string():
@@ -81,16 +88,18 @@ def test_should_unicodetext_convert_string():
 
 def test_should_enum_convert_enum():
     field = assert_column_conversion(
-        types.Enum(enum.Enum('one', 'two')), graphene.Field)
+        types.Enum(enum.Enum("one", "two")), graphene.Field
+    )
     field_type = field.type()
     assert isinstance(field_type, graphene.Enum)
-    assert hasattr(field_type, 'two')
+    assert hasattr(field_type, "two")
     field = assert_column_conversion(
-        types.Enum('one', 'two', name='two_numbers'), graphene.Field)
+        types.Enum("one", "two", name="two_numbers"), graphene.Field
+    )
     field_type = field.type()
-    assert field_type.__class__.__name__ == 'two_numbers'
+    assert field_type.__class__.__name__ == "two_numbers"
     assert isinstance(field_type, graphene.Enum)
-    assert hasattr(field_type, 'two')
+    assert hasattr(field_type, "two")
 
 
 def test_should_small_integer_convert_int():
@@ -122,32 +131,29 @@ def test_should_numeric_convert_float():
 
 
 def test_should_label_convert_string():
-    label = Label('label_test', case([], else_="foo"), type_=types.Unicode())
+    label = Label("label_test", case([], else_="foo"), type_=types.Unicode())
     graphene_type = convert_sqlalchemy_column(label)
     assert isinstance(graphene_type, graphene.String)
 
 
 def test_should_label_convert_int():
-    label = Label('int_label_test', case([], else_="foo"), type_=types.Integer())
+    label = Label("int_label_test", case([], else_="foo"), type_=types.Integer())
     graphene_type = convert_sqlalchemy_column(label)
     assert isinstance(graphene_type, graphene.Int)
 
 
 def test_should_choice_convert_enum():
-    TYPES = [
-        (u'es', u'Spanish'),
-        (u'en', u'English')
-    ]
-    column = Column(ChoiceType(TYPES), doc='Language', name='language')
+    TYPES = [(u"es", u"Spanish"), (u"en", u"English")]
+    column = Column(ChoiceType(TYPES), doc="Language", name="language")
     Base = declarative_base()
 
-    Table('translatedmodel', Base.metadata, column)
+    Table("translatedmodel", Base.metadata, column)
     graphene_type = convert_sqlalchemy_column(column)
     assert issubclass(graphene_type, graphene.Enum)
-    assert graphene_type._meta.name == 'TRANSLATEDMODEL_LANGUAGE'
-    assert graphene_type._meta.description == 'Language'
-    assert graphene_type._meta.enum.__members__['es'].value == 'Spanish'
-    assert graphene_type._meta.enum.__members__['en'].value == 'English'
+    assert graphene_type._meta.name == "TRANSLATEDMODEL_LANGUAGE"
+    assert graphene_type._meta.description == "Language"
+    assert graphene_type._meta.enum.__members__["es"].value == "Spanish"
+    assert graphene_type._meta.enum.__members__["en"].value == "English"
 
 
 def test_should_columproperty_convert():
@@ -155,16 +161,14 @@ def test_should_columproperty_convert():
     Base = declarative_base()
 
     class Test(Base):
-        __tablename__ = 'test'
+        __tablename__ = "test"
         id = Column(types.Integer, primary_key=True)
         column = column_property(
-            select([func.sum(func.cast(id, types.Integer))]).where(
-                id==1
-            )
+            select([func.sum(func.cast(id, types.Integer))]).where(id == 1)
         )
 
     graphene_type = convert_sqlalchemy_column(Test.column)
-    assert graphene_type.kwargs['required'] == False
+    assert graphene_type.kwargs["required"] == False
 
 
 def test_should_scalar_list_convert_list():
@@ -184,11 +188,12 @@ def test_should_manytomany_convert_connectionorlist():
 
 def test_should_manytomany_convert_connectionorlist_list():
     class A(SQLAlchemyObjectType):
-
         class Meta:
             model = Pet
 
-    dynamic_field = convert_sqlalchemy_relationship(Reporter.pets.property, A._meta.registry)
+    dynamic_field = convert_sqlalchemy_relationship(
+        Reporter.pets.property, A._meta.registry
+    )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
@@ -198,12 +203,13 @@ def test_should_manytomany_convert_connectionorlist_list():
 
 def test_should_manytomany_convert_connectionorlist_connection():
     class A(SQLAlchemyObjectType):
-
         class Meta:
             model = Pet
-            interfaces = (Node, )
+            interfaces = (Node,)
 
-    dynamic_field = convert_sqlalchemy_relationship(Reporter.pets.property, A._meta.registry)
+    dynamic_field = convert_sqlalchemy_relationship(
+        Reporter.pets.property, A._meta.registry
+    )
     assert isinstance(dynamic_field, graphene.Dynamic)
     assert isinstance(dynamic_field.get_type(), UnsortedSQLAlchemyConnectionField)
 
@@ -217,11 +223,12 @@ def test_should_manytoone_convert_connectionorlist():
 
 def test_should_manytoone_convert_connectionorlist_list():
     class A(SQLAlchemyObjectType):
-
         class Meta:
             model = Reporter
 
-    dynamic_field = convert_sqlalchemy_relationship(Article.reporter.property, A._meta.registry)
+    dynamic_field = convert_sqlalchemy_relationship(
+        Article.reporter.property, A._meta.registry
+    )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
@@ -230,12 +237,13 @@ def test_should_manytoone_convert_connectionorlist_list():
 
 def test_should_manytoone_convert_connectionorlist_connection():
     class A(SQLAlchemyObjectType):
-
         class Meta:
             model = Reporter
-            interfaces = (Node, )
+            interfaces = (Node,)
 
-    dynamic_field = convert_sqlalchemy_relationship(Article.reporter.property, A._meta.registry)
+    dynamic_field = convert_sqlalchemy_relationship(
+        Article.reporter.property, A._meta.registry
+    )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
@@ -244,12 +252,13 @@ def test_should_manytoone_convert_connectionorlist_connection():
 
 def test_should_onetoone_convert_field():
     class A(SQLAlchemyObjectType):
-
         class Meta:
             model = Article
-            interfaces = (Node, )
+            interfaces = (Node,)
 
-    dynamic_field = convert_sqlalchemy_relationship(Reporter.favorite_article.property, A._meta.registry)
+    dynamic_field = convert_sqlalchemy_relationship(
+        Reporter.favorite_article.property, A._meta.registry
+    )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
@@ -261,12 +270,13 @@ def test_should_postgresql_uuid_convert():
 
 
 def test_should_postgresql_enum_convert():
-    field = assert_column_conversion(postgresql.ENUM(
-        enum.Enum('one', 'two'), name='two_numbers'), graphene.Field)
+    field = assert_column_conversion(
+        postgresql.ENUM(enum.Enum("one", "two"), name="two_numbers"), graphene.Field
+    )
     field_type = field.type()
-    assert field_type.__class__.__name__ == 'two_numbers'
+    assert field_type.__class__.__name__ == "two_numbers"
     assert isinstance(field_type, graphene.Enum)
-    assert hasattr(field_type, 'two')
+    assert hasattr(field_type, "two")
 
 
 def test_should_postgresql_array_convert():
@@ -286,9 +296,7 @@ def test_should_postgresql_hstore_convert():
 
 
 def test_should_composite_convert():
-
     class CompositeClass(object):
-
         def __init__(self, col1, col2):
             self.col1 = col1
             self.col2 = col2
@@ -299,11 +307,12 @@ def test_should_composite_convert():
     def convert_composite_class(composite, registry):
         return graphene.String(description=composite.doc)
 
-    assert_composite_conversion(CompositeClass,
-                                (Column(types.Unicode(50)),
-                                 Column(types.Unicode(50))),
-                                graphene.String,
-                                registry)
+    assert_composite_conversion(
+        CompositeClass,
+        (Column(types.Unicode(50)), Column(types.Unicode(50))),
+        graphene.String,
+        registry,
+    )
 
 
 def test_should_unknown_sqlalchemy_composite_raise_exception():
@@ -312,15 +321,16 @@ def test_should_unknown_sqlalchemy_composite_raise_exception():
     with raises(Exception) as excinfo:
 
         class CompositeClass(object):
-
             def __init__(self, col1, col2):
                 self.col1 = col1
                 self.col2 = col2
 
-        assert_composite_conversion(CompositeClass,
-                                    (Column(types.Unicode(50)),
-                                     Column(types.Unicode(50))),
-                                    graphene.String,
-                                    registry)
+        assert_composite_conversion(
+            CompositeClass,
+            (Column(types.Unicode(50)), Column(types.Unicode(50))),
+            graphene.String,
+            registry,
+        )
 
-    assert 'Don\'t know how to convert the composite field' in str(excinfo.value)
+    assert "Don't know how to convert the composite field" in str(excinfo.value)
+

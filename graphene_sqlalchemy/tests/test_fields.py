@@ -19,20 +19,20 @@ class PetConn(Connection):
 
 def test_sort_added_by_default():
     arg = SQLAlchemyConnectionField(PetConn)
-    assert 'sort' in arg.args
-    assert arg.args['sort'] == sort_argument_for_model(PetModel)
+    assert "sort" in arg.args
+    assert arg.args["sort"] == sort_argument_for_model(PetModel)
 
 
 def test_sort_can_be_removed():
     arg = SQLAlchemyConnectionField(PetConn, sort=None)
-    assert 'sort' not in arg.args
+    assert "sort" not in arg.args
 
 
 def test_custom_sort():
     arg = SQLAlchemyConnectionField(PetConn, sort=sort_argument_for_model(Editor))
-    assert arg.args['sort'] == sort_argument_for_model(Editor)
+    assert arg.args["sort"] == sort_argument_for_model(Editor)
 
 
 def test_init_raises():
-    with pytest.raises(Exception, match='Cannot create sort'):
+    with pytest.raises(Exception, match="Cannot create sort"):
         SQLAlchemyConnectionField(Connection)

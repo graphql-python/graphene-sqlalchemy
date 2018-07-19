@@ -11,10 +11,10 @@ from ..types import SQLAlchemyObjectType
 from ..utils import sort_argument_for_model, sort_enum_for_model
 from .models import Article, Base, Editor, Pet, Reporter
 
-db = create_engine('sqlite:///test_sqlalchemy.sqlite3')
+db = create_engine("sqlite:///test_sqlalchemy.sqlite3")
 
 
-@pytest.yield_fixture(scope='function')
+@pytest.yield_fixture(scope="function")
 def session():
     reset_global_registry()
     connection = db.engine.connect()
@@ -34,13 +34,13 @@ def session():
 
 
 def setup_fixtures(session):
-    pet = Pet(name='Lassie', pet_kind='dog')
+    pet = Pet(name="Lassie", pet_kind="dog")
     session.add(pet)
-    reporter = Reporter(first_name='ABA', last_name='X')
+    reporter = Reporter(first_name="ABA", last_name="X")
     session.add(reporter)
-    reporter2 = Reporter(first_name='ABO', last_name='Y')
+    reporter2 = Reporter(first_name="ABO", last_name="Y")
     session.add(reporter2)
-    article = Article(headline='Hi!')
+    article = Article(headline="Hi!")
     article.reporter = reporter
     session.add(article)
     editor = Editor(name="John")
@@ -52,7 +52,6 @@ def test_should_query_well(session):
     setup_fixtures(session)
 
     class ReporterType(SQLAlchemyObjectType):
-
         class Meta:
             model = Reporter
 
@@ -66,7 +65,7 @@ def test_should_query_well(session):
         def resolve_reporters(self, *args, **kwargs):
             return session.query(Reporter)
 
-    query = '''
+    query = """
         query ReporterQuery {
           reporter {
             firstName,
@@ -77,18 +76,10 @@ def test_should_query_well(session):
             firstName
           }
         }
-    '''
+    """
     expected = {
-        'reporter': {
-            'firstName': 'ABA',
-            'lastName': 'X',
-            'email': None
-        },
-        'reporters': [{
-            'firstName': 'ABA',
-        }, {
-            'firstName': 'ABO',
-        }]
+        "reporter": {"firstName": "ABA", "lastName": "X", "email": None},
+        "reporters": [{"firstName": "ABA"}, {"firstName": "ABO"}],
     }
     schema = graphene.Schema(query=Query)
     result = schema.execute(query)
@@ -100,7 +91,6 @@ def test_should_query_enums(session):
     setup_fixtures(session)
 
     class PetType(SQLAlchemyObjectType):
-
         class Meta:
             model = Pet
 
@@ -110,20 +100,15 @@ def test_should_query_enums(session):
         def resolve_pet(self, *args, **kwargs):
             return session.query(Pet).first()
 
-    query = '''
+    query = """
         query PetQuery {
           pet {
             name,
             petKind
           }
         }
-    '''
-    expected = {
-        'pet': {
-            'name': 'Lassie',
-            'petKind': 'dog'
-        }
-    }
+    """
+    expected = {"pet": {"name": "Lassie", "petKind": "dog"}}
     schema = graphene.Schema(query=Query)
     result = schema.execute(query)
     assert not result.errors
@@ -134,20 +119,18 @@ def test_should_node(session):
     setup_fixtures(session)
 
     class ReporterNode(SQLAlchemyObjectType):
-
         class Meta:
             model = Reporter
-            interfaces = (Node, )
+            interfaces = (Node,)
 
         @classmethod
         def get_node(cls, info, id):
-            return Reporter(id=2, first_name='Cookie Monster')
+            return Reporter(id=2, first_name="Cookie Monster")
 
     class ArticleNode(SQLAlchemyObjectType):
-
         class Meta:
             model = Article
-            interfaces = (Node, )
+            interfaces = (Node,)
 
         # @classmethod
         # def get_node(cls, id, info):
@@ -169,7 +152,7 @@ def test_should_node(session):
         def resolve_article(self, *args, **kwargs):
             return session.query(Article).first()
 
-    query = '''
+    query = """
         query ReporterQuery {
           reporter {
             id,
@@ -201,35 +184,20 @@ def test_should_node(session):
             }
           }
         }
-    '''
+    """
     expected = {
-        'reporter': {
-            'id': 'UmVwb3J0ZXJOb2RlOjE=',
-            'firstName': 'ABA',
-            'lastName': 'X',
-            'email': None,
-            'articles': {
-                'edges': [{
-                  'node': {
-                      'headline': 'Hi!'
-                  }
-                }]
-            },
+        "reporter": {
+            "id": "UmVwb3J0ZXJOb2RlOjE=",
+            "firstName": "ABA",
+            "lastName": "X",
+            "email": None,
+            "articles": {"edges": [{"node": {"headline": "Hi!"}}]},
         },
-        'allArticles': {
-            'edges': [{
-                'node': {
-                    'headline': 'Hi!'
-                }
-            }]
-        },
-        'myArticle': {
-            'id': 'QXJ0aWNsZU5vZGU6MQ==',
-            'headline': 'Hi!'
-        }
+        "allArticles": {"edges": [{"node": {"headline": "Hi!"}}]},
+        "myArticle": {"id": "QXJ0aWNsZU5vZGU6MQ==", "headline": "Hi!"},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={'session': session})
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     assert result.data == expected
 
@@ -238,10 +206,9 @@ def test_should_custom_identifier(session):
     setup_fixtures(session)
 
     class EditorNode(SQLAlchemyObjectType):
-
         class Meta:
             model = Editor
-            interfaces = (Node, )
+            interfaces = (Node,)
 
     class EditorConnection(Connection):
         class Meta:
@@ -251,7 +218,7 @@ def test_should_custom_identifier(session):
         node = Node.Field()
         all_editors = SQLAlchemyConnectionField(EditorConnection)
 
-    query = '''
+    query = """
         query EditorQuery {
           allEditors {
             edges {
@@ -267,23 +234,14 @@ def test_should_custom_identifier(session):
             }
           }
         }
-    '''
+    """
     expected = {
-        'allEditors': {
-            'edges': [{
-                'node': {
-                    'id': 'RWRpdG9yTm9kZTox',
-                    'name': 'John'
-                }
-            }]
-        },
-        'node': {
-            'name': 'John'
-        }
+        "allEditors": {"edges": [{"node": {"id": "RWRpdG9yTm9kZTox", "name": "John"}}]},
+        "node": {"name": "John"},
     }
 
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={'session': session})
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     assert result.data == expected
 
@@ -292,29 +250,25 @@ def test_should_mutate_well(session):
     setup_fixtures(session)
 
     class EditorNode(SQLAlchemyObjectType):
-
         class Meta:
             model = Editor
-            interfaces = (Node, )
+            interfaces = (Node,)
 
     class ReporterNode(SQLAlchemyObjectType):
-
         class Meta:
             model = Reporter
-            interfaces = (Node, )
+            interfaces = (Node,)
 
         @classmethod
         def get_node(cls, id, info):
-            return Reporter(id=2, first_name='Cookie Monster')
+            return Reporter(id=2, first_name="Cookie Monster")
 
     class ArticleNode(SQLAlchemyObjectType):
-
         class Meta:
             model = Article
-            interfaces = (Node, )
+            interfaces = (Node,)
 
     class CreateArticle(graphene.Mutation):
-
         class Arguments:
             headline = graphene.String()
             reporter_id = graphene.ID()
@@ -323,10 +277,7 @@ def test_should_mutate_well(session):
         article = graphene.Field(ArticleNode)
 
         def mutate(self, info, headline, reporter_id):
-            new_article = Article(
-                headline=headline,
-                reporter_id=reporter_id,
-            )
+            new_article = Article(headline=headline, reporter_id=reporter_id)
 
             session.add(new_article)
             session.commit()
@@ -340,7 +291,7 @@ def test_should_mutate_well(session):
     class Mutation(graphene.ObjectType):
         create_article = CreateArticle.Field()
 
-    query = '''
+    query = """
         mutation ArticleCreator {
           createArticle(
             headline: "My Article"
@@ -356,31 +307,28 @@ def test_should_mutate_well(session):
             }
           }
         }
-    '''
+    """
     expected = {
-        'createArticle': {
-            'ok': True,
-            'article': {
-                'headline': 'My Article',
-                'reporter': {
-                    'id': 'UmVwb3J0ZXJOb2RlOjE=',
-                    'firstName': 'ABA'
-                }
-            }
-        },
+        "createArticle": {
+            "ok": True,
+            "article": {
+                "headline": "My Article",
+                "reporter": {"id": "UmVwb3J0ZXJOb2RlOjE=", "firstName": "ABA"},
+            },
+        }
     }
 
     schema = graphene.Schema(query=Query, mutation=Mutation)
-    result = schema.execute(query, context_value={'session': session})
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     assert result.data == expected
 
 
 def sort_setup(session):
     pets = [
-        Pet(id=2, name='Lassie', pet_kind='dog'),
-        Pet(id=22, name='Alf', pet_kind='cat'),
-        Pet(id=3, name='Barf', pet_kind='dog')
+        Pet(id=2, name="Lassie", pet_kind="dog"),
+        Pet(id=22, name="Alf", pet_kind="cat"),
+        Pet(id=3, name="Barf", pet_kind="dog"),
     ]
     session.add_all(pets)
     session.commit()
@@ -392,7 +340,7 @@ def test_sort(session):
     class PetNode(SQLAlchemyObjectType):
         class Meta:
             model = Pet
-            interfaces = (Node, )
+            interfaces = (Node,)
 
     class PetConnection(Connection):
         class Meta:
@@ -404,12 +352,14 @@ def test_sort(session):
         multipleSort = SQLAlchemyConnectionField(PetConnection)
         descSort = SQLAlchemyConnectionField(PetConnection)
         singleColumnSort = SQLAlchemyConnectionField(
-            PetConnection, sort=graphene.Argument(sort_enum_for_model(Pet)))
+            PetConnection, sort=graphene.Argument(sort_enum_for_model(Pet))
+        )
         noDefaultSort = SQLAlchemyConnectionField(
-            PetConnection, sort=sort_argument_for_model(Pet, False))
+            PetConnection, sort=sort_argument_for_model(Pet, False)
+        )
         noSort = SQLAlchemyConnectionField(PetConnection, sort=None)
 
-    query = '''
+    query = """
         query sortTest {
             defaultSort{
                 edges{
@@ -455,31 +405,39 @@ def test_sort(session):
                 }
             }
         }
-    '''
+    """
 
     def makeNodes(nodeList):
-        nodes = [{'node': item} for item in nodeList]
-        return {'edges': nodes}
+        nodes = [{"node": item} for item in nodeList]
+        return {"edges": nodes}
 
     expected = {
-        'defaultSort': makeNodes([{'id': 'UGV0Tm9kZToy'}, {'id': 'UGV0Tm9kZToz'}, {'id': 'UGV0Tm9kZToyMg=='}]),
-        'nameSort': makeNodes([{'name': 'Alf'}, {'name': 'Barf'}, {'name': 'Lassie'}]),
-        'noDefaultSort': makeNodes([{'name': 'Alf'}, {'name': 'Barf'}, {'name': 'Lassie'}]),
-        'multipleSort': makeNodes([
-            {'name': 'Alf', 'petKind': 'cat'},
-            {'name': 'Lassie', 'petKind': 'dog'},
-            {'name': 'Barf', 'petKind': 'dog'}
-        ]),
-        'descSort': makeNodes([{'name': 'Lassie'}, {'name': 'Barf'}, {'name': 'Alf'}]),
-        'singleColumnSort': makeNodes([{'name': 'Lassie'}, {'name': 'Barf'}, {'name': 'Alf'}]),
+        "defaultSort": makeNodes(
+            [{"id": "UGV0Tm9kZToy"}, {"id": "UGV0Tm9kZToz"}, {"id": "UGV0Tm9kZToyMg=="}]
+        ),
+        "nameSort": makeNodes([{"name": "Alf"}, {"name": "Barf"}, {"name": "Lassie"}]),
+        "noDefaultSort": makeNodes(
+            [{"name": "Alf"}, {"name": "Barf"}, {"name": "Lassie"}]
+        ),
+        "multipleSort": makeNodes(
+            [
+                {"name": "Alf", "petKind": "cat"},
+                {"name": "Lassie", "petKind": "dog"},
+                {"name": "Barf", "petKind": "dog"},
+            ]
+        ),
+        "descSort": makeNodes([{"name": "Lassie"}, {"name": "Barf"}, {"name": "Alf"}]),
+        "singleColumnSort": makeNodes(
+            [{"name": "Lassie"}, {"name": "Barf"}, {"name": "Alf"}]
+        ),
     }  # yapf: disable
 
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={'session': session})
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     assert result.data == expected
 
-    queryError = '''
+    queryError = """
         query sortTest {
             singleColumnSort(sort: [pet_kind_asc, name_desc]){
                 edges{
@@ -489,11 +447,11 @@ def test_sort(session):
                 }
             }
         }
-    '''
-    result = schema.execute(queryError, context_value={'session': session})
+    """
+    result = schema.execute(queryError, context_value={"session": session})
     assert result.errors is not None
 
-    queryNoSort = '''
+    queryNoSort = """
         query sortTest {
             noDefaultSort{
                 edges{
@@ -510,15 +468,19 @@ def test_sort(session):
                 }
             }
         }
-    '''
+    """
 
     expectedNoSort = {
-        'noDefaultSort': makeNodes([{'name': 'Alf'}, {'name': 'Barf'}, {'name': 'Lassie'}]),
-        'noSort': makeNodes([{'name': 'Alf'}, {'name': 'Barf'}, {'name': 'Lassie'}]),
+        "noDefaultSort": makeNodes(
+            [{"name": "Alf"}, {"name": "Barf"}, {"name": "Lassie"}]
+        ),
+        "noSort": makeNodes([{"name": "Alf"}, {"name": "Barf"}, {"name": "Lassie"}]),
     }  # yapf: disable
 
-    result = schema.execute(queryNoSort, context_value={'session': session})
+    result = schema.execute(queryNoSort, context_value={"session": session})
     assert not result.errors
     for key, value in result.data.items():
-        assert set(node['node']['name'] for node in value['edges']) == set(
-            node['node']['name'] for node in expectedNoSort[key]['edges'])
+        assert set(node["node"]["name"] for node in value["edges"]) == set(
+            node["node"]["name"] for node in expectedNoSort[key]["edges"]
+        )
+
