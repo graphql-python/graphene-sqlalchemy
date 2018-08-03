@@ -6,6 +6,12 @@ from sqlalchemy import Column, Date, Enum, ForeignKey, Integer, String, Table
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import mapper, relationship
 
+
+class Hairkind(enum.Enum):
+    LONG = 'long'
+    SHORT = 'short'
+
+
 Base = declarative_base()
 
 association_table = Table(
@@ -27,6 +33,7 @@ class Pet(Base):
     id = Column(Integer(), primary_key=True)
     name = Column(String(30))
     pet_kind = Column(Enum("cat", "dog", name="pet_kind"), nullable=False)
+    hair_kind = Column(Enum(Hairkind, name="hair_kind"), nullable=False)
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
 
 
