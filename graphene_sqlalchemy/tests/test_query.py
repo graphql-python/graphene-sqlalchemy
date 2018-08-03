@@ -151,6 +151,42 @@ def test_enum_parameter(session):
     assert result.data == expected, result.data
 
 
+def test_py_enum_parameter(session):
+    setup_fixtures(session)
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+
+    class Query(graphene.ObjectType):
+        pet = graphene.Field(PetType, kind=graphene.Argument(PetType._meta.fields['hair_kind'].type.of_type))
+
+        def resolve_pet(self, info, kind=None, *args, **kwargs):
+            query = session.query(Pet)
+            if kind:
+                # XXX Why kind passed in as a str instead of a Hairkind instance?
+                query = query.filter(Pet.hair_kind == Hairkind(kind))
+            return query.first()
+
+    query = """
+        query PetQuery($kind: Hairkind) {
+          pet(kind: $kind) {
+            name,
+            petKind
+            hairKind
+          }
+        }
+    """
+    expected = {"pet": {"name": "Lassie", "petKind": "dog", "hairKind": "LONG"}}
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, variables={"kind": "SHORT"})
+    assert not result.errors
+    assert result.data == {"pet": None}
+    result = schema.execute(query, variables={"kind": "LONG"})
+    assert not result.errors
+    assert result.data == expected, result.data
+
+
 def test_should_node(session):
     setup_fixtures(session)
 
