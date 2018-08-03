@@ -116,6 +116,41 @@ def test_should_query_enums(session):
     assert result.data == expected, result.data
 
 
+def test_enum_parameter(session):
+    setup_fixtures(session)
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+
+    class Query(graphene.ObjectType):
+        pet = graphene.Field(PetType, kind=graphene.Argument(PetType._meta.fields['pet_kind'].type.of_type))
+
+        def resolve_pet(self, info, kind=None, *args, **kwargs):
+            query = session.query(Pet)
+            if kind:
+                query = query.filter(Pet.pet_kind == kind)
+            return query.first()
+
+    query = """
+        query PetQuery($kind: pet_kind) {
+          pet(kind: $kind) {
+            name,
+            petKind
+            hairKind
+          }
+        }
+    """
+    expected = {"pet": {"name": "Lassie", "petKind": "dog", "hairKind": "LONG"}}
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, variables={"kind": "cat"})
+    assert not result.errors
+    assert result.data == {"pet": None}
+    result = schema.execute(query, variables={"kind": "dog"})
+    assert not result.errors
+    assert result.data == expected, result.data
+
+
 def test_should_node(session):
     setup_fixtures(session)
 
