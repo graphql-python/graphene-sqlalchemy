@@ -45,7 +45,7 @@ class User(SQLAlchemyObjectType):
         model = UserModel
         # only return specified fields
         only_fields = ("name",)
-        # exclude return specified fields
+        # exclude specified fields
         exclude_fields = ("last_name",)
 
 class Query(graphene.ObjectType):
