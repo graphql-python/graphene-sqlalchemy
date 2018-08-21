@@ -43,6 +43,10 @@ from graphene_sqlalchemy import SQLAlchemyObjectType
 class User(SQLAlchemyObjectType):
     class Meta:
         model = UserModel
+        # only return specified fields
+        only_fields = ("name",)
+        # exclude return specified fields
+        exclude_fields = ("last_name",)
 
 class Query(graphene.ObjectType):
     users = graphene.List(User)
