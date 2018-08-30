@@ -12,7 +12,7 @@ class Department(SQLAlchemyObjectType):
         interfaces = (relay.Node, )
 
 
-class DepartmentConnection(relay.Connection):
+class DepartmentConn(relay.Connection):
     class Meta:
         node = Department
 
@@ -23,7 +23,7 @@ class Employee(SQLAlchemyObjectType):
         interfaces = (relay.Node, )
 
 
-class EmployeeConnection(relay.Connection):
+class EmployeeConn(relay.Connection):
     class Meta:
         node = Employee
 
@@ -34,7 +34,7 @@ class Role(SQLAlchemyObjectType):
         interfaces = (relay.Node, )
 
 
-class RoleConnection(relay.Connection):
+class RoleConn(relay.Connection):
     class Meta:
         node = Role
 
@@ -47,14 +47,14 @@ class Query(graphene.ObjectType):
     node = relay.Node.Field()
     # Allow only single column sorting
     all_employees = SQLAlchemyConnectionField(
-        EmployeeConnection,
+        EmployeeConn,
         sort=graphene.Argument(
             SortEnumEmployee,
             default_value=utils.EnumValue('id_asc', EmployeeModel.id.asc())))
     # Allows sorting over multiple columns, by default over the primary key
-    all_roles = SQLAlchemyConnectionField(RoleConnection)
+    all_roles = SQLAlchemyConnectionField(RoleConn)
     # Disable sorting over this field
-    all_departments = SQLAlchemyConnectionField(DepartmentConnection, sort=None)
+    all_departments = SQLAlchemyConnectionField(DepartmentConn, sort=None)
 
 
 schema = graphene.Schema(query=Query, types=[Department, Employee, Role])
