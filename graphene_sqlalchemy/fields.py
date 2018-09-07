@@ -6,6 +6,7 @@ from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import PageInfo
 from graphql_relay.connection.arrayconnection import connection_from_list_slice
 
+from .filters import filter_class_for_module, Filter
 from .utils import get_query, sort_argument_for_model
 
 
@@ -92,6 +93,24 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
         elif "sort" in kwargs and kwargs["sort"] is None:
             del kwargs["sort"]
         super(SQLAlchemyConnectionField, self).__init__(type, *args, **kwargs)
+
+
+class FilterableConnectionField(SQLAlchemyConnectionField):
+    def __init__(self, type, *args, **kwargs):
+        if 'filter' not in kwargs and issubclass(type, Connection):
+            model = type.Edge.node._type._meta.model
+            kwargs.setdefault('filter', filter_class_for_module(model))
+        elif "filter" in kwargs and kwargs["filter"] is None:
+            del kwargs["filter"]
+        super(FilterableConnectionField, self).__init__(type, *args, **kwargs)
+
+    @classmethod
+    def get_query(cls, model, info, filter=None, **kwargs):
+        query = super(FilterableConnectionField, cls).get_query(model, info, **kwargs)
+        if filter:
+            for k, v in filter.items():
+                query = Filter.add_filter_to_query(query, model, k, v)
+        return query
 
 
 __connectionFactory = UnsortedSQLAlchemyConnectionField

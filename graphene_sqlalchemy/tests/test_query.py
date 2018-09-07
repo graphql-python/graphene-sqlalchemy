@@ -6,7 +6,7 @@ import graphene
 from graphene.relay import Connection, Node
 
 from ..registry import reset_global_registry
-from ..fields import SQLAlchemyConnectionField
+from ..fields import SQLAlchemyConnectionField, FilterableConnectionField
 from ..types import SQLAlchemyObjectType
 from ..utils import sort_argument_for_model, sort_enum_for_model
 from .models import Article, Base, Editor, Pet, Reporter
@@ -483,4 +483,37 @@ def test_sort(session):
         assert set(node["node"]["name"] for node in value["edges"]) == set(
             node["node"]["name"] for node in expectedNoSort[key]["edges"]
         )
+
+
+def test_filter(session):
+    sort_setup(session)
+
+    class PetNode(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            interfaces = (Node,)
+
+    class PetConnection(Connection):
+        class Meta:
+            node = PetNode
+
+    class Query(graphene.ObjectType):
+        pets = FilterableConnectionField(PetConnection)
+
+    only_lassie_query = """
+    query {
+        pets(filter: {name: {eq: "Lassie"}}) {
+            edges {
+                node {
+                    name
+                }
+            }
+        }
+    }
+    """
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(only_lassie_query, context_value={"session": session})
+    assert len(result.data['pets']['edges']) == 1
+    assert result.data['pets']['edges'][0]['node']['name'] == 'Lassie'
+
 
