@@ -150,8 +150,11 @@ def convert_enum_to_enum(type, column, registry=None):
         items = type.enum_class.__members__.items()
     except AttributeError:
         items = zip(type.enums, type.enums)
+
+    enum_name = type.name or "{}_{}".format(column.table, column.name)
+
     return Field(
-        Enum(type.name, items),
+        Enum(enum_name, items),
         description=get_column_doc(column),
         required=not (is_column_nullable(column)),
     )
