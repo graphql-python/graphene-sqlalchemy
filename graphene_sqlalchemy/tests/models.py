@@ -21,12 +21,14 @@ class Editor(Base):
     editor_id = Column(Integer(), primary_key=True)
     name = Column(String(100))
 
+PetKindEnum = Enum("cat", "dog", name="pet_kind")
 
 class Pet(Base):
     __tablename__ = "pets"
     id = Column(Integer(), primary_key=True)
     name = Column(String(30))
-    pet_kind = Column(Enum("cat", "dog", name="pet_kind"), nullable=False)
+    pet_kind = Column(PetKindEnum, nullable=False)
+    pet_kind_again = Column(PetKindEnum)
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
 
 
