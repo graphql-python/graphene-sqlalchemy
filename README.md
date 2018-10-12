@@ -22,7 +22,6 @@ Here is a simple SQLAlchemy model:
 
 ```python
 from sqlalchemy import Column, Integer, String
-from sqlalchemy.orm import relationship
 
 from sqlalchemy.ext.declarative import declarative_base
 
