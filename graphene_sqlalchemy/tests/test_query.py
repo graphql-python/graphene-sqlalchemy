@@ -9,7 +9,7 @@ from ..registry import reset_global_registry
 from ..fields import SQLAlchemyConnectionField
 from ..types import SQLAlchemyObjectType
 from ..utils import sort_argument_for_model, sort_enum_for_model
-from .models import Article, Base, Editor, Pet, Reporter
+from .models import Article, Base, Editor, Pet, Reporter, Hairkind
 
 db = create_engine("sqlite:///test_sqlalchemy.sqlite3")
 
@@ -34,7 +34,7 @@ def session():
 
 
 def setup_fixtures(session):
-    pet = Pet(name="Lassie", pet_kind="dog")
+    pet = Pet(name="Lassie", pet_kind="dog", hair_kind=Hairkind.LONG)
     session.add(pet)
     reporter = Reporter(first_name="ABA", last_name="X")
     session.add(reporter)
@@ -105,12 +105,84 @@ def test_should_query_enums(session):
           pet {
             name,
             petKind
+            hairKind
           }
         }
     """
-    expected = {"pet": {"name": "Lassie", "petKind": "dog"}}
+    expected = {"pet": {"name": "Lassie", "petKind": "dog", "hairKind": "LONG"}}
     schema = graphene.Schema(query=Query)
     result = schema.execute(query)
+    assert not result.errors
+    assert result.data == expected, result.data
+
+
+def test_enum_parameter(session):
+    setup_fixtures(session)
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+
+    class Query(graphene.ObjectType):
+        pet = graphene.Field(PetType, kind=graphene.Argument(PetType._meta.fields['pet_kind'].type.of_type))
+
+        def resolve_pet(self, info, kind=None, *args, **kwargs):
+            query = session.query(Pet)
+            if kind:
+                query = query.filter(Pet.pet_kind == kind)
+            return query.first()
+
+    query = """
+        query PetQuery($kind: pet_kind) {
+          pet(kind: $kind) {
+            name,
+            petKind
+            hairKind
+          }
+        }
+    """
+    expected = {"pet": {"name": "Lassie", "petKind": "dog", "hairKind": "LONG"}}
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, variables={"kind": "cat"})
+    assert not result.errors
+    assert result.data == {"pet": None}
+    result = schema.execute(query, variables={"kind": "dog"})
+    assert not result.errors
+    assert result.data == expected, result.data
+
+
+def test_py_enum_parameter(session):
+    setup_fixtures(session)
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+
+    class Query(graphene.ObjectType):
+        pet = graphene.Field(PetType, kind=graphene.Argument(PetType._meta.fields['hair_kind'].type.of_type))
+
+        def resolve_pet(self, info, kind=None, *args, **kwargs):
+            query = session.query(Pet)
+            if kind:
+                # XXX Why kind passed in as a str instead of a Hairkind instance?
+                query = query.filter(Pet.hair_kind == Hairkind(kind))
+            return query.first()
+
+    query = """
+        query PetQuery($kind: Hairkind) {
+          pet(kind: $kind) {
+            name,
+            petKind
+            hairKind
+          }
+        }
+    """
+    expected = {"pet": {"name": "Lassie", "petKind": "dog", "hairKind": "LONG"}}
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, variables={"kind": "SHORT"})
+    assert not result.errors
+    assert result.data == {"pet": None}
+    result = schema.execute(query, variables={"kind": "LONG"})
     assert not result.errors
     assert result.data == expected, result.data
 
@@ -326,9 +398,9 @@ def test_should_mutate_well(session):
 
 def sort_setup(session):
     pets = [
-        Pet(id=2, name="Lassie", pet_kind="dog"),
-        Pet(id=22, name="Alf", pet_kind="cat"),
-        Pet(id=3, name="Barf", pet_kind="dog"),
+        Pet(id=2, name="Lassie", pet_kind="dog", hair_kind=Hairkind.LONG),
+        Pet(id=22, name="Alf", pet_kind="cat", hair_kind=Hairkind.LONG),
+        Pet(id=3, name="Barf", pet_kind="dog", hair_kind=Hairkind.LONG),
     ]
     session.add_all(pets)
     session.commit()

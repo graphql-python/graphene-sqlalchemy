@@ -271,10 +271,20 @@ def test_should_postgresql_uuid_convert():
 
 def test_should_postgresql_enum_convert():
     field = assert_column_conversion(
-        postgresql.ENUM(enum.Enum("one", "two"), name="two_numbers"), graphene.Field
+        postgresql.ENUM("one", "two", name="two_numbers"), graphene.Field
     )
     field_type = field.type()
     assert field_type.__class__.__name__ == "two_numbers"
+    assert isinstance(field_type, graphene.Enum)
+    assert hasattr(field_type, "two")
+
+
+def test_should_postgresql_py_enum_convert():
+    field = assert_column_conversion(
+        postgresql.ENUM(enum.Enum("TwoNumbers", "one two"), name="two_numbers"), graphene.Field
+    )
+    field_type = field.type()
+    assert field_type.__class__.__name__ == "TwoNumbers"
     assert isinstance(field_type, graphene.Enum)
     assert hasattr(field_type, "two")
 
