@@ -29,7 +29,7 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 class UserModel(Base):
-    __tablename__ = 'department'
+    __tablename__ = 'user'
     id = Column(Integer, primary_key=True)
     name = Column(String)
     last_name = Column(String)
