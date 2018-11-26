@@ -19,8 +19,10 @@ from .registry import Registry, get_global_registry
 from .utils import get_query, is_mapped_class, is_mapped_instance
 
 
-def construct_fields(model, registry, only_fields, exclude_fields):
+def construct_fields(model, registry, only_fields, exclude_fields, aliased_fields):
     inspected_model = sqlalchemyinspect(model)
+    if aliased_fields is None:
+        aliased_fields = {}
 
     fields = OrderedDict()
 
@@ -33,7 +35,8 @@ def construct_fields(model, registry, only_fields, exclude_fields):
             # in there. Or when we exclude this field in exclude_fields
             continue
         converted_column = convert_sqlalchemy_column(column, registry)
-        fields[name] = converted_column
+        alias = aliased_fields.get(name, name)
+        fields[alias] = converted_column
 
     for name, composite in inspected_model.composites.items():
         is_not_in_only = only_fields and name not in only_fields
@@ -44,7 +47,8 @@ def construct_fields(model, registry, only_fields, exclude_fields):
             # in there. Or when we exclude this field in exclude_fields
             continue
         converted_composite = convert_sqlalchemy_composite(composite, registry)
-        fields[name] = converted_composite
+        alias = aliased_fields.get(name, name)
+        fields[alias] = converted_composite
 
     for hybrid_item in inspected_model.all_orm_descriptors:
 
@@ -61,7 +65,8 @@ def construct_fields(model, registry, only_fields, exclude_fields):
                 continue
 
             converted_hybrid_property = convert_sqlalchemy_hybrid_method(hybrid_item)
-            fields[name] = converted_hybrid_property
+            alias = aliased_fields.get(name, name)
+            fields[alias] = converted_hybrid_property
 
     # Get all the columns for the relationships on the model
     for relationship in inspected_model.relationships:
@@ -74,7 +79,8 @@ def construct_fields(model, registry, only_fields, exclude_fields):
             continue
         converted_relationship = convert_sqlalchemy_relationship(relationship, registry)
         name = relationship.key
-        fields[name] = converted_relationship
+        alias = aliased_fields.get(name, name)
+        fields[alias] = converted_relationship
 
     return fields
 
@@ -95,6 +101,7 @@ class SQLAlchemyObjectType(ObjectType):
         skip_registry=False,
         only_fields=(),
         exclude_fields=(),
+        aliased_fields=None,
         connection=None,
         connection_class=None,
         use_connection=None,
@@ -116,7 +123,7 @@ class SQLAlchemyObjectType(ObjectType):
         ).format(cls.__name__, registry)
 
         sqla_fields = yank_fields_from_attrs(
-            construct_fields(model, registry, only_fields, exclude_fields), _as=Field
+            construct_fields(model, registry, only_fields, exclude_fields, aliased_fields), _as=Field
         )
 
         if use_connection is None and interfaces:
