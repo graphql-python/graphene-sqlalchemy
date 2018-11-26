@@ -19,7 +19,7 @@ requirements = [
     "singledispatch>=3.4.0.3,<4",
 ]
 try:
-    import Enum
+    import enum
 except ImportError:
     requirements.append("enum34 >= 1.1.6")
 
