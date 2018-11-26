@@ -10,6 +10,19 @@ with open("graphene_sqlalchemy/__init__.py", "rb") as f:
         ast.literal_eval(_version_re.search(f.read().decode("utf-8")).group(1))
     )
 
+requirements = [
+    # To keep things simple, we only support newer versions of Graphene
+    "graphene>=2.1.3,<3",
+    # Tests fail with 1.0.19
+    "SQLAlchemy>=1.1,<2",
+    "six>=1.10.0,<2",
+    "singledispatch>=3.4.0.3,<4",
+]
+try:
+    import Enum
+except ImportError:
+    requirements.append("enum34 >= 1.1.6")
+
 tests_require = [
     "pytest==4.3.1",
     "mock==2.0.0",
@@ -42,14 +55,7 @@ setup(
     ],
     keywords="api graphql protocol rest relay graphene",
     packages=find_packages(exclude=["tests"]),
-    install_requires=[
-        # To keep things simple, we only support newer versions of Graphene
-        "graphene>=2.1.3,<3",
-        # Tests fail with 1.0.19
-        "SQLAlchemy>=1.1,<2",
-        "six>=1.10.0,<2",
-        "singledispatch>=3.4.0.3,<4",
-    ],
+    install_requires=requirements,
     extras_require={
         "dev": [
             "tox==3.7.0",  # Should be kept in sync with tox.ini
