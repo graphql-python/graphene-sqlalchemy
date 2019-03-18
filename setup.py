@@ -40,7 +40,7 @@ setup(
         "six>=1.10.0",
         "graphene>=2.1.3",
         "SQLAlchemy",
-        "singledispatch>=3.4.0.3",
+        "singledispatch>=3.4.0.3 ; python_version<'3.4'",
     ],
     tests_require=["pytest>=2.7.2", "mock", "sqlalchemy_utils"],
 )
