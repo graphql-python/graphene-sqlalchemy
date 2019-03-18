@@ -5,7 +5,7 @@ Tips
 Querying
 --------
 
-For make querying to the database work, there are two alternatives:
+In order to make querying against the database work, there are two alternatives:
 
 -  Set the db session when you do the execution:
 
