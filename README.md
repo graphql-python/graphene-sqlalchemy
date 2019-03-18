@@ -38,6 +38,7 @@ class UserModel(Base):
 To create a GraphQL schema for it you simply have to write the following:
 
 ```python
+import graphene
 from graphene_sqlalchemy import SQLAlchemyObjectType
 
 class User(SQLAlchemyObjectType):
