@@ -1,42 +1,69 @@
-import graphene
-from graphene_sqlalchemy.fields import (SQLAlchemyConnectionField,
-                                        registerConnectionFieldFactory,
-                                        unregisterConnectionFieldFactory)
+from graphene_sqlalchemy.fields import (
+    SQLAlchemyConnectionField,
+    register_connection_field_factory,
+    unregister_connection_field_factory,
+    registerConnectionFieldFactory,
+    unregisterConnectionFieldFactory,
+)
+from graphene_sqlalchemy.types import SQLAlchemyObjectType
+from graphene_sqlalchemy.tests.models import Article, Reporter
+from graphene_sqlalchemy.registry import Registry
+from graphene import Connection, Node
 
 
-def test_register():
-    class LXConnectionField(SQLAlchemyConnectionField):
-        @classmethod
-        def _applyQueryArgs(cls, model, q, args):
-            return q
+def define_types():
+    _registry = Registry()
 
-        @classmethod
-        def connection_resolver(
-            cls, resolver, connection, model, root, args, context, info
-        ):
-            def LXResolver(root, args, context, info):
-                iterable = resolver(root, args, context, info)
-                if iterable is None:
-                    iterable = cls.get_query(model, context, info, args)
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            registry = _registry
+            interfaces = (Node,)
 
-                # We accept always a query here. All LX-queries can be filtered and sorted
-                iterable = cls._applyQueryArgs(model, iterable, args)
-                return iterable
 
-            return SQLAlchemyConnectionField.connection_resolver(
-                LXResolver, connection, model, root, args, context, info
-            )
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            registry = _registry
+            interfaces = (Node,)
 
-    def createLXConnectionField(table):
-        class LXConnection(graphene.relay.Connection):
-            class Meta:
-                node = table
+    return {
+        'ReporterType': ReporterType,
+        'ArticleType': ArticleType,
+    }
 
-        return LXConnectionField(
-            LXConnection,
-            filter=table.filter(),
-            order_by=graphene.List(of_type=table.order_by),
-        )
 
-    registerConnectionFieldFactory(createLXConnectionField)
+def test_register_connection_field_factory():
+    def connection_field_factory(relationship, registry):
+        model = relationship.mapper.entity
+        _type = registry.get_type_for_model(model)
+        return SQLAlchemyConnectionField(_type._meta.connection)
+
+    register_connection_field_factory(connection_field_factory)
+
+    types = define_types()
+
+    assert isinstance(types['ReporterType']._meta.fields['articles'].type(), SQLAlchemyConnectionField)
+
+
+def test_unregister_connection_field_factory():
+    register_connection_field_factory(lambda: None)
+    unregister_connection_field_factory()
+
+    types = define_types()
+
+    assert not isinstance(types['ReporterType']._meta.fields['articles'].type(), SQLAlchemyConnectionField)
+
+
+def test_deprecated_registerConnectionFieldFactory():
+    registerConnectionFieldFactory(SQLAlchemyConnectionField)
+    types = define_types()
+    assert isinstance(types['ReporterType']._meta.fields['articles'].type(), SQLAlchemyConnectionField)
+
+
+def test_deprecated_unregisterConnectionFieldFactory():
+    registerConnectionFieldFactory(SQLAlchemyConnectionField)
     unregisterConnectionFieldFactory()
+    types = define_types()
+
+    assert not isinstance(types['ReporterType']._meta.fields['articles'].type(), SQLAlchemyConnectionField)
