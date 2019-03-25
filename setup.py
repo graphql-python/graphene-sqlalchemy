@@ -56,7 +56,6 @@ setup(
     ],
     keywords="api graphql protocol rest relay graphene",
     packages=find_packages(exclude=["tests"]),
-<<<<<<< HEAD
     install_requires=requirements,
     extras_require={
         "dev": [
@@ -67,13 +66,4 @@ setup(
         "test": tests_require,
     },
     tests_require=tests_require,
-=======
-    install_requires=[
-        "six>=1.10.0",
-        "graphene>=2.1.3",
-        "SQLAlchemy",
-        "singledispatch>=3.4.0.3",
-    ],
-    tests_require=["pytest>=2.7.2", "mock", "sqlalchemy_utils", "enum34"],
->>>>>>> tests pass
 )
