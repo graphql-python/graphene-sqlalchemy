@@ -20,7 +20,7 @@ requirements = [
 ]
 try:
     import enum
-except ImportError:
+except ImportError:  # Python < 2.7 and Python 3.3
     requirements.append("enum34 >= 1.1.6")
 
 tests_require = [
