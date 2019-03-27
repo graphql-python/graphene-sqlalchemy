@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from graphene import Field, Int, Interface, ObjectType
 from graphene.relay import Node, is_node, Connection
-import six
+import six  # noqa: F401
 from promise import Promise
 
 from ..registry import Registry
@@ -176,7 +176,9 @@ def test_promise_connection_resolver():
         class Meta:
             node = ReporterWithCustomOptions
 
-    resolver = lambda *args, **kwargs: Promise.resolve([])
+    def resolver(*args, **kwargs):
+        return Promise.resolve([])
+
     result = SQLAlchemyConnectionField.connection_resolver(
         resolver, TestConnection, ReporterWithCustomOptions, None, None
     )

@@ -1,9 +1,11 @@
 from collections import OrderedDict
 
+import sqlalchemy
 from sqlalchemy.inspection import inspect as sqlalchemyinspect
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm.exc import NoResultFound
 
+import graphene
 from graphene import Field  # , annotate, ResolveInfo
 from graphene.relay import Connection, Node
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
@@ -80,9 +82,9 @@ def construct_fields(model, registry, only_fields, exclude_fields):
 
 
 class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
-    model = None  # type: Model
-    registry = None  # type: Registry
-    connection = None  # type: Type[Connection]
+    model = None  # type: sqlalchemy.Model
+    registry = None  # type: sqlalchemy.Registry
+    connection = None  # type: graphene.Type[Connection]
     id = None  # type: str
 
 
