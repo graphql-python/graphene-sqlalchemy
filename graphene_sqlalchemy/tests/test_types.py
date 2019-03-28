@@ -47,7 +47,7 @@ def test_sqlalchemy_interface():
 def test_objecttype_registered():
     assert issubclass(Character, ObjectType)
     assert Character._meta.model == Reporter
-    assert list(Character._meta.fields.keys()) == [
+    assert list(Character._meta.fields) == [
         "id",
         "first_name",
         "last_name",
@@ -87,7 +87,7 @@ def test_object_type():
             interfaces = (Node,)
 
     assert issubclass(Human, ObjectType)
-    assert list(Human._meta.fields.keys()) == [
+    assert list(Human._meta.fields) == [
         "id",
         "headline",
         "pub_date",
@@ -114,7 +114,7 @@ class CustomCharacter(CustomSQLAlchemyObjectType):
 def test_custom_objecttype_registered():
     assert issubclass(CustomCharacter, ObjectType)
     assert CustomCharacter._meta.model == Reporter
-    assert list(CustomCharacter._meta.fields.keys()) == [
+    assert list(CustomCharacter._meta.fields) == [
         "id",
         "first_name",
         "last_name",
@@ -157,7 +157,7 @@ class ReporterWithCustomOptions(SQLAlchemyObjectTypeWithCustomOptions):
 def test_objecttype_with_custom_options():
     assert issubclass(ReporterWithCustomOptions, ObjectType)
     assert ReporterWithCustomOptions._meta.model == Reporter
-    assert list(ReporterWithCustomOptions._meta.fields.keys()) == [
+    assert list(ReporterWithCustomOptions._meta.fields) == [
         "custom_field",
         "id",
         "first_name",
