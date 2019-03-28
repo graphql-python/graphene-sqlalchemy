@@ -48,8 +48,8 @@ class User(SQLAlchemyObjectType):
         only_fields = ("name",)
         # exclude specified fields
         exclude_fields = ("last_name",)
-        # alias specified fields
-        aliased_fields = {'name': 'first_name'}
+        # Rename specified fields
+        rename_fields = {'name': 'first_name'}
 
 class Query(graphene.ObjectType):
     users = graphene.List(User)

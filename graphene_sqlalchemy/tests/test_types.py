@@ -183,7 +183,7 @@ def test_promise_connection_resolver():
     assert result is not None
 
 
-class HumanWithFieldAliased(SQLAlchemyObjectType):
+class HumanWithFieldRenamed(SQLAlchemyObjectType):
 
     publication_timestamp = Int()
 
@@ -191,7 +191,7 @@ class HumanWithFieldAliased(SQLAlchemyObjectType):
         model = Article
         registry = registry
         interfaces = (Node,)
-        aliased_fields = {
+        rename_fields = {
             "id": "article_id",
             "headline": "title",
             "pub_date": "publication_timestamp",
@@ -200,17 +200,18 @@ class HumanWithFieldAliased(SQLAlchemyObjectType):
         }
 
 
-def test_objecttype_with_aliased_fields():
-    assert issubclass(HumanWithFieldAliased, ObjectType)
-    assert HumanWithFieldAliased._meta.model == Article
-    assert list(HumanWithFieldAliased._meta.fields.keys()) == [
+def test_objecttype_with_rename_fields():
+    assert issubclass(HumanWithFieldRenamed, ObjectType)
+    assert HumanWithFieldRenamed._meta.model == Article
+    assert list(HumanWithFieldRenamed._meta.fields) == [
         "article_id",
         "title",
+        "description",
         "publication_timestamp",
         "journalist_id",
         "journalist",
         "id",  # Graphene Node ID
     ]
-    replaced_field = HumanWithFieldAliased._meta.fields["publication_timestamp"]
+    replaced_field = HumanWithFieldRenamed._meta.fields["publication_timestamp"]
     assert isinstance(replaced_field, Field)
     assert replaced_field.type == Int
