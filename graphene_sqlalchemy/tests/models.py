@@ -58,6 +58,7 @@ class Article(Base):
     __tablename__ = "articles"
     id = Column(Integer(), primary_key=True)
     headline = Column(String(100))
+    description = Column(String(100))
     pub_date = Column(Date())
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
 

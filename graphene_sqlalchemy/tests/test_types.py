@@ -90,6 +90,7 @@ def test_object_type():
     assert list(Human._meta.fields) == [
         "id",
         "headline",
+        "description",
         "pub_date",
         "reporter_id",
         "reporter",
