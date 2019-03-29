@@ -10,6 +10,12 @@ with open("graphene_sqlalchemy/__init__.py", "rb") as f:
         ast.literal_eval(_version_re.search(f.read().decode("utf-8")).group(1))
     )
 
+tests_require = [
+    "pytest==4.3.1",
+    "mock==2.0.0",
+    "pytest-cov==2.6.1",
+    "sqlalchemy_utils==0.33.9",
+]
 
 setup(
     name="graphene-sqlalchemy",
@@ -37,10 +43,20 @@ setup(
     keywords="api graphql protocol rest relay graphene",
     packages=find_packages(exclude=["tests"]),
     install_requires=[
-        "six>=1.10.0",
-        "graphene>=2.1.3",
-        "SQLAlchemy",
-        "singledispatch>=3.4.0.3",
+        # To keep things simple, we only support newer versions of Graphene
+        "graphene>=2.1.3,<3",
+        # Tests fail with 1.0.19
+        "SQLAlchemy>=1.1,<2",
+        "six>=1.10.0,<2",
+        "singledispatch>=3.4.0.3,<4",
     ],
-    tests_require=["pytest>=2.7.2", "mock", "sqlalchemy_utils"],
+    extras_require={
+        "dev": [
+            "tox==3.7.0",  # Should be kept in sync with tox.ini
+            "coveralls==1.7.0",
+            "pre-commit==1.14.4",
+        ],
+        "test": tests_require,
+    },
+    tests_require=tests_require,
 )

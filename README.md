@@ -112,14 +112,24 @@ To learn more check out the following [examples](examples/):
 
 ## Contributing
 
-After cloning this repo, ensure dependencies are installed by running:
+Set up our development dependencies:
 
 ```sh
-python setup.py install
+pip install -e ".[dev]"
+pre-commit install  
 ```
 
-After developing, the full test suite can be evaluated by running:
+We use `tox` to test this library against different versions of `python` and `SQLAlchemy`.
+While developping locally, it is usually fine to run the tests against the most recent versions:
 
 ```sh
-python setup.py test # Use --pytest-args="-v -s" for verbose mode
+tox -e py37  # Python 3.7, SQLAlchemy < 2.0
+tox -e py37 -- -v -s  # Verbose output
+tox -e py37 -- -k test_query  # Only test_query.py 
+```
+
+Our linters will run automatically when committing via git hooks but you can also run them manually:
+
+```sh
+tox -e pre-commit
 ```
