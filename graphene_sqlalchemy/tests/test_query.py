@@ -555,3 +555,4 @@ def test_sort(session):
         assert set(node["node"]["name"] for node in value["edges"]) == set(
             node["node"]["name"] for node in expectedNoSort[key]["edges"]
         )
+

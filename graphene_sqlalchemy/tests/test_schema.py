@@ -47,3 +47,4 @@ def test_should_map_only_few_fields():
             model = Reporter
             only_fields = ("id", "email")
     assert list(Reporter2._meta.fields.keys()) == ["id", "email"]
+

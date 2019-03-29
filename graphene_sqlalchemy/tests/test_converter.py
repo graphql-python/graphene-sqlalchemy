@@ -168,7 +168,7 @@ def test_should_columproperty_convert():
         )
 
     graphene_type = convert_sqlalchemy_column(Test.column)
-    assert not graphene_type.kwargs["required"]
+    assert graphene_type.kwargs["required"] == False
 
 
 def test_should_scalar_list_convert_list():
@@ -343,3 +343,4 @@ def test_should_unknown_sqlalchemy_composite_raise_exception():
         )
 
     assert "Don't know how to convert the composite field" in str(excinfo.value)
+
