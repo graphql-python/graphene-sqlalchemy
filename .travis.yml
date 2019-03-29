@@ -2,10 +2,8 @@ language: python
 matrix:
   include:
     # Python 2.7
-    # TODO Fix enum and add back tests for py27
-    # See https://github.com/graphql-python/graphene-sqlalchemy/pull/177
-    # - env: TOXENV=py27
-    #   python: 2.7
+    - env: TOXENV=py27
+      python: 2.7
     # Python 3.5
     - env: TOXENV=py34
       python: 3.4
