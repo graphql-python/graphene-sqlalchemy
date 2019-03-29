@@ -31,7 +31,7 @@ If you don't specify any, the following error will be displayed:
 Sorting
 -------
 
-By default the SQLAlchemyConnectionField sorts the result elements over the primary key(s). 
+By default the SQLAlchemyConnectionField sorts the result elements over the primary key(s).
 The query has a `sort` argument which allows to sort over a different column(s)
 
 Given the model
