@@ -1,9 +1,13 @@
 from collections import OrderedDict
 from graphene import Field, Int, Interface, ObjectType
 from graphene.relay import Node, is_node, Connection
+import mock
 import six
+import sqlalchemy.exc
+import sqlalchemy.orm.exc
 from promise import Promise
 
+from .. import utils
 from ..registry import Registry
 from ..types import SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
 from .models import Article, Reporter
@@ -181,3 +185,65 @@ def test_promise_connection_resolver():
         resolver, TestConnection, ReporterWithCustomOptions, None, None
     )
     assert result is not None
+
+
+@mock.patch(utils.__name__ + '.class_mapper')
+def test_unique_errors_propagate(class_mapper_mock):
+    # Define unique error to detect
+    class UniqueError(Exception):
+        pass
+
+    # Mock class_mapper effect
+    class_mapper_mock.side_effect = UniqueError
+
+    # Make sure that errors are propagated from class_mapper when instantiating new classes
+    error = None
+    try:
+        class ArticleOne(SQLAlchemyObjectType):
+            class Meta(object):
+                model = Article
+    except UniqueError as e:
+        error = e
+
+    # Check that an error occured, and that it was the unique error we gave
+    assert error is not None
+    assert isinstance(error, UniqueError)
+
+
+@mock.patch(utils.__name__ + '.class_mapper')
+def test_argument_errors_propagate(class_mapper_mock):
+    # Mock class_mapper effect
+    class_mapper_mock.side_effect = sqlalchemy.exc.ArgumentError
+
+    # Make sure that errors are propagated from class_mapper when instantiating new classes
+    error = None
+    try:
+        class ArticleTwo(SQLAlchemyObjectType):
+            class Meta(object):
+                model = Article
+    except sqlalchemy.exc.ArgumentError as e:
+        error = e
+
+    # Check that an error occured, and that it was the unique error we gave
+    assert error is not None
+    assert isinstance(error, sqlalchemy.exc.ArgumentError)
+
+
+@mock.patch(utils.__name__ + '.class_mapper')
+def test_unmapped_errors_reformat(class_mapper_mock):
+    # Mock class_mapper effect
+    class_mapper_mock.side_effect = sqlalchemy.orm.exc.UnmappedClassError(object)
+
+    # Make sure that errors are propagated from class_mapper when instantiating new classes
+    error = None
+    try:
+        class ArticleThree(SQLAlchemyObjectType):
+            class Meta(object):
+                model = Article
+    except ValueError as e:
+        error = e
+
+    # Check that an error occured, and that it was the unique error we gave
+    assert error is not None
+    assert isinstance(error, ValueError)
+    assert "You need to pass a valid SQLAlchemy Model" in str(error)
