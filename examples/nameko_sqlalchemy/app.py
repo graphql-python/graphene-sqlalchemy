@@ -19,7 +19,7 @@ class App():
               execution_results,
               format_error=default_format_error,is_batch=False, encode=json_encode)
       return result
-  
+
   def parse_body(self,request):
       # We use mimetype here since we don't need the other
       # information provided by content_type
