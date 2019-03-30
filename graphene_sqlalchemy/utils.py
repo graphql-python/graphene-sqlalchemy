@@ -1,8 +1,9 @@
-from graphene import Argument, Enum, List
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
+
+from graphene import Argument, Enum, List
 
 
 def get_session(context):

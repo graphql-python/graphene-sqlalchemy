@@ -5,11 +5,11 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 import graphene
 from graphene.relay import Connection, Node
 
-from ..registry import reset_global_registry
 from ..fields import SQLAlchemyConnectionField
+from ..registry import reset_global_registry
 from ..types import SQLAlchemyObjectType
 from ..utils import sort_argument_for_model, sort_enum_for_model
-from .models import Article, Base, Editor, Pet, Reporter, Hairkind
+from .models import Article, Base, Editor, Hairkind, Pet, Reporter
 
 db = create_engine("sqlite:///test_sqlalchemy.sqlite3")
 

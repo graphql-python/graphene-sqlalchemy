@@ -1,9 +1,7 @@
-from graphene_sqlalchemy.fields import (
-    SQLAlchemyConnectionField,
-    registerConnectionFieldFactory,
-    unregisterConnectionFieldFactory,
-)
 import graphene
+from graphene_sqlalchemy.fields import (SQLAlchemyConnectionField,
+                                        registerConnectionFieldFactory,
+                                        unregisterConnectionFieldFactory)
 
 
 def test_register():

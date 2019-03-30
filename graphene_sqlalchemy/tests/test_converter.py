@@ -1,10 +1,10 @@
 import enum
 
 from py.test import raises
-from sqlalchemy import Column, Table, case, types, select, func
+from sqlalchemy import Column, Table, case, func, select, types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import composite, column_property
+from sqlalchemy.orm import column_property, composite
 from sqlalchemy.sql.elements import Label
 from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
 
@@ -13,11 +13,9 @@ from graphene.relay import Node
 from graphene.types.datetime import DateTime
 from graphene.types.json import JSONString
 
-from ..converter import (
-    convert_sqlalchemy_column,
-    convert_sqlalchemy_composite,
-    convert_sqlalchemy_relationship,
-)
+from ..converter import (convert_sqlalchemy_column,
+                         convert_sqlalchemy_composite,
+                         convert_sqlalchemy_relationship)
 from ..fields import UnsortedSQLAlchemyConnectionField
 from ..registry import Registry
 from ..types import SQLAlchemyObjectType

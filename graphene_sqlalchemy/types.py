@@ -1,8 +1,8 @@
 from collections import OrderedDict
 
 import sqlalchemy
-from sqlalchemy.inspection import inspect as sqlalchemyinspect
 from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.inspection import inspect as sqlalchemyinspect
 from sqlalchemy.orm.exc import NoResultFound
 
 from graphene import Field  # , annotate, ResolveInfo
@@ -10,12 +10,10 @@ from graphene.relay import Connection, Node
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
 
-from .converter import (
-    convert_sqlalchemy_column,
-    convert_sqlalchemy_composite,
-    convert_sqlalchemy_relationship,
-    convert_sqlalchemy_hybrid_method,
-)
+from .converter import (convert_sqlalchemy_column,
+                        convert_sqlalchemy_composite,
+                        convert_sqlalchemy_hybrid_method,
+                        convert_sqlalchemy_relationship)
 from .registry import Registry, get_global_registry
 from .utils import get_query, is_mapped_class, is_mapped_instance
 
