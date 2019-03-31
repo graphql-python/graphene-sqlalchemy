@@ -7,12 +7,11 @@ repos:
     -   id: check-merge-conflict
     -   id: check-yaml
     -   id: debug-statements
-# TDOO Enable in separate PR
-#     -   id: end-of-file-fixer
-#         exclude: ^docs/.*$
-#     -   id: trailing-whitespace
-#         exclude: README.md
-# -   repo: git://github.com/PyCQA/flake8
-#     rev: 88caf5ac484f5c09aedc02167c59c66ff0af0068  # 3.7.7
-#     hooks:
-#     -   id: flake8
+    -   id: end-of-file-fixer
+        exclude: ^docs/.*$
+    -   id: trailing-whitespace
+        exclude: README.md
+-   repo: git://github.com/PyCQA/flake8
+    rev: 88caf5ac484f5c09aedc02167c59c66ff0af0068  # 3.7.7
+    hooks:
+    -   id: flake8
