@@ -162,7 +162,12 @@ def convert_enum_to_enum(type, column, registry=None):
 @convert_sqlalchemy_type.register(ChoiceType)
 def convert_column_to_enum(type, column, registry=None):
     name = "{}_{}".format(column.table.name, column.name).upper()
-    return Enum(name, type.choices, description=get_column_doc(column))
+    enum_members = getattr(type.choices, "__members__", None)
+    if enum_members:  # Check if an enum.Enum is used
+        items = [(item.name, item.value) for item in enum_members.values()]
+    else:  # Nope, just a list of items
+        items = type.choices
+    return Enum(name, items, description=get_column_doc(column))
 
 
 @convert_sqlalchemy_type.register(ScalarListType)

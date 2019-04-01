@@ -142,8 +142,22 @@ def test_should_label_convert_int():
     assert isinstance(graphene_type, graphene.Int)
 
 
-def test_should_choice_convert_enum():
+def test_should_choice_convert_list():
     TYPES = [(u"es", u"Spanish"), (u"en", u"English")]
+    column = Column(ChoiceType(TYPES), doc="Language", name="language")
+    Base = declarative_base()
+
+    Table("translatedmodel", Base.metadata, column)
+    graphene_type = convert_sqlalchemy_column(column)
+    assert issubclass(graphene_type, graphene.Enum)
+    assert graphene_type._meta.name == "TRANSLATEDMODEL_LANGUAGE"
+    assert graphene_type._meta.description == "Language"
+    assert graphene_type._meta.enum.__members__["es"].value == "Spanish"
+    assert graphene_type._meta.enum.__members__["en"].value == "English"
+
+
+def test_should_choice_convert_enum():
+    TYPES = enum.Enum("TYPES", [(u"es", u"Spanish"), (u"en", u"English")])
     column = Column(ChoiceType(TYPES), doc="Language", name="language")
     Base = declarative_base()
 
