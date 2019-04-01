@@ -136,7 +136,7 @@ todo_include_todos = True
 # html_theme = 'alabaster'
 # if on_rtd:
 #     html_theme = 'sphinx_rtd_theme'
-import sphinx_graphene_theme
+import sphinx_graphene_theme  # isort:skip
 
 html_theme = "sphinx_graphene_theme"
 

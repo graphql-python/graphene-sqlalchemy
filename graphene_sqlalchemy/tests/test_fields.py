@@ -1,10 +1,12 @@
-from graphene.relay import Connection
 import pytest
+
+from graphene.relay import Connection
 
 from ..fields import SQLAlchemyConnectionField
 from ..types import SQLAlchemyObjectType
 from ..utils import sort_argument_for_model
-from .models import Pet as PetModel, Editor
+from .models import Editor
+from .models import Pet as PetModel
 
 
 class Pet(SQLAlchemyObjectType):

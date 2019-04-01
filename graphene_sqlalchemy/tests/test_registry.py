@@ -1,8 +1,8 @@
 import pytest
 
-from .models import Pet
 from ..registry import Registry
 from ..types import SQLAlchemyObjectType
+from .models import Pet
 
 
 def test_register_incorrect_objecttype():

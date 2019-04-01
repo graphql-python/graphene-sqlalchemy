@@ -1,5 +1,6 @@
 from functools import partial
-from promise import is_thenable, Promise
+
+from promise import Promise, is_thenable
 from sqlalchemy.orm.query import Query
 
 from graphene.relay import Connection, ConnectionField
