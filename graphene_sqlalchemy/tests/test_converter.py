@@ -199,6 +199,7 @@ def test_should_manytomany_convert_connectionorlist_list():
     assert isinstance(graphene_type, graphene.Field)
     assert isinstance(graphene_type.type, graphene.List)
     assert graphene_type.type.of_type == A
+    assert graphene_type.description == "Pets"
 
 
 def test_should_manytomany_convert_connectionorlist_connection():
@@ -233,6 +234,7 @@ def test_should_manytoone_convert_connectionorlist_list():
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
     assert graphene_type.type == A
+    assert graphene_type.description == "Reporter"
 
 
 def test_should_manytoone_convert_connectionorlist_connection():
@@ -248,6 +250,7 @@ def test_should_manytoone_convert_connectionorlist_connection():
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
     assert graphene_type.type == A
+    assert graphene_type.description == "Reporter"
 
 
 def test_should_onetoone_convert_field():
@@ -263,6 +266,7 @@ def test_should_onetoone_convert_field():
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
     assert graphene_type.type == A
+    assert graphene_type.description == "Favorite Article"
 
 
 def test_should_postgresql_uuid_convert():

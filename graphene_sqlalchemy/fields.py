@@ -97,8 +97,8 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
 __connectionFactory = UnsortedSQLAlchemyConnectionField
 
 
-def createConnectionField(_type):
-    return __connectionFactory(_type)
+def createConnectionField(_type, **kwargs):
+    return __connectionFactory(_type, **kwargs)
 
 
 def registerConnectionFieldFactory(factoryMethod):
