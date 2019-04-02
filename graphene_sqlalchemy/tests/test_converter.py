@@ -87,19 +87,11 @@ def test_should_unicodetext_convert_string():
 
 
 def test_should_enum_convert_enum():
-    field = assert_column_conversion(
-        types.Enum(enum.Enum("one", "two")), graphene.Field
+    graphene_field = assert_column_conversion(
+        types.Enum("one", "two", name="two_numbers"), graphene.Enum
     )
-    field_type = field.type()
-    assert isinstance(field_type, graphene.Enum)
-    assert hasattr(field_type, "two")
-    field = assert_column_conversion(
-        types.Enum("one", "two", name="two_numbers"), graphene.Field
-    )
-    field_type = field.type()
-    assert field_type.__class__.__name__ == "two_numbers"
-    assert isinstance(field_type, graphene.Enum)
-    assert hasattr(field_type, "two")
+    assert graphene_field.type.__name__ == "two_numbers"
+    assert hasattr(graphene_field.type, 'two')
 
 
 def test_should_small_integer_convert_int():
@@ -142,18 +134,26 @@ def test_should_label_convert_int():
     assert isinstance(graphene_type, graphene.Int)
 
 
-def test_should_choice_convert_enum():
+def test_should_list_choice_convert_enum():
     TYPES = [(u"es", u"Spanish"), (u"en", u"English")]
     column = Column(ChoiceType(TYPES), doc="Language", name="language")
     Base = declarative_base()
-
     Table("translatedmodel", Base.metadata, column)
     graphene_type = convert_sqlalchemy_column(column)
-    assert issubclass(graphene_type, graphene.Enum)
+
+    assert isinstance(graphene_type, graphene.Enum)
     assert graphene_type._meta.name == "TRANSLATEDMODEL_LANGUAGE"
-    assert graphene_type._meta.description == "Language"
-    assert graphene_type._meta.enum.__members__["es"].value == "Spanish"
-    assert graphene_type._meta.enum.__members__["en"].value == "English"
+    assert graphene_type.Field().description == "Language"
+    assert graphene_type.es.value == "Spanish"
+    assert graphene_type.en.value == "English"
+
+
+def test_should_enum_choice_convert_enum():
+    TYPES = enum.Enum("TYPES", [(u"es", u"Spanish"), (u"en", u"English")])
+    graphene_field = assert_column_conversion(ChoiceType(TYPES), graphene.Enum)
+    assert graphene_field.type._meta.name == "TYPES"
+    assert graphene_field.type.es.value == "Spanish"
+    assert graphene_field.type.en.value == "English"
 
 
 def test_should_columproperty_convert():
@@ -269,24 +269,20 @@ def test_should_postgresql_uuid_convert():
     assert_column_conversion(postgresql.UUID(), graphene.String)
 
 
-def test_should_postgresql_enum_convert():
-    field = assert_column_conversion(
-        postgresql.ENUM("one", "two", name="two_numbers"), graphene.Field
+def test_should_postgresql_enum_convert_enum():
+    graphene_field = assert_column_conversion(
+        postgresql.ENUM("one", "two", name="two_numbers"), graphene.Enum
     )
-    field_type = field.type()
-    assert field_type.__class__.__name__ == "two_numbers"
-    assert isinstance(field_type, graphene.Enum)
-    assert hasattr(field_type, "two")
+    assert graphene_field.type.__name__ == "two_numbers"
+    assert hasattr(graphene_field.type, "two")
 
 
-def test_should_postgresql_py_enum_convert():
-    field = assert_column_conversion(
-        postgresql.ENUM(enum.Enum("TwoNumbers", "one two"), name="two_numbers"), graphene.Field
+def test_should_postgresql_py_enum_convert_enum():
+    graphene_field = assert_column_conversion(
+        postgresql.ENUM(enum.Enum("TwoNumbers", "one two"), name="two_numbers"), graphene.Enum
     )
-    field_type = field.type()
-    assert field_type.__class__.__name__ == "TwoNumbers"
-    assert isinstance(field_type, graphene.Enum)
-    assert hasattr(field_type, "two")
+    assert graphene_field.type.__name__ == "TwoNumbers"
+    assert hasattr(graphene_field.type, "two")
 
 
 def test_should_postgresql_array_convert():

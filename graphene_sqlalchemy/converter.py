@@ -152,17 +152,24 @@ def convert_enum_to_enum(type, column, registry=None):
     else:  # Nope, just a list of string options
         items = zip(type.enums, type.enums)
         graphene_type = Enum(type.name, items)
-    return Field(
-        graphene_type,
+    return graphene_type(
         description=get_column_doc(column),
         required=not (is_column_nullable(column)),
     )
 
 
 @convert_sqlalchemy_type.register(ChoiceType)
-def convert_column_to_enum(type, column, registry=None):
-    name = "{}_{}".format(column.table.name, column.name).upper()
-    return Enum(name, type.choices, description=get_column_doc(column))
+def convert_column_to_enum(type_, column, registry=None):
+    is_enum = isinstance(type_.choices, type)
+    if is_enum:
+        graphene_type = Enum.from_enum(type_.choices)
+    else:
+        name = "{}_{}".format(column.table.name, column.name).upper()
+        graphene_type = Enum(name, type_.choices)
+    return graphene_type(
+        description=get_column_doc(column),
+        required=not (is_column_nullable(column)),
+    )
 
 
 @convert_sqlalchemy_type.register(ScalarListType)
