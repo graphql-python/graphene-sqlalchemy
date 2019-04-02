@@ -10,7 +10,6 @@ from graphql_relay.connection.arrayconnection import connection_from_list_slice
 
 from .utils import get_query, sort_argument_for_model
 
-
 log = logging.getLogger()
 
 
@@ -99,46 +98,41 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
         super(SQLAlchemyConnectionField, self).__init__(type, *args, **kwargs)
 
 
-def default_connection_field_factory(relationship, registry):
-    model = relationship.mapper.entity
-    _type = registry.get_type_for_model(model)
-    return UnsortedSQLAlchemyConnectionField(_type._meta.connection)
-
-
-__connection_field_factory =  default_connection_field_factory
-
-def create_connection_field(relationship, registry):
-    return __connection_field_factory(relationship, registry)
-
-def register_connection_field_factory(connection_factory):
-    global __connection_field_factory
-    __connection_field_factory = connection_factory
-
-def unregister_connection_field_factory():
-    global __connection_field_factory
-    __connection_field_factory = default_connection_field_factory
-
-
 # TODO Remove in next major version
+__connectionFactory = UnsortedSQLAlchemyConnectionField
+
+
+def createConnectionField(_type):
+    log.warn(
+        'createConnectionField is deprecated and will be removed in the next '
+        'major version. Use TODO instead.'
+    )
+    return __connectionFactory(_type)
+
 
 def registerConnectionFieldFactory(factoryMethod):
     log.warn(
         'registerConnectionFieldFactory is deprecated and will be removed in the next '
-        'major version. Use register_connection_field_factory instead.'
-     )
-
-    def old_factory_method_wrapper(relationship, registry):
-        model = relationship.mapper.entity
-        _type = registry.get_type_for_model(model)
-        return factoryMethod(_type)
-
-    register_connection_field_factory(old_factory_method_wrapper) 
+        'major version. Use TODO instead.'
+    )
+    global __connectionFactory
+    __connectionFactory = factoryMethod
 
 
 def unregisterConnectionFieldFactory():
     log.warn(
         'registerConnectionFieldFactory is deprecated and will be removed in the next '
-        'major version. Use unregister_connection_field_factory instead.'
-     )
-     
-    unregister_connection_field_factory()
+        'major version. Use TODO instead.'
+    )
+    global __connectionFactory
+    __connectionFactory = UnsortedSQLAlchemyConnectionField
+
+
+def default_connection_field_factory(relationship, registry):
+    log.warn(
+        'This is deprecated and will be removed in the next '
+        'major version. Use TODO instead.'
+    )
+    model = relationship.mapper.entity
+    model_type = registry.get_type_for_model(model)
+    return createConnectionField(model_type)
