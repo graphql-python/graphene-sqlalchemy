@@ -98,6 +98,16 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
         super(SQLAlchemyConnectionField, self).__init__(type, *args, **kwargs)
 
 
+def default_connection_field_factory(relationship, registry):
+    log.warn(
+        'This is deprecated and will be removed in the next '
+        'major version. Use TODO instead.'
+    )
+    model = relationship.mapper.entity
+    model_type = registry.get_type_for_model(model)
+    return createConnectionField(model_type)
+
+
 # TODO Remove in next major version
 __connectionFactory = UnsortedSQLAlchemyConnectionField
 
@@ -126,13 +136,3 @@ def unregisterConnectionFieldFactory():
     )
     global __connectionFactory
     __connectionFactory = UnsortedSQLAlchemyConnectionField
-
-
-def default_connection_field_factory(relationship, registry):
-    log.warn(
-        'This is deprecated and will be removed in the next '
-        'major version. Use TODO instead.'
-    )
-    model = relationship.mapper.entity
-    model_type = registry.get_type_for_model(model)
-    return createConnectionField(model_type)
