@@ -1,8 +1,9 @@
-from graphene import Enum, List, ObjectType, Schema, String
 import sqlalchemy as sa
 
-from ..utils import get_session, sort_enum_for_model, sort_argument_for_model
-from .models import Pet, Editor
+from graphene import Enum, List, ObjectType, Schema, String
+
+from ..utils import get_session, sort_argument_for_model, sort_enum_for_model
+from .models import Editor, Pet
 
 
 def test_get_session():

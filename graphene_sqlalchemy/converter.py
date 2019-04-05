@@ -3,7 +3,8 @@ from sqlalchemy import types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import interfaces
 
-from graphene import ID, Boolean, Dynamic, Enum, Field, Float, Int, List, String
+from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
+                      String)
 from graphene.types.json import JSONString
 
 from .fields import createConnectionField

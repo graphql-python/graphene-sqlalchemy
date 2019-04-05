@@ -93,7 +93,7 @@ Create ``flask_sqlalchemy/schema.py`` and type the following:
     import graphene
     from graphene import relay
     from graphene_sqlalchemy import SQLAlchemyObjectType, SQLAlchemyConnectionField
-    from models import db_session, Department as DepartmentModel, Employee as EmployeeModel
+    from .models import db_session, Department as DepartmentModel, Employee as EmployeeModel
 
 
     class Department(SQLAlchemyObjectType):
@@ -146,8 +146,8 @@ installed makes this task quite easy.
     from flask import Flask
     from flask_graphql import GraphQLView
 
-    from models import db_session
-    from schema import schema, Department
+    from .models import db_session
+    from .schema import schema, Department
 
     app = Flask(__name__)
     app.debug = True
@@ -175,7 +175,7 @@ Creating some data
 
     $ python
 
-    >>> from models import engine, db_session, Base, Department, Employee
+    >>> from .models import engine, db_session, Base, Department, Employee
     >>> Base.metadata.create_all(bind=engine)
 
     >>> # Fill the tables with some data

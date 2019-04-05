@@ -1,13 +1,15 @@
 from collections import OrderedDict
-from graphene import Field, Int, Interface, ObjectType
-from graphene.relay import Node, is_node, Connection
+
 import six  # noqa F401
 from promise import Promise
 
+from graphene import Field, Int, Interface, ObjectType
+from graphene.relay import Connection, Node, is_node
+
+from ..fields import SQLAlchemyConnectionField
 from ..registry import Registry
 from ..types import SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
 from .models import Article, Reporter
-from ..fields import SQLAlchemyConnectionField
 
 registry = Registry()
 
