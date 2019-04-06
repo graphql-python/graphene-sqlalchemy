@@ -4,7 +4,7 @@ import enum
 
 from sqlalchemy import Column, Date, Enum, ForeignKey, Integer, String, Table
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import mapper, relationship
+from sqlalchemy.orm import backref, mapper, relationship
 
 
 class Hairkind(enum.Enum):
@@ -43,9 +43,9 @@ class Reporter(Base):
     first_name = Column(String(30))
     last_name = Column(String(30))
     email = Column(String())
-    pets = relationship("Pet", secondary=association_table, backref="reporters")
-    articles = relationship("Article", backref="reporter")
-    favorite_article = relationship("Article", uselist=False)
+    pets = relationship("Pet", secondary=association_table, backref="reporters", doc='Pets')
+    articles = relationship("Article", backref=backref("reporter", doc='Reporter'), doc='Articles')
+    favorite_article = relationship("Article", uselist=False, doc='Favorite Article')
 
     # total = column_property(
     #     select([

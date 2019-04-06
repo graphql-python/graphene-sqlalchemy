@@ -26,17 +26,18 @@ def is_column_nullable(column):
 def convert_sqlalchemy_relationship(relationship, registry):
     direction = relationship.direction
     model = relationship.mapper.entity
+    description = getattr(relationship, "doc", None)
 
     def dynamic_type():
         _type = registry.get_type_for_model(model)
         if not _type:
             return None
         if direction == interfaces.MANYTOONE or not relationship.uselist:
-            return Field(_type)
+            return Field(_type, description=description)
         elif direction in (interfaces.ONETOMANY, interfaces.MANYTOMANY):
             if _type._meta.connection:
-                return createConnectionField(_type._meta.connection)
-            return Field(List(_type))
+                return createConnectionField(_type._meta.connection, description=description)
+            return Field(List(_type), description=description)
 
     return Dynamic(dynamic_type)
 
