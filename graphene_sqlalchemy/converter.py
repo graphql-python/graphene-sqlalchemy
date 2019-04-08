@@ -3,8 +3,8 @@ from sqlalchemy import types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import interfaces
 
-from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
-                      String)
+from graphene import (ID, UUID, Boolean, Dynamic, Enum, Field, Float, Int,
+                      List, String)
 from graphene.types.json import JSONString
 
 from .enums import enum_for_sa_enum
@@ -191,3 +191,8 @@ def convert_json_to_string(type, column, registry=None):
 @convert_sqlalchemy_type.register(JSONType)
 def convert_json_type_to_string(type, column, registry=None):
     return JSONString
+
+
+@convert_sqlalchemy_type.register(postgresql.UUID)
+def convert_column_to_uuid(type, column, registry=None):
+    return UUID

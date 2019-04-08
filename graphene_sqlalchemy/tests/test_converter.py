@@ -252,7 +252,7 @@ def test_should_onetoone_convert_field():
 
 
 def test_should_postgresql_uuid_convert():
-    assert get_field(postgresql.UUID()).type == graphene.String
+    assert get_field(postgresql.UUID()).type == graphene.UUID
 
 
 def test_should_postgresql_enum_convert():
