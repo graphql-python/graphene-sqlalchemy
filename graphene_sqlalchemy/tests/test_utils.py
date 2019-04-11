@@ -2,7 +2,8 @@ import sqlalchemy as sa
 
 from graphene import Enum, List, ObjectType, Schema, String
 
-from ..utils import get_session, sort_argument_for_model, sort_enum_for_model
+from ..utils import (get_session, sort_argument_for_model, sort_enum_for_model,
+                     to_enum_value_name, to_type_name)
 from .models import Editor, Pet
 
 
@@ -25,6 +26,18 @@ def test_get_session():
     result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     assert result.data["x"] == session
+
+
+def test_to_type_name():
+    assert to_type_name('make_camel_case') == 'MakeCamelCase'
+    assert to_type_name('AlreadyCamelCase') == 'AlreadyCamelCase'
+
+
+def test_to_enum_value_name():
+    assert to_enum_value_name('make_enum_value_name') == 'MAKE_ENUM_VALUE_NAME'
+    assert to_enum_value_name('makeEnumValueName') == 'MAKE_ENUM_VALUE_NAME'
+    assert to_enum_value_name('HTTPStatus400Message') == 'HTTP_STATUS400_MESSAGE'
+    assert to_enum_value_name('ALREADY_ENUM_VALUE_NAME') == 'ALREADY_ENUM_VALUE_NAME'
 
 
 def test_sort_enum_for_model():

@@ -6,8 +6,10 @@ from sqlalchemy import Column, Date, Enum, ForeignKey, Integer, String, Table
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import mapper, relationship
 
+PetKind = Enum("cat", "dog", name="pet_kind")
 
-class Hairkind(enum.Enum):
+
+class HairKind(enum.Enum):
     LONG = 'long'
     SHORT = 'short'
 
@@ -32,8 +34,8 @@ class Pet(Base):
     __tablename__ = "pets"
     id = Column(Integer(), primary_key=True)
     name = Column(String(30))
-    pet_kind = Column(Enum("cat", "dog", name="pet_kind"), nullable=False)
-    hair_kind = Column(Enum(Hairkind, name="hair_kind"), nullable=False)
+    pet_kind = Column(PetKind, nullable=False)
+    hair_kind = Column(Enum(HairKind, name="hair_kind"), nullable=False)
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
 
 
@@ -43,6 +45,7 @@ class Reporter(Base):
     first_name = Column(String(30))
     last_name = Column(String(30))
     email = Column(String())
+    favorite_pet_kind = Column(PetKind)
     pets = relationship("Pet", secondary=association_table, backref="reporters")
     articles = relationship("Article", backref="reporter")
     favorite_article = relationship("Article", uselist=False)

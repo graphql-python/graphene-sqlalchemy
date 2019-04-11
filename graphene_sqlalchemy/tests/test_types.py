@@ -54,6 +54,7 @@ def test_objecttype_registered():
         "first_name",
         "last_name",
         "email",
+        "favorite_pet_kind",
         "pets",
         "articles",
         "favorite_article",
@@ -121,6 +122,7 @@ def test_custom_objecttype_registered():
         "first_name",
         "last_name",
         "email",
+        "favorite_pet_kind",
         "pets",
         "articles",
         "favorite_article",
@@ -165,6 +167,7 @@ def test_objecttype_with_custom_options():
         "first_name",
         "last_name",
         "email",
+        "favorite_pet_kind",
         "pets",
         "articles",
         "favorite_article",
@@ -178,7 +181,7 @@ def test_promise_connection_resolver():
         class Meta:
             node = ReporterWithCustomOptions
 
-    def resolver(*args, **kwargs):
+    def resolver(_obj, _info):
         return Promise.resolve([])
 
     result = SQLAlchemyConnectionField.connection_resolver(

@@ -147,17 +147,13 @@ def convert_column_to_float(type, column, registry=None):
 
 @convert_sqlalchemy_type.register(types.Enum)
 def convert_enum_to_enum(type, column, registry=None):
-    enum_class = getattr(type, 'enum_class', None)
-    if enum_class:  # Check if an enum.Enum type is used
-        graphene_type = Enum.from_enum(enum_class)
-    else:  # Nope, just a list of string options
-        items = zip(type.enums, type.enums)
-        graphene_type = Enum(type.name, items)
-    return Field(
-        graphene_type,
-        description=get_column_doc(column),
-        required=not (is_column_nullable(column)),
-    )
+    if registry is None:
+        from .registry import get_global_registry
+        registry = get_global_registry()
+    graphene_type = registry.get_type_for_enum(type)
+    return Field(graphene_type,
+                 description=get_column_doc(column),
+                 required=not(is_column_nullable(column)))
 
 
 @convert_sqlalchemy_type.register(ChoiceType)

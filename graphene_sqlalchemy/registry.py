@@ -1,8 +1,19 @@
+
+from collections import OrderedDict
+
+from sqlalchemy.types import Enum as SQLAlchemyEnumType
+
+from graphene import Enum
+
+from .utils import to_enum_value_name, to_type_name
+
+
 class Registry(object):
     def __init__(self):
         self._registry = {}
         self._registry_models = {}
         self._registry_composites = {}
+        self._registry_enums = {}
 
     def register(self, cls):
         from .types import SQLAlchemyObjectType
@@ -26,6 +37,38 @@ class Registry(object):
 
     def get_converter_for_composite(self, composite):
         return self._registry_composites.get(composite)
+
+    def get_type_for_enum(self, sql_type):
+        if not isinstance(sql_type, SQLAlchemyEnumType):
+            raise TypeError(
+                'Only sqlalchemy.Enum objects can be registered as enum, '
+                'received "{}"'.format(sql_type))
+        enum_class = sql_type.enum_class
+        if enum_class:
+            name = enum_class.__name__
+            members = OrderedDict(
+                (to_enum_value_name(key), value.value)
+                for key, value in enum_class.__members__.items())
+        else:
+            name = sql_type.name
+            name = to_type_name(name) if name else 'Enum{}'.format(
+                len(self._registry_enums) + 1)
+            members = OrderedDict(
+                (to_enum_value_name(key), key) for key in sql_type.enums)
+        graphene_type = self._registry_enums.get(name)
+        if graphene_type:
+            existing_members = {
+                key: value.value for key, value
+                in graphene_type._meta.enum.__members__.items()}
+            if members != existing_members:
+                raise TypeError(
+                    'Different enums with the same name "{}":'
+                    ' tried to register {}, but {} existed already.'.format(
+                        name, members, existing_members))
+        else:
+            graphene_type = Enum(name, members)
+            self._registry_enums[name] = graphene_type
+        return graphene_type
 
 
 registry = None

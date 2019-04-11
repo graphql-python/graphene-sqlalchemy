@@ -9,7 +9,7 @@ from ..fields import SQLAlchemyConnectionField
 from ..registry import reset_global_registry
 from ..types import SQLAlchemyObjectType
 from ..utils import sort_argument_for_model, sort_enum_for_model
-from .models import Article, Base, Editor, Hairkind, Pet, Reporter
+from .models import Article, Base, Editor, HairKind, Pet, Reporter
 
 db = create_engine("sqlite://")  # use in-memory database
 
@@ -34,22 +34,33 @@ def session():
 
 
 def setup_fixtures(session):
-    pet = Pet(name="Lassie", pet_kind="dog", hair_kind=Hairkind.LONG)
-    session.add(pet)
-    reporter = Reporter(first_name="ABA", last_name="X")
+    reporter = Reporter(
+        first_name='John', last_name='Doe', favorite_pet_kind='cat')
     session.add(reporter)
-    reporter2 = Reporter(first_name="ABO", last_name="Y")
-    session.add(reporter2)
-    article = Article(headline="Hi!")
+    pet = Pet(name='Garfield', pet_kind='cat', hair_kind=HairKind.SHORT)
+    session.add(pet)
+    pet.reporters.append(reporter)
+    article = Article(headline='Hi!')
     article.reporter = reporter
     session.add(article)
-    editor = Editor(name="John")
+    reporter = Reporter(
+        first_name='Jane', last_name='Roe', favorite_pet_kind='dog')
+    session.add(reporter)
+    pet = Pet(name='Lassie', pet_kind='dog', hair_kind=HairKind.LONG)
+    pet.reporters.append(reporter)
+    session.add(pet)
+    editor = Editor(name="Jack")
     session.add(editor)
     session.commit()
 
 
 def test_should_query_well(session):
     setup_fixtures(session)
+
+    class PetType(SQLAlchemyObjectType):
+
+        class Meta:
+            model = Pet
 
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
@@ -58,33 +69,68 @@ def test_should_query_well(session):
     class Query(graphene.ObjectType):
         reporter = graphene.Field(ReporterType)
         reporters = graphene.List(ReporterType)
+        pets = graphene.List(PetType, kind=graphene.Argument(
+            PetType._meta.fields['pet_kind'].type))
 
-        def resolve_reporter(self, *args, **kwargs):
+        def resolve_reporter(self, _info):
             return session.query(Reporter).first()
 
-        def resolve_reporters(self, *args, **kwargs):
+        def resolve_reporters(self, _info):
             return session.query(Reporter)
+
+        def resolve_pets(self, _info, kind):
+            query = session.query(Pet)
+            if kind:
+                query = query.filter_by(pet_kind=kind)
+            return query
 
     query = """
         query ReporterQuery {
           reporter {
             firstName,
             lastName,
-            email
+            email,
+            favoritePetKind,
+            pets {
+              name
+              petKind
+            }
           }
           reporters {
             firstName
           }
+          pets(kind: DOG) {
+            name
+            petKind
+          }
         }
     """
     expected = {
-        "reporter": {"firstName": "ABA", "lastName": "X", "email": None},
-        "reporters": [{"firstName": "ABA"}, {"firstName": "ABO"}],
+        'reporter': {
+            'firstName': 'John',
+            'lastName': 'Doe',
+            'email': None,
+            'favoritePetKind': 'CAT',
+            'pets': [{
+                'name': 'Garfield',
+                'petKind': 'CAT'
+            }]
+        },
+        'reporters': [{
+            'firstName': 'John',
+        }, {
+            'firstName': 'Jane',
+        }],
+        'pets': [{
+            'name': 'Lassie',
+            'petKind': 'DOG'
+        }]
     }
     schema = graphene.Schema(query=Query)
     result = schema.execute(query)
     assert not result.errors
-    assert result.data == expected
+    result = to_std_dicts(result.data)
+    assert result == expected
 
 
 def test_should_query_enums(session):
@@ -97,7 +143,7 @@ def test_should_query_enums(session):
     class Query(graphene.ObjectType):
         pet = graphene.Field(PetType)
 
-        def resolve_pet(self, *args, **kwargs):
+        def resolve_pet(self, _info):
             return session.query(Pet).first()
 
     query = """
@@ -109,11 +155,12 @@ def test_should_query_enums(session):
           }
         }
     """
-    expected = {"pet": {"name": "Lassie", "petKind": "dog", "hairKind": "LONG"}}
+    expected = {"pet": {"name": "Garfield", "petKind": "CAT", "hairKind": "SHORT"}}
     schema = graphene.Schema(query=Query)
     result = schema.execute(query)
     assert not result.errors
-    assert result.data == expected, result.data
+    result = to_std_dicts(result.data)
+    assert result == expected
 
 
 def test_enum_parameter(session):
@@ -124,16 +171,18 @@ def test_enum_parameter(session):
             model = Pet
 
     class Query(graphene.ObjectType):
-        pet = graphene.Field(PetType, kind=graphene.Argument(PetType._meta.fields['pet_kind'].type.of_type))
+        pet = graphene.Field(
+            PetType,
+            kind=graphene.Argument(PetType._meta.fields['pet_kind'].type.of_type))
 
-        def resolve_pet(self, info, kind=None, *args, **kwargs):
+        def resolve_pet(self, info, kind=None):
             query = session.query(Pet)
             if kind:
                 query = query.filter(Pet.pet_kind == kind)
             return query.first()
 
     query = """
-        query PetQuery($kind: pet_kind) {
+        query PetQuery($kind: PetKind) {
           pet(kind: $kind) {
             name,
             petKind
@@ -141,14 +190,15 @@ def test_enum_parameter(session):
           }
         }
     """
-    expected = {"pet": {"name": "Lassie", "petKind": "dog", "hairKind": "LONG"}}
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, variables={"kind": "cat"})
+    result = schema.execute(query, variables={"kind": "CAT"})
     assert not result.errors
-    assert result.data == {"pet": None}
-    result = schema.execute(query, variables={"kind": "dog"})
+    expected = {"pet": {"name": "Garfield", "petKind": "CAT", "hairKind": "SHORT"}}
+    assert result.data == expected
+    result = schema.execute(query, variables={"kind": "DOG"})
     assert not result.errors
-    assert result.data == expected, result.data
+    expected = {"pet": {"name": "Lassie", "petKind": "DOG", "hairKind": "LONG"}}
+    assert result.data == expected
 
 
 def test_py_enum_parameter(session):
@@ -161,15 +211,15 @@ def test_py_enum_parameter(session):
     class Query(graphene.ObjectType):
         pet = graphene.Field(PetType, kind=graphene.Argument(PetType._meta.fields['hair_kind'].type.of_type))
 
-        def resolve_pet(self, info, kind=None, *args, **kwargs):
+        def resolve_pet(self, _info, kind=None):
             query = session.query(Pet)
             if kind:
                 # XXX Why kind passed in as a str instead of a Hairkind instance?
-                query = query.filter(Pet.hair_kind == Hairkind(kind))
+                query = query.filter(Pet.hair_kind == HairKind(kind))
             return query.first()
 
     query = """
-        query PetQuery($kind: Hairkind) {
+        query PetQuery($kind: HairKind) {
           pet(kind: $kind) {
             name,
             petKind
@@ -177,14 +227,15 @@ def test_py_enum_parameter(session):
           }
         }
     """
-    expected = {"pet": {"name": "Lassie", "petKind": "dog", "hairKind": "LONG"}}
     schema = graphene.Schema(query=Query)
     result = schema.execute(query, variables={"kind": "SHORT"})
     assert not result.errors
-    assert result.data == {"pet": None}
+    expected = {"pet": {"name": "Garfield", "petKind": "CAT", "hairKind": "SHORT"}}
+    assert result.data == expected
     result = schema.execute(query, variables={"kind": "LONG"})
     assert not result.errors
-    assert result.data == expected, result.data
+    expected = {"pet": {"name": "Lassie", "petKind": "DOG", "hairKind": "LONG"}}
+    assert result.data == expected
 
 
 def test_should_node(session):
@@ -218,10 +269,10 @@ def test_should_node(session):
         article = graphene.Field(ArticleNode)
         all_articles = SQLAlchemyConnectionField(ArticleConnection)
 
-        def resolve_reporter(self, *args, **kwargs):
+        def resolve_reporter(self, _info):
             return session.query(Reporter).first()
 
-        def resolve_article(self, *args, **kwargs):
+        def resolve_article(self, _info):
             return session.query(Article).first()
 
     query = """
@@ -260,8 +311,8 @@ def test_should_node(session):
     expected = {
         "reporter": {
             "id": "UmVwb3J0ZXJOb2RlOjE=",
-            "firstName": "ABA",
-            "lastName": "X",
+            "firstName": "John",
+            "lastName": "Doe",
             "email": None,
             "articles": {"edges": [{"node": {"headline": "Hi!"}}]},
         },
@@ -271,7 +322,8 @@ def test_should_node(session):
     schema = graphene.Schema(query=Query)
     result = schema.execute(query, context_value={"session": session})
     assert not result.errors
-    assert result.data == expected
+    result = to_std_dicts(result.data)
+    assert result == expected
 
 
 def test_should_custom_identifier(session):
@@ -308,14 +360,15 @@ def test_should_custom_identifier(session):
         }
     """
     expected = {
-        "allEditors": {"edges": [{"node": {"id": "RWRpdG9yTm9kZTox", "name": "John"}}]},
-        "node": {"name": "John"},
+        "allEditors": {"edges": [{"node": {"id": "RWRpdG9yTm9kZTox", "name": "Jack"}}]},
+        "node": {"name": "Jack"},
     }
 
     schema = graphene.Schema(query=Query)
     result = schema.execute(query, context_value={"session": session})
     assert not result.errors
-    assert result.data == expected
+    result = to_std_dicts(result.data)
+    assert result == expected
 
 
 def test_should_mutate_well(session):
@@ -385,7 +438,7 @@ def test_should_mutate_well(session):
             "ok": True,
             "article": {
                 "headline": "My Article",
-                "reporter": {"id": "UmVwb3J0ZXJOb2RlOjE=", "firstName": "ABA"},
+                "reporter": {"id": "UmVwb3J0ZXJOb2RlOjE=", "firstName": "John"},
             },
         }
     }
@@ -393,14 +446,15 @@ def test_should_mutate_well(session):
     schema = graphene.Schema(query=Query, mutation=Mutation)
     result = schema.execute(query, context_value={"session": session})
     assert not result.errors
-    assert result.data == expected
+    result = to_std_dicts(result.data)
+    assert result == expected
 
 
 def sort_setup(session):
     pets = [
-        Pet(id=2, name="Lassie", pet_kind="dog", hair_kind=Hairkind.LONG),
-        Pet(id=22, name="Alf", pet_kind="cat", hair_kind=Hairkind.LONG),
-        Pet(id=3, name="Barf", pet_kind="dog", hair_kind=Hairkind.LONG),
+        Pet(id=2, name="Lassie", pet_kind="dog", hair_kind=HairKind.LONG),
+        Pet(id=22, name="Alf", pet_kind="cat", hair_kind=HairKind.LONG),
+        Pet(id=3, name="Barf", pet_kind="dog", hair_kind=HairKind.LONG),
     ]
     session.add_all(pets)
     session.commit()
@@ -493,9 +547,9 @@ def test_sort(session):
         ),
         "multipleSort": makeNodes(
             [
-                {"name": "Alf", "petKind": "cat"},
-                {"name": "Lassie", "petKind": "dog"},
-                {"name": "Barf", "petKind": "dog"},
+                {"name": "Alf", "petKind": "CAT"},
+                {"name": "Lassie", "petKind": "DOG"},
+                {"name": "Barf", "petKind": "DOG"},
             ]
         ),
         "descSort": makeNodes([{"name": "Lassie"}, {"name": "Barf"}, {"name": "Alf"}]),
@@ -507,7 +561,8 @@ def test_sort(session):
     schema = graphene.Schema(query=Query)
     result = schema.execute(query, context_value={"session": session})
     assert not result.errors
-    assert result.data == expected
+    result = to_std_dicts(result.data)
+    assert result == expected
 
     queryError = """
         query sortTest {
@@ -555,3 +610,13 @@ def test_sort(session):
         assert set(node["node"]["name"] for node in value["edges"]) == set(
             node["node"]["name"] for node in expectedNoSort[key]["edges"]
         )
+
+
+def to_std_dicts(value):
+    """Convert nested ordered dicts to normal dicts for better comparison."""
+    if isinstance(value, dict):
+        return {k: to_std_dicts(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [to_std_dicts(v) for v in value]
+    else:
+        return value
