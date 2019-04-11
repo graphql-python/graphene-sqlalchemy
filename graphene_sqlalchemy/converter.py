@@ -161,7 +161,7 @@ def convert_enum_to_enum(type, column, registry=None):
 
 
 @convert_sqlalchemy_type.register(ChoiceType)
-def convert_column_to_enum(type, column, registry=None):
+def convert_choice_to_enum(type, column, registry=None):
     name = "{}_{}".format(column.table.name, column.name).upper()
     return Enum(name, type.choices, description=get_column_doc(column))
 
