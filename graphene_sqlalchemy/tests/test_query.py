@@ -11,7 +11,7 @@ from ..types import SQLAlchemyObjectType
 from ..utils import sort_argument_for_model, sort_enum_for_model
 from .models import Article, Base, Editor, Hairkind, Pet, Reporter
 
-db = create_engine("sqlite:///test_sqlalchemy.sqlite3")
+db = create_engine("sqlite://")  # use in-memory database
 
 
 @pytest.yield_fixture(scope="function")
