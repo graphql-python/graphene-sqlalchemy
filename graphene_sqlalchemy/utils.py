@@ -47,24 +47,25 @@ def is_mapped_instance(cls):
 
 def to_type_name(name):
     """Convert the given name to a GraphQL type name."""
-    return ''.join(part[:1].upper() + part[1:] for part in name.split('_'))
+    return "".join(part[:1].upper() + part[1:] for part in name.split("_"))
 
 
-_re_enum_value_name_1 = re.compile('(.)([A-Z][a-z]+)')
-_re_enum_value_name_2 = re.compile('([a-z0-9])([A-Z])')
+_re_enum_value_name_1 = re.compile("(.)([A-Z][a-z]+)")
+_re_enum_value_name_2 = re.compile("([a-z0-9])([A-Z])")
 
 
 def to_enum_value_name(name):
     """Convert the given name to a GraphQL enum value name."""
     return _re_enum_value_name_2.sub(
-        r'\1_\2', _re_enum_value_name_1.sub(r'\1_\2', name)).upper()
+        r"\1_\2", _re_enum_value_name_1.sub(r"\1_\2", name)
+    ).upper()
 
 
 def default_symbol_name(column_name, is_asc):
     return to_enum_value_name(column_name) + ("_ASC" if is_asc else "_DESC")
 
 
-def plain_symbol_name(column_name, is_asc):
+def plain_symbol_name(column_name, is_asc):  # pragma: no cover
     return column_name + ("_asc" if is_asc else "_desc")
 
 
@@ -80,7 +81,8 @@ class EnumValue(str):
 
 
 def create_sort_enum_for_model(
-        cls, name=None, symbol_name=default_symbol_name, registry=None):
+    cls, name=None, symbol_name=default_symbol_name, registry=None
+):
     """Create a Graphene Enum type for defining a sort order for the given model class.
 
     The created Enum type and sort order will then be registered for that class.
@@ -104,6 +106,7 @@ def create_sort_enum_for_model(
         name = cls.__name__ + "SortEnum"
     if registry is None:
         from .registry import get_global_registry
+
         registry = get_global_registry()
     members = OrderedDict()
     default_sort = []
@@ -134,6 +137,7 @@ def get_sort_enum_for_model(cls, registry=None):
     """
     if registry is None:
         from .registry import get_global_registry
+
         registry = get_global_registry()
     sort_params = registry.get_sort_params_for_model(cls)
     if not sort_params:
@@ -141,11 +145,15 @@ def get_sort_enum_for_model(cls, registry=None):
     return sort_params[0]
 
 
-def sort_enum_for_model(cls, name=None, symbol_name=plain_symbol_name):
+def sort_enum_for_model(
+    cls, name=None, symbol_name=plain_symbol_name
+):  # pragma: no cover
     warnings.warn(
         "sort_argument_for_model() is deprecated;"
         " use get_sort_argument_for_model() and create_sort_argument_for_model()",
-        DeprecationWarning, stacklevel=2)
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if not name and not symbol_name:
         return get_sort_enum_for_model(cls)
     sort_params = create_sort_enum_for_model(cls, name, symbol_name)
@@ -161,6 +169,7 @@ def get_sort_argument_for_model(cls, has_default=True, registry=None):
     """
     if registry is None:
         from .registry import get_global_registry
+
         registry = get_global_registry()
     sort_params = registry.get_sort_params_for_model(cls)
     if not sort_params:
@@ -171,8 +180,10 @@ def get_sort_argument_for_model(cls, has_default=True, registry=None):
     return Argument(List(enum), default_value=default)
 
 
-def sort_argument_for_model(cls, has_default=True):
+def sort_argument_for_model(cls, has_default=True):  # pragma: no cover
     warnings.warn(
         "sort_argument_for_model() is deprecated; use get_sort_argument_for_model().",
-        DeprecationWarning, stacklevel=2)
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return get_sort_argument_for_model(cls, has_default=has_default)
