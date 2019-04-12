@@ -8,7 +8,7 @@ from graphene.relay import Connection, Node
 from ..fields import SQLAlchemyConnectionField
 from ..registry import reset_global_registry
 from ..types import SQLAlchemyObjectType
-from ..utils import sort_argument_for_model, sort_enum_for_model
+from ..utils import get_sort_argument_for_model, get_sort_enum_for_model
 from .models import Article, Base, Editor, HairKind, Pet, Reporter
 
 db = create_engine("sqlite://")  # use in-memory database
@@ -478,10 +478,10 @@ def test_sort(session):
         multipleSort = SQLAlchemyConnectionField(PetConnection)
         descSort = SQLAlchemyConnectionField(PetConnection)
         singleColumnSort = SQLAlchemyConnectionField(
-            PetConnection, sort=graphene.Argument(sort_enum_for_model(Pet))
+            PetConnection, sort=graphene.Argument(get_sort_enum_for_model(Pet))
         )
         noDefaultSort = SQLAlchemyConnectionField(
-            PetConnection, sort=sort_argument_for_model(Pet, False)
+            PetConnection, sort=get_sort_argument_for_model(Pet, False)
         )
         noSort = SQLAlchemyConnectionField(PetConnection, sort=None)
 
@@ -494,14 +494,14 @@ def test_sort(session):
                     }
                 }
             }
-            nameSort(sort: name_asc){
+            nameSort(sort: NAME_ASC){
                 edges{
                     node{
                         name
                     }
                 }
             }
-            multipleSort(sort: [pet_kind_asc, name_desc]){
+            multipleSort(sort: [PET_KIND_ASC, NAME_DESC]){
                 edges{
                     node{
                         name
@@ -509,21 +509,21 @@ def test_sort(session):
                     }
                 }
             }
-            descSort(sort: [name_desc]){
+            descSort(sort: [NAME_DESC]){
                 edges{
                     node{
                         name
                     }
                 }
             }
-            singleColumnSort(sort: name_desc){
+            singleColumnSort(sort: NAME_DESC){
                 edges{
                     node{
                         name
                     }
                 }
             }
-            noDefaultSort(sort: name_asc){
+            noDefaultSort(sort: NAME_ASC){
                 edges{
                     node{
                         name

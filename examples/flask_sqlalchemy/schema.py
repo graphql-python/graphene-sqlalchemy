@@ -1,11 +1,11 @@
+from models import Department as DepartmentModel
+from models import Employee as EmployeeModel
+from models import Role as RoleModel
+
 import graphene
 from graphene import relay
 from graphene_sqlalchemy import (SQLAlchemyConnectionField,
                                  SQLAlchemyObjectType, utils)
-
-from .models import Department as DepartmentModel
-from .models import Employee as EmployeeModel
-from .models import Role as RoleModel
 
 
 class Department(SQLAlchemyObjectType):
@@ -26,8 +26,7 @@ class Role(SQLAlchemyObjectType):
         interfaces = (relay.Node, )
 
 
-SortEnumEmployee = utils.sort_enum_for_model(EmployeeModel, 'SortEnumEmployee',
-    lambda c, d: c.upper() + ('_ASC' if d else '_DESC'))
+SortEnumEmployee = utils.get_sort_enum_for_model(EmployeeModel)
 
 
 class Query(graphene.ObjectType):

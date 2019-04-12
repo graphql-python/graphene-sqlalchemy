@@ -7,7 +7,7 @@ from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import PageInfo
 from graphql_relay.connection.arrayconnection import connection_from_list_slice
 
-from .utils import get_query, sort_argument_for_model
+from .utils import get_query, get_sort_argument_for_model
 
 
 class UnsortedSQLAlchemyConnectionField(ConnectionField):
@@ -82,7 +82,7 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
             # Let super class raise if type is not a Connection
             try:
                 model = type.Edge.node._type._meta.model
-                kwargs.setdefault("sort", sort_argument_for_model(model))
+                kwargs.setdefault("sort", get_sort_argument_for_model(model))
             except Exception:
                 raise Exception(
                     'Cannot create sort argument for {}. A model is required. Set the "sort" argument'

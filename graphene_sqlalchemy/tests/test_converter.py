@@ -323,7 +323,7 @@ def test_should_postgresql_hstore_convert():
 
 
 def test_should_composite_convert():
-    class CompositeClass(object):
+    class CompositeClass:
         def __init__(self, col1, col2):
             self.col1 = col1
             self.col2 = col2
