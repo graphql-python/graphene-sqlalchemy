@@ -193,7 +193,7 @@ def test_should_manytomany_convert_connectionorlist_list():
             model = Pet
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.pets.property, A._meta.registry, test_should_manytomany_convert_connectionorlist
+        Reporter.pets.property, A._meta.registry, default_connection_field_factory
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
