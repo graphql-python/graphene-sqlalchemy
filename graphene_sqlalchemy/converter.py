@@ -8,6 +8,7 @@ from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
 from graphene.types.json import JSONString
 
 from .fields import createConnectionField
+from .registry import get_global_registry
 
 try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
@@ -64,8 +65,6 @@ def convert_sqlalchemy_composite(composite, registry):
 
 def _register_composite_class(cls, registry=None):
     if registry is None:
-        from .registry import get_global_registry
-
         registry = get_global_registry()
 
     def inner(fn):
@@ -148,7 +147,6 @@ def convert_column_to_float(type, column, registry=None):
 @convert_sqlalchemy_type.register(types.Enum)
 def convert_enum_to_enum(type, column, registry=None):
     if registry is None:
-        from .registry import get_global_registry
         registry = get_global_registry()
     graphene_type = registry.get_type_for_enum(type)
     return Field(graphene_type,

@@ -32,6 +32,7 @@ def test_get_session():
 def test_to_type_name():
     assert to_type_name("make_camel_case") == "MakeCamelCase"
     assert to_type_name("AlreadyCamelCase") == "AlreadyCamelCase"
+    assert to_type_name("A_Snake_and_a_Camel") == "ASnakeAndACamel"
 
 
 def test_to_enum_value_name():

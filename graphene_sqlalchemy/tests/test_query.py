@@ -58,7 +58,6 @@ def test_should_query_well(session):
     setup_fixtures(session)
 
     class PetType(SQLAlchemyObjectType):
-
         class Meta:
             model = Pet
 

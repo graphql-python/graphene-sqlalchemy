@@ -106,7 +106,6 @@ def create_sort_enum_for_model(
         name = cls.__name__ + "SortEnum"
     if registry is None:
         from .registry import get_global_registry
-
         registry = get_global_registry()
     members = OrderedDict()
     default_sort = []
@@ -137,7 +136,6 @@ def get_sort_enum_for_model(cls, registry=None):
     """
     if registry is None:
         from .registry import get_global_registry
-
         registry = get_global_registry()
     sort_params = registry.get_sort_params_for_model(cls)
     if not sort_params:
@@ -169,7 +167,6 @@ def get_sort_argument_for_model(cls, has_default=True, registry=None):
     """
     if registry is None:
         from .registry import get_global_registry
-
         registry = get_global_registry()
     sort_params = registry.get_sort_params_for_model(cls)
     if not sort_params:
