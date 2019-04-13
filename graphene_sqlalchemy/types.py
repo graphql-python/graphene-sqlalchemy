@@ -14,11 +14,12 @@ from .converter import (convert_sqlalchemy_column,
                         convert_sqlalchemy_composite,
                         convert_sqlalchemy_hybrid_method,
                         convert_sqlalchemy_relationship)
+from .fields import default_connection_field_factory
 from .registry import Registry, get_global_registry
 from .utils import get_query, is_mapped_class, is_mapped_instance
 
 
-def construct_fields(model, registry, only_fields, exclude_fields):
+def construct_fields(model, registry, only_fields, exclude_fields, connection_field_factory):
     inspected_model = sqlalchemyinspect(model)
 
     fields = OrderedDict()
@@ -71,7 +72,7 @@ def construct_fields(model, registry, only_fields, exclude_fields):
             # We skip this field if we specify only_fields and is not
             # in there. Or when we exclude this field in exclude_fields
             continue
-        converted_relationship = convert_sqlalchemy_relationship(relationship, registry)
+        converted_relationship = convert_sqlalchemy_relationship(relationship, registry, connection_field_factory)
         name = relationship.key
         fields[name] = converted_relationship
 
@@ -99,6 +100,7 @@ class SQLAlchemyObjectType(ObjectType):
         use_connection=None,
         interfaces=(),
         id=None,
+        connection_field_factory=default_connection_field_factory,
         _meta=None,
         **options
     ):
@@ -115,7 +117,14 @@ class SQLAlchemyObjectType(ObjectType):
         ).format(cls.__name__, registry)
 
         sqla_fields = yank_fields_from_attrs(
-            construct_fields(model, registry, only_fields, exclude_fields), _as=Field
+            construct_fields(
+                model=model,
+                registry=registry,
+                only_fields=only_fields,
+                exclude_fields=exclude_fields,
+                connection_field_factory=connection_field_factory
+            ),
+            _as=Field
         )
 
         if use_connection is None and interfaces:
