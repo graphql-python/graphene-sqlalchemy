@@ -7,7 +7,6 @@ from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
                       String)
 from graphene.types.json import JSONString
 
-from .fields import createConnectionField
 from .registry import get_global_registry
 
 try:
@@ -24,7 +23,7 @@ def is_column_nullable(column):
     return bool(getattr(column, "nullable", True))
 
 
-def convert_sqlalchemy_relationship(relationship, registry):
+def convert_sqlalchemy_relationship(relationship, registry, connection_field_factory):
     direction = relationship.direction
     model = relationship.mapper.entity
 
@@ -36,7 +35,7 @@ def convert_sqlalchemy_relationship(relationship, registry):
             return Field(_type)
         elif direction in (interfaces.ONETOMANY, interfaces.MANYTOMANY):
             if _type._meta.connection:
-                return createConnectionField(_type._meta.connection)
+                return connection_field_factory(relationship, registry)
             return Field(List(_type))
 
     return Dynamic(dynamic_type)

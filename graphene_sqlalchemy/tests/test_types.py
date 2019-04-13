@@ -3,10 +3,13 @@ from collections import OrderedDict
 import six  # noqa F401
 from promise import Promise
 
-from graphene import Field, Int, Interface, ObjectType
-from graphene.relay import Connection, Node, is_node
+from graphene import (Connection, Field, Int, Interface, Node, ObjectType,
+                      is_node)
 
-from ..fields import SQLAlchemyConnectionField
+from ..fields import (SQLAlchemyConnectionField,
+                      UnsortedSQLAlchemyConnectionField,
+                      registerConnectionFieldFactory,
+                      unregisterConnectionFieldFactory)
 from ..registry import Registry
 from ..types import SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
 from .models import Article, Reporter
@@ -188,3 +191,92 @@ def test_promise_connection_resolver():
         resolver, TestConnection, ReporterWithCustomOptions, None, None
     )
     assert result is not None
+
+
+# Tests for connection_field_factory
+
+class _TestSQLAlchemyConnectionField(SQLAlchemyConnectionField):
+    pass
+
+
+def test_default_connection_field_factory():
+    _registry = Registry()
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            registry = _registry
+            interfaces = (Node,)
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            registry = _registry
+            interfaces = (Node,)
+
+    assert isinstance(ReporterType._meta.fields['articles'].type(), UnsortedSQLAlchemyConnectionField)
+
+
+def test_register_connection_field_factory():
+    def test_connection_field_factory(relationship, registry):
+        model = relationship.mapper.entity
+        _type = registry.get_type_for_model(model)
+        return _TestSQLAlchemyConnectionField(_type._meta.connection)
+
+    _registry = Registry()
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            registry = _registry
+            interfaces = (Node,)
+            connection_field_factory = test_connection_field_factory
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            registry = _registry
+            interfaces = (Node,)
+
+    assert isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
+
+
+def test_deprecated_registerConnectionFieldFactory():
+    registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
+
+    _registry = Registry()
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            registry = _registry
+            interfaces = (Node,)
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            registry = _registry
+            interfaces = (Node,)
+
+    assert isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
+
+
+def test_deprecated_unregisterConnectionFieldFactory():
+    registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
+    unregisterConnectionFieldFactory()
+
+    _registry = Registry()
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            registry = _registry
+            interfaces = (Node,)
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            registry = _registry
+            interfaces = (Node,)
+
+    assert not isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
