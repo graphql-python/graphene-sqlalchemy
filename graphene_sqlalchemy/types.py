@@ -5,7 +5,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect as sqlalchemyinspect
 from sqlalchemy.orm.exc import NoResultFound
 
-from graphene import Field  # , annotate, ResolveInfo
+from graphene import Field
 from graphene.relay import Connection, Node
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
@@ -14,12 +14,16 @@ from .converter import (convert_sqlalchemy_column,
                         convert_sqlalchemy_composite,
                         convert_sqlalchemy_hybrid_method,
                         convert_sqlalchemy_relationship)
+from .enums import (enum_for_field, sort_argument_for_object_type,
+                    sort_enum_for_object_type)
 from .fields import default_connection_field_factory
 from .registry import Registry, get_global_registry
 from .utils import get_query, is_mapped_class, is_mapped_instance
 
 
-def construct_fields(model, registry, only_fields, exclude_fields, connection_field_factory):
+def construct_fields(
+    obj_type, model, registry, only_fields, exclude_fields, connection_field_factory
+):
     inspected_model = sqlalchemyinspect(model)
 
     fields = OrderedDict()
@@ -33,6 +37,7 @@ def construct_fields(model, registry, only_fields, exclude_fields, connection_fi
             # in there. Or when we exclude this field in exclude_fields
             continue
         converted_column = convert_sqlalchemy_column(column, registry)
+        registry.register_orm_field(obj_type, name, column)
         fields[name] = converted_column
 
     for name, composite in inspected_model.composites.items():
@@ -44,6 +49,7 @@ def construct_fields(model, registry, only_fields, exclude_fields, connection_fi
             # in there. Or when we exclude this field in exclude_fields
             continue
         converted_composite = convert_sqlalchemy_composite(composite, registry)
+        registry.register_orm_field(obj_type, name, composite)
         fields[name] = converted_composite
 
     for hybrid_item in inspected_model.all_orm_descriptors:
@@ -61,6 +67,7 @@ def construct_fields(model, registry, only_fields, exclude_fields, connection_fi
                 continue
 
             converted_hybrid_property = convert_sqlalchemy_hybrid_method(hybrid_item)
+            registry.register_orm_field(obj_type, name, hybrid_item)
             fields[name] = converted_hybrid_property
 
     # Get all the columns for the relationships on the model
@@ -72,8 +79,11 @@ def construct_fields(model, registry, only_fields, exclude_fields, connection_fi
             # We skip this field if we specify only_fields and is not
             # in there. Or when we exclude this field in exclude_fields
             continue
-        converted_relationship = convert_sqlalchemy_relationship(relationship, registry, connection_field_factory)
+        converted_relationship = convert_sqlalchemy_relationship(
+            relationship, registry, connection_field_factory
+        )
         name = relationship.key
+        registry.register_orm_field(obj_type, name, relationship)
         fields[name] = converted_relationship
 
     return fields
@@ -118,13 +128,14 @@ class SQLAlchemyObjectType(ObjectType):
 
         sqla_fields = yank_fields_from_attrs(
             construct_fields(
+                obj_type=cls,
                 model=model,
                 registry=registry,
                 only_fields=only_fields,
                 exclude_fields=exclude_fields,
-                connection_field_factory=connection_field_factory
+                connection_field_factory=connection_field_factory,
             ),
-            _as=Field
+            _as=Field,
         )
 
         if use_connection is None and interfaces:
@@ -191,3 +202,11 @@ class SQLAlchemyObjectType(ObjectType):
         # graphene_type = info.parent_type.graphene_type
         keys = self.__mapper__.primary_key_from_instance(self)
         return tuple(keys) if len(keys) > 1 else keys[0]
+
+    @classmethod
+    def enum_for_field(cls, field_name):
+        return enum_for_field(cls, field_name)
+
+    sort_enum = classmethod(sort_enum_for_object_type)
+
+    sort_argument = classmethod(sort_argument_for_object_type)

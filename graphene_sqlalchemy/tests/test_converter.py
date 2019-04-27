@@ -1,6 +1,6 @@
 import enum
 
-from py.test import raises
+import pytest
 from sqlalchemy import Column, Table, case, func, select, types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
@@ -52,9 +52,9 @@ def assert_composite_conversion(
 
 
 def test_should_unknown_sqlalchemy_field_raise_exception():
-    with raises(Exception) as excinfo:
+    re_err = "Don't know how to convert the SQLAlchemy field"
+    with pytest.raises(Exception, match=re_err):
         convert_sqlalchemy_column(None)
-    assert "Don't know how to convert the SQLAlchemy field" in str(excinfo.value)
 
 
 def test_should_date_convert_string():
@@ -87,18 +87,34 @@ def test_should_unicodetext_convert_string():
 
 def test_should_enum_convert_enum():
     field = assert_column_conversion(
-        types.Enum(enum.Enum("one", "two")), graphene.Field
+        types.Enum(enum.Enum("TwoNumbers", ("one", "two"))), graphene.Field
     )
     field_type = field.type()
     assert isinstance(field_type, graphene.Enum)
-    assert hasattr(field_type, "two")
+    assert hasattr(field_type, "ONE")
+    assert not hasattr(field_type, "one")
+    assert hasattr(field_type, "TWO")
+    assert not hasattr(field_type, "two")
+
     field = assert_column_conversion(
         types.Enum("one", "two", name="two_numbers"), graphene.Field
     )
     field_type = field.type()
-    assert field_type.__class__.__name__ == "two_numbers"
+    assert field_type._meta.name == "TwoNumbers"
     assert isinstance(field_type, graphene.Enum)
-    assert hasattr(field_type, "two")
+    assert hasattr(field_type, "ONE")
+    assert not hasattr(field_type, "one")
+    assert hasattr(field_type, "TWO")
+    assert not hasattr(field_type, "two")
+
+
+def test_should_not_enum_convert_enum_without_name():
+    field = assert_column_conversion(
+        types.Enum("one", "two"), graphene.Field
+    )
+    re_err = r"No type name specified for Enum\('one', 'two'\)"
+    with pytest.raises(TypeError, match=re_err):
+        field.type()
 
 
 def test_should_small_integer_convert_int():
@@ -260,7 +276,9 @@ def test_should_onetoone_convert_field():
             interfaces = (Node,)
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.favorite_article.property, A._meta.registry, default_connection_field_factory
+        Reporter.favorite_article.property,
+        A._meta.registry,
+        default_connection_field_factory,
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
@@ -277,19 +295,26 @@ def test_should_postgresql_enum_convert():
         postgresql.ENUM("one", "two", name="two_numbers"), graphene.Field
     )
     field_type = field.type()
-    assert field_type.__class__.__name__ == "two_numbers"
+    assert field_type._meta.name == "TwoNumbers"
     assert isinstance(field_type, graphene.Enum)
-    assert hasattr(field_type, "two")
+    assert hasattr(field_type, "ONE")
+    assert not hasattr(field_type, "one")
+    assert hasattr(field_type, "TWO")
+    assert not hasattr(field_type, "two")
 
 
 def test_should_postgresql_py_enum_convert():
     field = assert_column_conversion(
-        postgresql.ENUM(enum.Enum("TwoNumbers", "one two"), name="two_numbers"), graphene.Field
+        postgresql.ENUM(enum.Enum("TwoNumbers", "one two"), name="two_numbers"),
+        graphene.Field,
     )
     field_type = field.type()
-    assert field_type.__class__.__name__ == "TwoNumbers"
+    assert field_type._meta.name == "TwoNumbers"
     assert isinstance(field_type, graphene.Enum)
-    assert hasattr(field_type, "two")
+    assert hasattr(field_type, "ONE")
+    assert not hasattr(field_type, "one")
+    assert hasattr(field_type, "TWO")
+    assert not hasattr(field_type, "two")
 
 
 def test_should_postgresql_array_convert():
@@ -309,7 +334,7 @@ def test_should_postgresql_hstore_convert():
 
 
 def test_should_composite_convert():
-    class CompositeClass(object):
+    class CompositeClass:
         def __init__(self, col1, col2):
             self.col1 = col1
             self.col2 = col2
@@ -331,7 +356,8 @@ def test_should_composite_convert():
 def test_should_unknown_sqlalchemy_composite_raise_exception():
     registry = Registry()
 
-    with raises(Exception) as excinfo:
+    re_err = "Don't know how to convert the composite field"
+    with pytest.raises(Exception, match=re_err):
 
         class CompositeClass(object):
             def __init__(self, col1, col2):
@@ -344,5 +370,3 @@ def test_should_unknown_sqlalchemy_composite_raise_exception():
             graphene.String,
             registry,
         )
-
-    assert "Don't know how to convert the composite field" in str(excinfo.value)
