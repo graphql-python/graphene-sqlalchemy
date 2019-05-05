@@ -381,6 +381,9 @@ def test_sort_query(session):
 
     result = schema.execute(queryNoSort, context_value={"session": session})
     assert not result.errors
+    # TODO: SQLite usually returns the results ordered by primary key,
+    # so we cannot test this way whether sorting actually happens or not.
+    # Also, no sort order is guaranteed by SQLite if "no order" by is used.
     assert [node["node"]["name"] for node in result.data["noSort"]["edges"]] == [
         node["node"]["name"] for node in result.data["noDefaultSort"]["edges"]
     ]
