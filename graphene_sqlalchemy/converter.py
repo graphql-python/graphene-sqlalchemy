@@ -7,6 +7,9 @@ from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
                       String)
 from graphene.types.json import JSONString
 
+from .enums import enum_for_sa_enum
+from .registry import get_global_registry
+
 try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
 except ImportError:
@@ -145,21 +148,15 @@ def convert_column_to_float(type, column, registry=None):
 
 @convert_sqlalchemy_type.register(types.Enum)
 def convert_enum_to_enum(type, column, registry=None):
-    enum_class = getattr(type, 'enum_class', None)
-    if enum_class:  # Check if an enum.Enum type is used
-        graphene_type = Enum.from_enum(enum_class)
-    else:  # Nope, just a list of string options
-        items = zip(type.enums, type.enums)
-        graphene_type = Enum(type.name, items)
     return Field(
-        graphene_type,
+        lambda: enum_for_sa_enum(type, registry or get_global_registry()),
         description=get_column_doc(column),
         required=not (is_column_nullable(column)),
     )
 
 
 @convert_sqlalchemy_type.register(ChoiceType)
-def convert_column_to_enum(type, column, registry=None):
+def convert_choice_to_enum(type, column, registry=None):
     name = "{}_{}".format(column.table.name, column.name).upper()
     return Enum(name, type.choices, description=get_column_doc(column))
 

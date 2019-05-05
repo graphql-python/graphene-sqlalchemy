@@ -8,7 +8,7 @@ from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import PageInfo
 from graphql_relay.connection.arrayconnection import connection_from_list_slice
 
-from .utils import get_query, sort_argument_for_model
+from .utils import get_query
 
 log = logging.getLogger()
 
@@ -84,10 +84,9 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
         if "sort" not in kwargs and issubclass(type, Connection):
             # Let super class raise if type is not a Connection
             try:
-                model = type.Edge.node._type._meta.model
-                kwargs.setdefault("sort", sort_argument_for_model(model))
-            except Exception:
-                raise Exception(
+                kwargs.setdefault("sort", type.Edge.node._type.sort_argument())
+            except (AttributeError, TypeError):
+                raise TypeError(
                     'Cannot create sort argument for {}. A model is required. Set the "sort" argument'
                     " to None to disabling the creation of the sort query argument".format(
                         type.__name__
@@ -109,7 +108,7 @@ __connectionFactory = UnsortedSQLAlchemyConnectionField
 
 
 def createConnectionField(_type):
-    log.warn(
+    log.warning(
         'createConnectionField is deprecated and will be removed in the next '
         'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.'
     )
@@ -117,7 +116,7 @@ def createConnectionField(_type):
 
 
 def registerConnectionFieldFactory(factoryMethod):
-    log.warn(
+    log.warning(
         'registerConnectionFieldFactory is deprecated and will be removed in the next '
         'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.'
     )
@@ -126,7 +125,7 @@ def registerConnectionFieldFactory(factoryMethod):
 
 
 def unregisterConnectionFieldFactory():
-    log.warn(
+    log.warning(
         'registerConnectionFieldFactory is deprecated and will be removed in the next '
         'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.'
     )

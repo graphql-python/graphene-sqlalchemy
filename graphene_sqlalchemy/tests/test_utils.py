@@ -1,9 +1,11 @@
+import pytest
 import sqlalchemy as sa
 
 from graphene import Enum, List, ObjectType, Schema, String
 
-from ..utils import get_session, sort_argument_for_model, sort_enum_for_model
-from .models import Editor, Pet
+from ..utils import (get_session, sort_argument_for_model, sort_enum_for_model,
+                     to_enum_value_name, to_type_name)
+from .models import Base, Editor, Pet
 
 
 def test_get_session():
@@ -27,8 +29,25 @@ def test_get_session():
     assert result.data["x"] == session
 
 
+def test_to_type_name():
+    assert to_type_name("make_camel_case") == "MakeCamelCase"
+    assert to_type_name("AlreadyCamelCase") == "AlreadyCamelCase"
+    assert to_type_name("A_Snake_and_a_Camel") == "ASnakeAndACamel"
+
+
+def test_to_enum_value_name():
+    assert to_enum_value_name("make_enum_value_name") == "MAKE_ENUM_VALUE_NAME"
+    assert to_enum_value_name("makeEnumValueName") == "MAKE_ENUM_VALUE_NAME"
+    assert to_enum_value_name("HTTPStatus400Message") == "HTTP_STATUS400_MESSAGE"
+    assert to_enum_value_name("ALREADY_ENUM_VALUE_NAME") == "ALREADY_ENUM_VALUE_NAME"
+
+
+# test deprecated sort enum utility functions
+
+
 def test_sort_enum_for_model():
-    enum = sort_enum_for_model(Pet)
+    with pytest.warns(DeprecationWarning):
+        enum = sort_enum_for_model(Pet)
     assert isinstance(enum, type(Enum))
     assert str(enum) == "PetSortEnum"
     for col in sa.inspect(Pet).columns:
@@ -37,7 +56,10 @@ def test_sort_enum_for_model():
 
 
 def test_sort_enum_for_model_custom_naming():
-    enum = sort_enum_for_model(Pet, "Foo", lambda n, d: n.upper() + ("A" if d else "D"))
+    with pytest.warns(DeprecationWarning):
+        enum = sort_enum_for_model(
+            Pet, "Foo", lambda n, d: n.upper() + ("A" if d else "D")
+        )
     assert str(enum) == "Foo"
     for col in sa.inspect(Pet).columns:
         assert hasattr(enum, col.name.upper() + "A")
@@ -45,32 +67,35 @@ def test_sort_enum_for_model_custom_naming():
 
 
 def test_enum_cache():
-    assert sort_enum_for_model(Editor) is sort_enum_for_model(Editor)
+    with pytest.warns(DeprecationWarning):
+        assert sort_enum_for_model(Editor) is sort_enum_for_model(Editor)
 
 
 def test_sort_argument_for_model():
-    arg = sort_argument_for_model(Pet)
+    with pytest.warns(DeprecationWarning):
+        arg = sort_argument_for_model(Pet)
 
     assert isinstance(arg.type, List)
     assert arg.default_value == [Pet.id.name + "_asc"]
-    assert arg.type.of_type == sort_enum_for_model(Pet)
+    with pytest.warns(DeprecationWarning):
+        assert arg.type.of_type is sort_enum_for_model(Pet)
 
 
 def test_sort_argument_for_model_no_default():
-    arg = sort_argument_for_model(Pet, False)
+    with pytest.warns(DeprecationWarning):
+        arg = sort_argument_for_model(Pet, False)
 
     assert arg.default_value is None
 
 
 def test_sort_argument_for_model_multiple_pk():
-    Base = sa.ext.declarative.declarative_base()
-
     class MultiplePK(Base):
         foo = sa.Column(sa.Integer, primary_key=True)
         bar = sa.Column(sa.Integer, primary_key=True)
         __tablename__ = "MultiplePK"
 
-    arg = sort_argument_for_model(MultiplePK)
+    with pytest.warns(DeprecationWarning):
+        arg = sort_argument_for_model(MultiplePK)
     assert set(arg.default_value) == set(
         (MultiplePK.foo.name + "_asc", MultiplePK.bar.name + "_asc")
     )

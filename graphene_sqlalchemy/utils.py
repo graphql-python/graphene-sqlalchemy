@@ -1,9 +1,9 @@
+import re
+import warnings
+
 from sqlalchemy.exc import ArgumentError
-from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
-
-from graphene import Argument, Enum, List
 
 
 def get_session(context):
@@ -41,70 +41,102 @@ def is_mapped_instance(cls):
         return True
 
 
-def _symbol_name(column_name, is_asc):
-    return column_name + ("_asc" if is_asc else "_desc")
+def to_type_name(name):
+    """Convert the given name to a GraphQL type name."""
+    return "".join(part[:1].upper() + part[1:] for part in name.split("_"))
+
+
+_re_enum_value_name_1 = re.compile("(.)([A-Z][a-z]+)")
+_re_enum_value_name_2 = re.compile("([a-z0-9])([A-Z])")
+
+
+def to_enum_value_name(name):
+    """Convert the given name to a GraphQL enum value name."""
+    return _re_enum_value_name_2.sub(
+        r"\1_\2", _re_enum_value_name_1.sub(r"\1_\2", name)
+    ).upper()
 
 
 class EnumValue(str):
-    """Subclass of str that stores a string and an arbitrary value in the "value" property"""
+    """String that has an additional value attached.
 
-    def __new__(cls, str_value, value):
-        return super(EnumValue, cls).__new__(cls, str_value)
+    This is used to attach SQLAlchemy model columns to Enum symbols.
+    """
 
-    def __init__(self, str_value, value):
+    def __new__(cls, s, value):
+        return super(EnumValue, cls).__new__(cls, s)
+
+    def __init__(self, _s, value):
         super(EnumValue, self).__init__()
         self.value = value
 
 
-# Cache for the generated enums, to avoid name clash
-_ENUM_CACHE = {}
+def _deprecated_default_symbol_name(column_name, sort_asc):
+    return column_name + ("_asc" if sort_asc else "_desc")
 
 
-def _sort_enum_for_model(cls, name=None, symbol_name=_symbol_name):
-    name = name or cls.__name__ + "SortEnum"
-    if name in _ENUM_CACHE:
-        return _ENUM_CACHE[name]
-    items = []
-    default = []
-    for column in inspect(cls).columns.values():
-        asc_name = symbol_name(column.name, True)
-        asc_value = EnumValue(asc_name, column.asc())
-        desc_name = symbol_name(column.name, False)
-        desc_value = EnumValue(desc_name, column.desc())
-        if column.primary_key:
-            default.append(asc_value)
-        items.extend(((asc_name, asc_value), (desc_name, desc_value)))
-    enum = Enum(name, items)
-    _ENUM_CACHE[name] = (enum, default)
-    return enum, default
+# unfortunately, we cannot use lru_cache because we still support Python 2
+_deprecated_object_type_cache = {}
 
 
-def sort_enum_for_model(cls, name=None, symbol_name=_symbol_name):
-    """Create Graphene Enum for sorting a SQLAlchemy class query
+def _deprecated_object_type_for_model(cls, name):
 
-    Parameters
-    - cls : Sqlalchemy model class
-        Model used to create the sort enumerator
-    - name : str, optional, default None
-        Name to use for the enumerator. If not provided it will be set to `cls.__name__ + 'SortEnum'`
-    - symbol_name : function, optional, default `_symbol_name`
-        Function which takes the column name and a boolean indicating if the sort direction is ascending,
-        and returns the symbol name for the current column and sort direction.
-        The default function will create, for a column named 'foo', the symbols 'foo_asc' and 'foo_desc'
+    try:
+        return _deprecated_object_type_cache[cls, name]
+    except KeyError:
+        from .types import SQLAlchemyObjectType
 
-    Returns
-    - Enum
-        The Graphene enumerator
+        obj_type_name = name or cls.__name__
+
+        class ObjType(SQLAlchemyObjectType):
+            class Meta:
+                name = obj_type_name
+                model = cls
+
+        _deprecated_object_type_cache[cls, name] = ObjType
+        return ObjType
+
+
+def sort_enum_for_model(cls, name=None, symbol_name=None):
+    """Get a Graphene Enum for sorting the given model class.
+
+    This is deprecated, please use object_type.sort_enum() instead.
     """
-    enum, _ = _sort_enum_for_model(cls, name, symbol_name)
-    return enum
+    warnings.warn(
+        "sort_enum_for_model() is deprecated; use object_type.sort_enum() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+    from .enums import sort_enum_for_object_type
+
+    return sort_enum_for_object_type(
+        _deprecated_object_type_for_model(cls, name),
+        name,
+        get_symbol_name=symbol_name or _deprecated_default_symbol_name,
+    )
 
 
 def sort_argument_for_model(cls, has_default=True):
-    """Returns a Graphene argument for the sort field that accepts a list of sorting directions for a model.
-    If `has_default` is True (the default) it will sort the result by the primary key(s)
+    """Get a Graphene Argument for sorting the given model class.
+
+    This is deprecated, please use object_type.sort_argument() instead.
     """
-    enum, default = _sort_enum_for_model(cls)
+    warnings.warn(
+        "sort_argument_for_model() is deprecated;"
+        " use object_type.sort_argument() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+    from graphene import Argument, List
+    from .enums import sort_enum_for_object_type
+
+    enum = sort_enum_for_object_type(
+        _deprecated_object_type_for_model(cls, None),
+        get_symbol_name=_deprecated_default_symbol_name,
+    )
     if not has_default:
-        default = None
-    return Argument(List(enum), default_value=default)
+        enum.default = None
+
+    return Argument(List(enum), default_value=enum.default)

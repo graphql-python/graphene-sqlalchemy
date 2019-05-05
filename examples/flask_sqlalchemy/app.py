@@ -1,43 +1,46 @@
 #!/usr/bin/env python
 
+from database import db_session, init_db
 from flask import Flask
+from schema import schema
 
 from flask_graphql import GraphQLView
-
-from .database import db_session, init_db
-from .schema import schema
 
 app = Flask(__name__)
 app.debug = True
 
-default_query = '''
+example_query = """
 {
-  allEmployees {
+  allEmployees(sort: [NAME_ASC, ID_ASC]) {
     edges {
       node {
-        id,
-        name,
+        id
+        name
         department {
-          id,
+          id
           name
-        },
+        }
         role {
-          id,
+          id
           name
         }
       }
     }
   }
-}'''.strip()
+}
+"""
 
 
-app.add_url_rule('/graphql', view_func=GraphQLView.as_view('graphql', schema=schema, graphiql=True))
+app.add_url_rule(
+    "/graphql", view_func=GraphQLView.as_view("graphql", schema=schema, graphiql=True)
+)
 
 
 @app.teardown_appcontext
 def shutdown_session(exception=None):
     db_session.remove()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     init_db()
     app.run()

@@ -35,6 +35,7 @@ def test_should_map_fields_correctly():
         "first_name",
         "last_name",
         "email",
+        "favorite_pet_kind",
         "pets",
         "articles",
         "favorite_article",
