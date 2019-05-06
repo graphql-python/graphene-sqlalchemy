@@ -3,6 +3,8 @@ from collections import OrderedDict
 import sqlalchemy
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect as sqlalchemyinspect
+from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
+                            RelationshipProperty)
 from sqlalchemy.orm.exc import NoResultFound
 
 from graphene import Field
@@ -21,70 +23,88 @@ from .registry import Registry, get_global_registry
 from .utils import get_query, is_mapped_class, is_mapped_instance
 
 
+class ORMField(object):
+    def __init__(
+        self,
+        type=None,
+        prop_name=None,
+        description=None,
+        deprecation_reason=None,
+        required=None,
+        **field_kwargs
+    ):
+        # The is only useful for documentation and auto-completion
+        common_kwargs = {
+           'type': type,
+           'prop_name': prop_name,
+           'description': description,
+           'deprecation_reason': deprecation_reason,
+           'required': required,
+        }
+        common_kwargs = {kwarg: value for kwarg, value in common_kwargs.items() if value is not None}
+        self.kwargs = field_kwargs
+        self.kwargs.update(common_kwargs)
+
+
 def construct_fields(
     obj_type, model, registry, only_fields, exclude_fields, connection_field_factory
 ):
     inspected_model = sqlalchemyinspect(model)
+    all_model_props = OrderedDict(
+        inspected_model.column_attrs.items() +
+        inspected_model.composites.items() +
+        [(name, item) for name, item in inspected_model.all_orm_descriptors.items()
+            if isinstance(item, hybrid_property)] +
+        inspected_model.relationships.items()
+    )
+
+    auto_orm_field_names = []
+    for prop_name, prop in all_model_props.items():
+        if (only_fields and prop_name not in only_fields) or (prop_name in exclude_fields):
+            continue
+        auto_orm_field_names.append(prop_name)
+
+    # TODO Get ORMField fields defined on parent classes
+    custom_orm_fields = OrderedDict()
+    for attname, value in list(obj_type.__dict__.items()):
+        if isinstance(value, ORMField):
+            custom_orm_fields[attname] = value
+
+    for orm_field_name, orm_field in custom_orm_fields.items():
+        prop_name = orm_field.kwargs.get('prop_name', orm_field_name)
+        if prop_name not in all_model_props:
+            raise Exception('Cannot map ORMField "{}" to SQLAlchemy model property'.format(orm_field_name))
+        orm_field.kwargs['prop_name'] = prop_name
+
+    orm_fields = custom_orm_fields.copy()
+    for orm_field_name in auto_orm_field_names:
+        if orm_field_name in orm_fields:
+            continue
+        orm_fields[orm_field_name] = ORMField(prop_name=orm_field_name)
 
     fields = OrderedDict()
+    for orm_field_name, orm_field in orm_fields.items():
+        prop_name = orm_field.kwargs.pop('prop_name')
+        prop = all_model_props[prop_name]
 
-    for name, column in inspected_model.columns.items():
-        is_not_in_only = only_fields and name not in only_fields
-        # is_already_created = name in options.fields
-        is_excluded = name in exclude_fields  # or is_already_created
-        if is_not_in_only or is_excluded:
-            # We skip this field if we specify only_fields and is not
-            # in there. Or when we exclude this field in exclude_fields
-            continue
-        converted_column = convert_sqlalchemy_column(column, registry)
-        registry.register_orm_field(obj_type, name, column)
-        fields[name] = converted_column
+        if isinstance(prop, ColumnProperty):
+            field = convert_sqlalchemy_column(prop, registry, **orm_field.kwargs)
+        elif isinstance(prop, RelationshipProperty):
+            field = convert_sqlalchemy_relationship(prop, registry, connection_field_factory, **orm_field.kwargs)
+        elif isinstance(prop, CompositeProperty):
+            if prop_name != orm_field_name or orm_field.kwargs:
+                # TODO Add a way to override composite property fields
+                raise ValueError(
+                    "ORMField kwargs for composite fields must be empty. "
+                    "Field: {}.{}".format(obj_type.__name__, orm_field_name))
+            field = convert_sqlalchemy_composite(prop, registry)
+        elif isinstance(prop, hybrid_property):
+            field = convert_sqlalchemy_hybrid_method(prop, prop_name, **orm_field.kwargs)
+        else:
+            raise Exception('Property type is not supported')  # Should never happen
 
-    for name, composite in inspected_model.composites.items():
-        is_not_in_only = only_fields and name not in only_fields
-        # is_already_created = name in options.fields
-        is_excluded = name in exclude_fields  # or is_already_created
-        if is_not_in_only or is_excluded:
-            # We skip this field if we specify only_fields and is not
-            # in there. Or when we exclude this field in exclude_fields
-            continue
-        converted_composite = convert_sqlalchemy_composite(composite, registry)
-        registry.register_orm_field(obj_type, name, composite)
-        fields[name] = converted_composite
-
-    for hybrid_item in inspected_model.all_orm_descriptors:
-
-        if type(hybrid_item) == hybrid_property:
-            name = hybrid_item.__name__
-
-            is_not_in_only = only_fields and name not in only_fields
-            # is_already_created = name in options.fields
-            is_excluded = name in exclude_fields  # or is_already_created
-
-            if is_not_in_only or is_excluded:
-                # We skip this field if we specify only_fields and is not
-                # in there. Or when we exclude this field in exclude_fields
-                continue
-
-            converted_hybrid_property = convert_sqlalchemy_hybrid_method(hybrid_item)
-            registry.register_orm_field(obj_type, name, hybrid_item)
-            fields[name] = converted_hybrid_property
-
-    # Get all the columns for the relationships on the model
-    for relationship in inspected_model.relationships:
-        is_not_in_only = only_fields and relationship.key not in only_fields
-        # is_already_created = relationship.key in options.fields
-        is_excluded = relationship.key in exclude_fields  # or is_already_created
-        if is_not_in_only or is_excluded:
-            # We skip this field if we specify only_fields and is not
-            # in there. Or when we exclude this field in exclude_fields
-            continue
-        converted_relationship = convert_sqlalchemy_relationship(
-            relationship, registry, connection_field_factory
-        )
-        name = relationship.key
-        registry.register_orm_field(obj_type, name, relationship)
-        fields[name] = converted_relationship
+        registry.register_orm_field(obj_type, orm_field_name, prop)
+        fields[orm_field_name] = field
 
     return fields
 
@@ -125,6 +145,9 @@ class SQLAlchemyObjectType(ObjectType):
             "The attribute registry in {} needs to be an instance of "
             'Registry, received "{}".'
         ).format(cls.__name__, registry)
+
+        if only_fields and exclude_fields:
+            raise ValueError("The options 'only_fields' and 'exclude_fields' cannot be both set on the same type.")
 
         sqla_fields = yank_fields_from_attrs(
             construct_fields(

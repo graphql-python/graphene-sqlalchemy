@@ -16,6 +16,10 @@ except ImportError:
     ChoiceType = JSONType = ScalarListType = TSVectorType = object
 
 
+def _get_attr_resolver(attr_name):
+    return lambda root, _info: getattr(root, attr_name, None)
+
+
 def get_column_doc(column):
     return getattr(column, "doc", None)
 
@@ -24,43 +28,61 @@ def is_column_nullable(column):
     return bool(getattr(column, "nullable", True))
 
 
-def convert_sqlalchemy_relationship(relationship, registry, connection_field_factory):
-    direction = relationship.direction
-    model = relationship.mapper.entity
+def convert_sqlalchemy_relationship(relationship_prop, registry, connection_field_factory, **field_kwargs):
+    direction = relationship_prop.direction
+    model = relationship_prop.mapper.entity
 
     def dynamic_type():
         _type = registry.get_type_for_model(model)
+
         if not _type:
             return None
-        if direction == interfaces.MANYTOONE or not relationship.uselist:
-            return Field(_type)
+        if direction == interfaces.MANYTOONE or not relationship_prop.uselist:
+            return Field(
+                _type,
+                resolver=_get_attr_resolver(relationship_prop.key),
+                **field_kwargs
+            )
         elif direction in (interfaces.ONETOMANY, interfaces.MANYTOMANY):
             if _type._meta.connection:
-                return connection_field_factory(relationship, registry)
-            return Field(List(_type))
+                # TODO Add a way to override connection_field_factory
+                return connection_field_factory(relationship_prop, registry, **field_kwargs)
+            return Field(
+                List(_type),
+                **field_kwargs
+            )
 
     return Dynamic(dynamic_type)
 
 
-def convert_sqlalchemy_hybrid_method(hybrid_item):
-    return String(description=getattr(hybrid_item, "__doc__", None), required=False)
+def convert_sqlalchemy_hybrid_method(hybrid_prop, prop_name, **field_kwargs):
+    if 'type' not in field_kwargs:
+        # TODO The default type should be dependent on the type of the property propety.
+        field_kwargs['type'] = String
+
+    return Field(
+        resolver=_get_attr_resolver(prop_name),
+        **field_kwargs
+    )
 
 
-def convert_sqlalchemy_composite(composite, registry):
-    converter = registry.get_converter_for_composite(composite.composite_class)
+def convert_sqlalchemy_composite(composite_prop, registry):
+    converter = registry.get_converter_for_composite(composite_prop.composite_class)
     if not converter:
         try:
             raise Exception(
                 "Don't know how to convert the composite field %s (%s)"
-                % (composite, composite.composite_class)
+                % (composite_prop, composite_prop.composite_class)
             )
         except AttributeError:
             # handle fields that are not attached to a class yet (don't have a parent)
             raise Exception(
                 "Don't know how to convert the composite field %r (%s)"
-                % (composite, composite.composite_class)
+                % (composite_prop, composite_prop.composite_class)
             )
-    return converter(composite, registry)
+
+    # TODO Add a way to override composite fields default parameters
+    return converter(composite_prop, registry)
 
 
 def _register_composite_class(cls, registry=None):
@@ -78,8 +100,21 @@ def _register_composite_class(cls, registry=None):
 convert_sqlalchemy_composite.register = _register_composite_class
 
 
-def convert_sqlalchemy_column(column, registry=None):
-    return convert_sqlalchemy_type(getattr(column, "type", None), column, registry)
+def convert_sqlalchemy_column(column_prop, registry, **field_kwargs):
+    column = column_prop.columns[0]
+    if 'type' not in field_kwargs:
+        field_kwargs['type'] = convert_sqlalchemy_type(getattr(column, "type", None), column, registry)
+
+    if 'required' not in field_kwargs:
+        field_kwargs['required'] = not is_column_nullable(column)
+
+    if 'description' not in field_kwargs:
+        field_kwargs['description'] = get_column_doc(column)
+
+    return Field(
+        resolver=_get_attr_resolver(column_prop.key),
+        **field_kwargs
+    )
 
 
 @singledispatch
@@ -101,93 +136,63 @@ def convert_sqlalchemy_type(type, column, registry=None):
 @convert_sqlalchemy_type.register(postgresql.CIDR)
 @convert_sqlalchemy_type.register(TSVectorType)
 def convert_column_to_string(type, column, registry=None):
-    return String(
-        description=get_column_doc(column), required=not (is_column_nullable(column))
-    )
+    return String
 
 
 @convert_sqlalchemy_type.register(types.DateTime)
 def convert_column_to_datetime(type, column, registry=None):
     from graphene.types.datetime import DateTime
-
-    return DateTime(
-        description=get_column_doc(column), required=not (is_column_nullable(column))
-    )
+    return DateTime
 
 
 @convert_sqlalchemy_type.register(types.SmallInteger)
 @convert_sqlalchemy_type.register(types.Integer)
 def convert_column_to_int_or_id(type, column, registry=None):
-    if column.primary_key:
-        return ID(
-            description=get_column_doc(column),
-            required=not (is_column_nullable(column)),
-        )
-    else:
-        return Int(
-            description=get_column_doc(column),
-            required=not (is_column_nullable(column)),
-        )
+    return ID if column.primary_key else Int
 
 
 @convert_sqlalchemy_type.register(types.Boolean)
 def convert_column_to_boolean(type, column, registry=None):
-    return Boolean(
-        description=get_column_doc(column), required=not (is_column_nullable(column))
-    )
+    return Boolean
 
 
 @convert_sqlalchemy_type.register(types.Float)
 @convert_sqlalchemy_type.register(types.Numeric)
 @convert_sqlalchemy_type.register(types.BigInteger)
 def convert_column_to_float(type, column, registry=None):
-    return Float(
-        description=get_column_doc(column), required=not (is_column_nullable(column))
-    )
+    return Float
 
 
 @convert_sqlalchemy_type.register(types.Enum)
 def convert_enum_to_enum(type, column, registry=None):
-    return Field(
-        lambda: enum_for_sa_enum(type, registry or get_global_registry()),
-        description=get_column_doc(column),
-        required=not (is_column_nullable(column)),
-    )
+    return lambda: enum_for_sa_enum(type, registry or get_global_registry())
 
 
+# TODO Make ChoiceType conversion consistent with other enums
 @convert_sqlalchemy_type.register(ChoiceType)
 def convert_choice_to_enum(type, column, registry=None):
     name = "{}_{}".format(column.table.name, column.name).upper()
-    return Enum(name, type.choices, description=get_column_doc(column))
+    return Enum(name, type.choices)
 
 
 @convert_sqlalchemy_type.register(ScalarListType)
 def convert_scalar_list_to_list(type, column, registry=None):
-    return List(String, description=get_column_doc(column))
+    return List(String)
 
 
 @convert_sqlalchemy_type.register(postgresql.ARRAY)
 def convert_postgres_array_to_list(_type, column, registry=None):
-    graphene_type = convert_sqlalchemy_type(column.type.item_type, column)
-    inner_type = type(graphene_type)
-    return List(
-        inner_type,
-        description=get_column_doc(column),
-        required=not (is_column_nullable(column)),
-    )
+    inner_type = convert_sqlalchemy_type(column.type.item_type, column)
+    return List(inner_type)
 
 
 @convert_sqlalchemy_type.register(postgresql.HSTORE)
 @convert_sqlalchemy_type.register(postgresql.JSON)
 @convert_sqlalchemy_type.register(postgresql.JSONB)
 def convert_json_to_string(type, column, registry=None):
-    return JSONString(
-        description=get_column_doc(column), required=not (is_column_nullable(column))
-    )
+    return JSONString
 
 
 @convert_sqlalchemy_type.register(JSONType)
 def convert_json_type_to_string(type, column, registry=None):
-    return JSONString(
-        description=get_column_doc(column), required=not (is_column_nullable(column))
-    )
+    return JSONString

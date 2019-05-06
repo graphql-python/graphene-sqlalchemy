@@ -1,9 +1,10 @@
 import graphene
 from graphene.relay import Connection, Node
 
+from ..converter import convert_sqlalchemy_composite
 from ..fields import SQLAlchemyConnectionField
-from ..types import SQLAlchemyObjectType
-from .models import Article, Editor, HairKind, Pet, Reporter
+from ..types import ORMField, SQLAlchemyObjectType
+from .models import Article, CompositeFullName, Editor, HairKind, Pet, Reporter
 
 
 def to_std_dicts(value):
@@ -37,8 +38,12 @@ def add_test_data(session):
     session.commit()
 
 
-def test_should_query_well(session):
+def test_query_fields(session):
     add_test_data(session)
+
+    @convert_sqlalchemy_composite.register(CompositeFullName)
+    def convert_composite_class(composite, registry):
+        return graphene.String()
 
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
@@ -55,11 +60,12 @@ def test_should_query_well(session):
             return session.query(Reporter)
 
     query = """
-        query ReporterQuery {
+        query {
           reporter {
             firstName
-            lastName
-            email
+            columnProp
+            hybridProp
+            compositeProp
           }
           reporters {
             firstName
@@ -67,7 +73,12 @@ def test_should_query_well(session):
         }
     """
     expected = {
-        "reporter": {"firstName": "John", "lastName": "Doe", "email": None},
+        "reporter": {
+            "firstName": "John",
+            "hybridProp": "John",
+            "columnProp": 2,
+            "compositeProp": "John Doe",
+        },
         "reporters": [{"firstName": "John"}, {"firstName": "Jane"}],
     }
     schema = graphene.Schema(query=Query)
@@ -77,7 +88,7 @@ def test_should_query_well(session):
     assert result == expected
 
 
-def test_should_query_node(session):
+def test_query_node(session):
     add_test_data(session)
 
     class ReporterNode(SQLAlchemyObjectType):
@@ -101,20 +112,16 @@ def test_should_query_node(session):
     class Query(graphene.ObjectType):
         node = Node.Field()
         reporter = graphene.Field(ReporterNode)
-        article = graphene.Field(ArticleNode)
         all_articles = SQLAlchemyConnectionField(ArticleConnection)
 
         def resolve_reporter(self, _info):
             return session.query(Reporter).first()
 
-        def resolve_article(self, _info):
-            return session.query(Article).first()
-
     query = """
-        query ReporterQuery {
+        query {
           reporter {
             id
-            firstName,
+            firstName
             articles {
               edges {
                 node {
@@ -122,8 +129,6 @@ def test_should_query_node(session):
                 }
               }
             }
-            lastName,
-            email
           }
           allArticles {
             edges {
@@ -147,8 +152,6 @@ def test_should_query_node(session):
         "reporter": {
             "id": "UmVwb3J0ZXJOb2RlOjE=",
             "firstName": "John",
-            "lastName": "Doe",
-            "email": None,
             "articles": {"edges": [{"node": {"headline": "Hi!"}}]},
         },
         "allArticles": {"edges": [{"node": {"headline": "Hi!"}}]},
@@ -161,7 +164,74 @@ def test_should_query_node(session):
     assert result == expected
 
 
-def test_should_custom_identifier(session):
+def test_orm_field(session):
+    add_test_data(session)
+
+    @convert_sqlalchemy_composite.register(CompositeFullName)
+    def convert_composite_class(composite, registry):
+        return graphene.String()
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (Node,)
+
+        first_name_v2 = ORMField(prop_name='first_name')
+        hybrid_prop_v2 = ORMField(prop_name='hybrid_prop')
+        column_prop_v2 = ORMField(prop_name='column_prop')
+        composite_prop = ORMField()
+        favorite_article_v2 = ORMField(prop_name='favorite_article')
+        articles_v2 = ORMField(prop_name='articles')
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
+
+    class Query(graphene.ObjectType):
+        reporter = graphene.Field(ReporterType)
+
+        def resolve_reporter(self, _info):
+            return session.query(Reporter).first()
+
+    query = """
+        query {
+          reporter {
+            firstNameV2
+            hybridPropV2
+            columnPropV2
+            compositeProp
+            favoriteArticleV2 {
+              headline
+            }
+            articlesV2(first: 1) {
+              edges {
+                node {
+                  headline
+                }
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "reporter": {
+            "firstNameV2": "John",
+            "hybridPropV2": "John",
+            "columnPropV2": 2,
+            "compositeProp": "John Doe",
+            "favoriteArticleV2": {"headline": "Hi!"},
+            "articlesV2": {"edges": [{"node": {"headline": "Hi!"}}]},
+        },
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+
+def test_custom_identifier(session):
     add_test_data(session)
 
     class EditorNode(SQLAlchemyObjectType):
@@ -178,7 +248,7 @@ def test_should_custom_identifier(session):
         all_editors = SQLAlchemyConnectionField(EditorConnection)
 
     query = """
-        query EditorQuery {
+        query {
           allEditors {
             edges {
                 node {
@@ -206,7 +276,7 @@ def test_should_custom_identifier(session):
     assert result == expected
 
 
-def test_should_mutate_well(session):
+def test_mutation(session):
     add_test_data(session)
 
     class EditorNode(SQLAlchemyObjectType):
@@ -252,7 +322,7 @@ def test_should_mutate_well(session):
         create_article = CreateArticle.Field()
 
     query = """
-        mutation ArticleCreator {
+        mutation {
           createArticle(
             headline: "My Article"
             reporterId: "1"
