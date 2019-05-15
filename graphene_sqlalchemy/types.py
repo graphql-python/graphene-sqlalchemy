@@ -11,6 +11,7 @@ from graphene import Field
 from graphene.relay import Connection, Node
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
+from graphene.utils.orderedtype import OrderedType
 
 from .converter import (convert_sqlalchemy_column,
                         convert_sqlalchemy_composite,
@@ -23,7 +24,7 @@ from .registry import Registry, get_global_registry
 from .utils import get_query, is_mapped_class, is_mapped_instance
 
 
-class ORMField(object):
+class ORMField(OrderedType):
     def __init__(
         self,
         type=None,
@@ -31,8 +32,10 @@ class ORMField(object):
         description=None,
         deprecation_reason=None,
         required=None,
+        _creation_counter=None,
         **field_kwargs
     ):
+        super(ORMField, self).__init__(_creation_counter=_creation_counter)
         # The is only useful for documentation and auto-completion
         common_kwargs = {
            'type': type,
@@ -65,18 +68,19 @@ def construct_fields(
         auto_orm_field_names.append(prop_name)
 
     # TODO Get ORMField fields defined on parent classes
-    custom_orm_fields = OrderedDict()
+    custom_orm_fields_items = []
     for attname, value in list(obj_type.__dict__.items()):
         if isinstance(value, ORMField):
-            custom_orm_fields[attname] = value
+            custom_orm_fields_items.append((attname, value))
+    custom_orm_fields_items = sorted(custom_orm_fields_items, key=lambda item: item[1])
 
-    for orm_field_name, orm_field in custom_orm_fields.items():
+    for orm_field_name, orm_field in custom_orm_fields_items:
         prop_name = orm_field.kwargs.get('prop_name', orm_field_name)
         if prop_name not in all_model_props:
             raise Exception('Cannot map ORMField "{}" to SQLAlchemy model property'.format(orm_field_name))
         orm_field.kwargs['prop_name'] = prop_name
 
-    orm_fields = custom_orm_fields.copy()
+    orm_fields = OrderedDict(custom_orm_fields_items)
     for orm_field_name in auto_orm_field_names:
         if orm_field_name in orm_fields:
             continue
@@ -159,6 +163,7 @@ class SQLAlchemyObjectType(ObjectType):
                 connection_field_factory=connection_field_factory,
             ),
             _as=Field,
+            sort=False,
         )
 
         if use_connection is None and interfaces:

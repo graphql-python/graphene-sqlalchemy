@@ -62,14 +62,18 @@ def test_sqlalchemy_default_fields():
             interfaces = (Node,)
 
     assert list(ReporterType._meta.fields.keys()) == [
-        "column_prop",
+        # Columns
+        "column_prop",  # SQLAlchemy retuns column properties first
         "id",
         "first_name",
         "last_name",
         "email",
         "favorite_pet_kind",
+        # Composite
         "composite_prop",
+        # Hybrid
         "hybrid_prop",
+        # Relationship
         "pets",
         "articles",
         "favorite_article",
@@ -147,6 +151,7 @@ def test_sqlalchemy_override_fields():
             use_connection = False
 
     assert list(ReporterType._meta.fields.keys()) == [
+        # First the ORMField in the order they were defined
         "first_name",
         "last_name",
         "email",
@@ -157,6 +162,7 @@ def test_sqlalchemy_override_fields():
         "favorite_article",
         "articles",
         "pets",
+        # Then the automatic SQLAlchemy fields
         "id",
         "favorite_pet_kind",
     ]
