@@ -114,14 +114,17 @@ def test_sqlalchemy_override_fields():
     def convert_composite_class(composite, registry):
         return String()
 
-    class ReporterType(SQLAlchemyObjectType):
+    class ReporterMixin(object):
+        # columns
+        first_name = ORMField(required=True)
+        last_name = ORMField(description='Overridden')
+
+    class ReporterType(SQLAlchemyObjectType, ReporterMixin):
         class Meta:
             model = Reporter
             interfaces = (Node,)
 
         # columns
-        first_name = ORMField(required=True)
-        last_name = ORMField(description='Overridden')
         email = ORMField(deprecation_reason='Overridden')
         email_v2 = ORMField(prop_name='email', type=Int)
 
@@ -151,9 +154,10 @@ def test_sqlalchemy_override_fields():
             use_connection = False
 
     assert list(ReporterType._meta.fields.keys()) == [
-        # First the ORMField in the order they were defined
+        # Fields from ReporterMixin
         "first_name",
         "last_name",
+        # Fields from ReporterType
         "email",
         "email_v2",
         "column_prop",

@@ -102,14 +102,9 @@ convert_sqlalchemy_composite.register = _register_composite_class
 
 def convert_sqlalchemy_column(column_prop, registry, **field_kwargs):
     column = column_prop.columns[0]
-    if 'type' not in field_kwargs:
-        field_kwargs['type'] = convert_sqlalchemy_type(getattr(column, "type", None), column, registry)
-
-    if 'required' not in field_kwargs:
-        field_kwargs['required'] = not is_column_nullable(column)
-
-    if 'description' not in field_kwargs:
-        field_kwargs['description'] = get_column_doc(column)
+    field_kwargs.setdefault('type', convert_sqlalchemy_type(getattr(column, "type", None), column, registry))
+    field_kwargs.setdefault('required', not is_column_nullable(column))
+    field_kwargs.setdefault('description', get_column_doc(column))
 
     return Field(
         resolver=_get_attr_resolver(column_prop.key),
