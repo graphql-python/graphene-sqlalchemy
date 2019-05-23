@@ -1,9 +1,9 @@
+from database import db_session, init_db
+from schema import schema
+
 from graphql_server import (HttpQueryError, default_format_error,
                             encode_execution_results, json_encode,
                             load_json_body, run_http_query)
-
-from .database import db_session, init_db
-from .schema import schema
 
 
 class App():
