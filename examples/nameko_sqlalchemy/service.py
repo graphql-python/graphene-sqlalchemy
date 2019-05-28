@@ -1,7 +1,6 @@
 #!/usr/bin/env python
+from app import App
 from nameko.web.handlers import http
-
-from .app import App
 
 
 class DepartmentService:
