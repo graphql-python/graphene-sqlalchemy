@@ -27,7 +27,7 @@ from .utils import get_query, is_mapped_class, is_mapped_instance
 class ORMField(OrderedType):
     def __init__(
         self,
-        prop_name=None,
+        model_attr=None,
         type=None,
         required=None,
         description=None,
@@ -55,27 +55,26 @@ class ORMField(OrderedType):
         -> MyType.id will be of type Int (vs ID).
         -> MyType.name will be of type NonNull(String) (vs String).
 
-        Parameters
-        - prop_name : str, optional
-            Name of the SQLAlchemy property used to resolve this field.
+        :param str model_attr:
+            Name of the SQLAlchemy model attribute used to resolve this field.
             Default to the name of the attribute referencing the ORMField.
-        - type: optional
+        :param type:
             Default to the type mapping in converter.py.
-        - description: str, optional
+        :param str description:
             Default to the `doc` attribute of the SQLAlchemy column property.
-        - required: bool, optional
+        :param bool required:
             Default to the opposite of the `nullable` attribute of the SQLAlchemy column property.
-        - description: str, optional
+        :param str description:
             Same behavior as in graphene.Field. Defaults to None.
-        - deprecation_reason: str, optional
+        :param str deprecation_reason:
             Same behavior as in graphene.Field. Defaults to None.
-        - _creation_counter: int, optional
+        :param int _creation_counter:
             Same behavior as in graphene.Field.
         """
         super(ORMField, self).__init__(_creation_counter=_creation_counter)
         # The is only useful for documentation and auto-completion
         common_kwargs = {
-            'prop_name': prop_name,
+            'model_attr': model_attr,
             'type': type,
             'required': required,
             'description': description,
@@ -92,25 +91,21 @@ def construct_fields(
     """
     Construct all the fields for a SQLAlchemyObjectType.
     The main steps are:
-        - Gather all the relevant attributes from the SQLAlchemy model
-        - Gather all the ORM fields defined on the type
-        - Merge in overrides and build up all the fields
+      - Gather all the relevant attributes from the SQLAlchemy model
+      - Gather all the ORM fields defined on the type
+      - Merge in overrides and build up all the fields
 
-    Parameters
-    - obj_type : SQLAlchemyObjectType
-    - model : the SQLAlchemy model
-    - registry : Registry
-    - only_fields : tuple[string]
-    - exclude_fields : tuple[string]
-    - connection_field_factory : function
-
-    Returns
-    - fields
-        An OrderedDict of field names to graphene.Field
+    :param SQLAlchemyObjectType obj_type:
+    :param model: the SQLAlchemy model
+    :param Registry registry:
+    :param tuple[string] only_fields:
+    :param tuple[string] exclude_fields:
+    :param function connection_field_factory:
+    :rtype: OrderedDict[str, graphene.Field]
     """
     inspected_model = sqlalchemyinspect(model)
-    # Gather all the relevant attributes from the SQLAlchemy model
-    all_model_props = OrderedDict(
+    # Gather all the relevant attributes from the SQLAlchemy model in order
+    all_model_attrs = OrderedDict(
         inspected_model.column_attrs.items() +
         inspected_model.composites.items() +
         [(name, item) for name, item in inspected_model.all_orm_descriptors.items()
@@ -120,57 +115,57 @@ def construct_fields(
 
     # Filter out excluded fields
     auto_orm_field_names = []
-    for prop_name, prop in all_model_props.items():
-        if (only_fields and prop_name not in only_fields) or (prop_name in exclude_fields):
+    for attr_name, attr in all_model_attrs.items():
+        if (only_fields and attr_name not in only_fields) or (attr_name in exclude_fields):
             continue
-        auto_orm_field_names.append(prop_name)
+        auto_orm_field_names.append(attr_name)
 
     # Gather all the ORM fields defined on the type
     custom_orm_fields_items = [
-        (attname, value)
+        (attn_name, attr)
         for base in reversed(obj_type.__mro__)
-        for attname, value in base.__dict__.items()
-        if isinstance(value, ORMField)
+        for attn_name, attr in base.__dict__.items()
+        if isinstance(attr, ORMField)
     ]
     custom_orm_fields_items = sorted(custom_orm_fields_items, key=lambda item: item[1])
 
-    # Set the prop_name if not set
+    # Set the model_attr if not set
     for orm_field_name, orm_field in custom_orm_fields_items:
-        prop_name = orm_field.kwargs.get('prop_name', orm_field_name)
-        if prop_name not in all_model_props:
+        attr_name = orm_field.kwargs.get('model_attr', orm_field_name)
+        if attr_name not in all_model_attrs:
             raise Exception('Cannot map ORMField "{}" to SQLAlchemy model property'.format(orm_field_name))
-        orm_field.kwargs['prop_name'] = prop_name
+        orm_field.kwargs['model_attr'] = attr_name
 
     # Merge automatic fields with custom ORM fields
     orm_fields = OrderedDict(custom_orm_fields_items)
     for orm_field_name in auto_orm_field_names:
         if orm_field_name in orm_fields:
             continue
-        orm_fields[orm_field_name] = ORMField(prop_name=orm_field_name)
+        orm_fields[orm_field_name] = ORMField(model_attr=orm_field_name)
 
     # Build all the field dictionary
     fields = OrderedDict()
     for orm_field_name, orm_field in orm_fields.items():
-        prop_name = orm_field.kwargs.pop('prop_name')
-        prop = all_model_props[prop_name]
+        attr_name = orm_field.kwargs.pop('model_attr')
+        attr = all_model_attrs[attr_name]
 
-        if isinstance(prop, ColumnProperty):
-            field = convert_sqlalchemy_column(prop, registry, **orm_field.kwargs)
-        elif isinstance(prop, RelationshipProperty):
-            field = convert_sqlalchemy_relationship(prop, registry, connection_field_factory, **orm_field.kwargs)
-        elif isinstance(prop, CompositeProperty):
-            if prop_name != orm_field_name or orm_field.kwargs:
+        if isinstance(attr, ColumnProperty):
+            field = convert_sqlalchemy_column(attr, registry, **orm_field.kwargs)
+        elif isinstance(attr, RelationshipProperty):
+            field = convert_sqlalchemy_relationship(attr, registry, connection_field_factory, **orm_field.kwargs)
+        elif isinstance(attr, CompositeProperty):
+            if attr_name != orm_field_name or orm_field.kwargs:
                 # TODO Add a way to override composite property fields
                 raise ValueError(
                     "ORMField kwargs for composite fields must be empty. "
                     "Field: {}.{}".format(obj_type.__name__, orm_field_name))
-            field = convert_sqlalchemy_composite(prop, registry)
-        elif isinstance(prop, hybrid_property):
-            field = convert_sqlalchemy_hybrid_method(prop, prop_name, **orm_field.kwargs)
+            field = convert_sqlalchemy_composite(attr, registry)
+        elif isinstance(attr, hybrid_property):
+            field = convert_sqlalchemy_hybrid_method(attr, attr_name, **orm_field.kwargs)
         else:
             raise Exception('Property type is not supported')  # Should never happen
 
-        registry.register_orm_field(obj_type, orm_field_name, prop)
+        registry.register_orm_field(obj_type, orm_field_name, attr)
         fields[orm_field_name] = field
 
     return fields

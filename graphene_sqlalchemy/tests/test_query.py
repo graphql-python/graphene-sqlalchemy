@@ -176,12 +176,12 @@ def test_orm_field(session):
             model = Reporter
             interfaces = (Node,)
 
-        first_name_v2 = ORMField(prop_name='first_name')
-        hybrid_prop_v2 = ORMField(prop_name='hybrid_prop')
-        column_prop_v2 = ORMField(prop_name='column_prop')
+        first_name_v2 = ORMField(model_attr='first_name')
+        hybrid_prop_v2 = ORMField(model_attr='hybrid_prop')
+        column_prop_v2 = ORMField(model_attr='column_prop')
         composite_prop = ORMField()
-        favorite_article_v2 = ORMField(prop_name='favorite_article')
-        articles_v2 = ORMField(prop_name='articles')
+        favorite_article_v2 = ORMField(model_attr='favorite_article')
+        articles_v2 = ORMField(model_attr='articles')
 
     class ArticleType(SQLAlchemyObjectType):
         class Meta:
