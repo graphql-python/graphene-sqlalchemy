@@ -1,196 +1,326 @@
-from collections import OrderedDict
-
+import mock
+import pytest
 import six  # noqa F401
-from promise import Promise
 
-from graphene import (Connection, Field, Int, Interface, Node, ObjectType,
-                      is_node)
+from graphene import (Dynamic, Field, GlobalID, Int, List, Node, NonNull,
+                      ObjectType, String)
 
+from ..converter import convert_sqlalchemy_composite
 from ..fields import (SQLAlchemyConnectionField,
                       UnsortedSQLAlchemyConnectionField,
                       registerConnectionFieldFactory,
                       unregisterConnectionFieldFactory)
-from ..registry import Registry
-from ..types import SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
-from .models import Article, Reporter
-
-registry = Registry()
+from ..types import ORMField, SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
+from .models import Article, CompositeFullName, Pet, Reporter
 
 
-class Character(SQLAlchemyObjectType):
-    """Character description"""
-
-    class Meta:
-        model = Reporter
-        registry = registry
-
-
-class Human(SQLAlchemyObjectType):
-    """Human description"""
-
-    pub_date = Int()
-
-    class Meta:
-        model = Article
-        exclude_fields = ("id",)
-        registry = registry
-        interfaces = (Node,)
+def test_should_raise_if_no_model():
+    re_err = r"valid SQLAlchemy Model"
+    with pytest.raises(Exception, match=re_err):
+        class Character1(SQLAlchemyObjectType):
+            pass
 
 
-def test_sqlalchemy_interface():
-    assert issubclass(Node, Interface)
-    assert issubclass(Node, Node)
+def test_should_raise_if_model_is_invalid():
+    re_err = r"valid SQLAlchemy Model"
+    with pytest.raises(Exception, match=re_err):
+        class Character(SQLAlchemyObjectType):
+            class Meta:
+                model = 1
 
 
-# @patch('graphene.contrib.sqlalchemy.tests.models.Article.filter', return_value=Article(id=1))
-# def test_sqlalchemy_get_node(get):
-#     human = Human.get_node(1, None)
-#     get.assert_called_with(id=1)
-#     assert human.id == 1
+def test_sqlalchemy_node(session):
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (Node,)
+
+    reporter_id_field = ReporterType._meta.fields["id"]
+    assert isinstance(reporter_id_field, GlobalID)
+
+    reporter = Reporter()
+    session.add(reporter)
+    session.commit()
+    info = mock.Mock(context={'session': session})
+    reporter_node = ReporterType.get_node(info, reporter.id)
+    assert reporter == reporter_node
 
 
-def test_objecttype_registered():
-    assert issubclass(Character, ObjectType)
-    assert Character._meta.model == Reporter
-    assert list(Character._meta.fields.keys()) == [
+def test_sqlalchemy_default_fields():
+    @convert_sqlalchemy_composite.register(CompositeFullName)
+    def convert_composite_class(composite, registry):
+        return String()
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (Node,)
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
+
+    assert list(ReporterType._meta.fields.keys()) == [
+        # Columns
+        "column_prop",  # SQLAlchemy retuns column properties first
         "id",
         "first_name",
         "last_name",
         "email",
         "favorite_pet_kind",
+        # Composite
+        "composite_prop",
+        # Hybrid
+        "hybrid_prop",
+        # Relationship
+        "pets",
+        "articles",
+        "favorite_article",
+    ]
+
+    # column
+    first_name_field = ReporterType._meta.fields['first_name']
+    assert first_name_field.type == String
+    assert first_name_field.description == "First name"
+
+    # column_property
+    column_prop_field = ReporterType._meta.fields['column_prop']
+    assert column_prop_field.type == Int
+    # "doc" is ignored by column_property
+    assert column_prop_field.description is None
+
+    # composite
+    full_name_field = ReporterType._meta.fields['composite_prop']
+    assert full_name_field.type == String
+    # "doc" is ignored by composite
+    assert full_name_field.description is None
+
+    # hybrid_property
+    hybrid_prop = ReporterType._meta.fields['hybrid_prop']
+    assert hybrid_prop.type == String
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop.description is None
+
+    # relationship
+    favorite_article_field = ReporterType._meta.fields['favorite_article']
+    assert isinstance(favorite_article_field, Dynamic)
+    assert favorite_article_field.type().type == ArticleType
+    assert favorite_article_field.type().description is None
+
+
+def test_sqlalchemy_override_fields():
+    @convert_sqlalchemy_composite.register(CompositeFullName)
+    def convert_composite_class(composite, registry):
+        return String()
+
+    class ReporterMixin(object):
+        # columns
+        first_name = ORMField(required=True)
+        last_name = ORMField(description='Overridden')
+
+    class ReporterType(SQLAlchemyObjectType, ReporterMixin):
+        class Meta:
+            model = Reporter
+            interfaces = (Node,)
+
+        # columns
+        email = ORMField(deprecation_reason='Overridden')
+        email_v2 = ORMField(model_attr='email', type=Int)
+
+        # column_property
+        column_prop = ORMField(type=String)
+
+        # composite
+        composite_prop = ORMField()
+
+        # hybrid_property
+        hybrid_prop = ORMField(description='Overridden')
+
+        # relationships
+        favorite_article = ORMField(description='Overridden')
+        articles = ORMField(deprecation_reason='Overridden')
+        pets = ORMField(description='Overridden')
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            interfaces = (Node,)
+            use_connection = False
+
+    assert list(ReporterType._meta.fields.keys()) == [
+        # Fields from ReporterMixin
+        "first_name",
+        "last_name",
+        # Fields from ReporterType
+        "email",
+        "email_v2",
+        "column_prop",
+        "composite_prop",
+        "hybrid_prop",
+        "favorite_article",
+        "articles",
+        "pets",
+        # Then the automatic SQLAlchemy fields
+        "id",
+        "favorite_pet_kind",
+    ]
+
+    first_name_field = ReporterType._meta.fields['first_name']
+    assert isinstance(first_name_field.type, NonNull)
+    assert first_name_field.type.of_type == String
+    assert first_name_field.description == "First name"
+    assert first_name_field.deprecation_reason is None
+
+    last_name_field = ReporterType._meta.fields['last_name']
+    assert last_name_field.type == String
+    assert last_name_field.description == "Overridden"
+    assert last_name_field.deprecation_reason is None
+
+    email_field = ReporterType._meta.fields['email']
+    assert email_field.type == String
+    assert email_field.description == "Email"
+    assert email_field.deprecation_reason == "Overridden"
+
+    email_field_v2 = ReporterType._meta.fields['email_v2']
+    assert email_field_v2.type == Int
+    assert email_field_v2.description == "Email"
+    assert email_field_v2.deprecation_reason is None
+
+    hybrid_prop_field = ReporterType._meta.fields['hybrid_prop']
+    assert hybrid_prop_field.type == String
+    assert hybrid_prop_field.description == "Overridden"
+    assert hybrid_prop_field.deprecation_reason is None
+
+    column_prop_field_v2 = ReporterType._meta.fields['column_prop']
+    assert column_prop_field_v2.type == String
+    assert column_prop_field_v2.description is None
+    assert column_prop_field_v2.deprecation_reason is None
+
+    composite_prop_field = ReporterType._meta.fields['composite_prop']
+    assert composite_prop_field.type == String
+    assert composite_prop_field.description is None
+    assert composite_prop_field.deprecation_reason is None
+
+    favorite_article_field = ReporterType._meta.fields['favorite_article']
+    assert isinstance(favorite_article_field, Dynamic)
+    assert favorite_article_field.type().type == ArticleType
+    assert favorite_article_field.type().description == 'Overridden'
+
+    articles_field = ReporterType._meta.fields['articles']
+    assert isinstance(articles_field, Dynamic)
+    assert isinstance(articles_field.type(), UnsortedSQLAlchemyConnectionField)
+    assert articles_field.type().deprecation_reason == "Overridden"
+
+    pets_field = ReporterType._meta.fields['pets']
+    assert isinstance(pets_field, Dynamic)
+    assert isinstance(pets_field.type().type, List)
+    assert pets_field.type().type.of_type == PetType
+    assert pets_field.type().description == 'Overridden'
+
+
+def test_only_fields():
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            only_fields = ("id", "last_name")
+
+        first_name = ORMField()  # Takes precedence
+        last_name = ORMField()  # Noop
+
+    assert list(ReporterType._meta.fields.keys()) == ["first_name", "last_name", "id"]
+
+
+def test_exclude_fields():
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            exclude_fields = ("id", "first_name")
+
+        first_name = ORMField()  # Takes precedence
+        last_name = ORMField()  # Noop
+
+    assert list(ReporterType._meta.fields.keys()) == [
+        "first_name",
+        "last_name",
+        "column_prop",
+        "email",
+        "favorite_pet_kind",
+        "hybrid_prop",
         "pets",
         "articles",
         "favorite_article",
     ]
 
 
-# def test_sqlalchemynode_idfield():
-#     idfield = Node._meta.fields_map['id']
-#     assert isinstance(idfield, GlobalIDField)
+def test_only_and_exclude_fields():
+    re_err = r"'only_fields' and 'exclude_fields' cannot be both set"
+    with pytest.raises(Exception, match=re_err):
+        class ReporterType(SQLAlchemyObjectType):
+            class Meta:
+                model = Reporter
+                only_fields = ("id", "last_name")
+                exclude_fields = ("id", "last_name")
 
 
-# def test_node_idfield():
-#     idfield = Human._meta.fields_map['id']
-#     assert isinstance(idfield, GlobalIDField)
-
-
-def test_node_replacedfield():
-    idfield = Human._meta.fields["pub_date"]
-    assert isinstance(idfield, Field)
-    assert idfield.type == Int
-
-
-def test_object_type():
-    class Human(SQLAlchemyObjectType):
-        """Human description"""
-
-        pub_date = Int()
-
+def test_sqlalchemy_redefine_field():
+    class ReporterType(SQLAlchemyObjectType):
         class Meta:
-            model = Article
-            # exclude_fields = ('id', )
-            registry = registry
-            interfaces = (Node,)
+            model = Reporter
 
-    assert issubclass(Human, ObjectType)
-    assert list(Human._meta.fields.keys()) == [
-        "id",
-        "headline",
-        "pub_date",
-        "reporter_id",
-        "reporter",
-    ]
-    assert is_node(Human)
+        first_name = Int()
+
+    first_name_field = ReporterType._meta.fields["first_name"]
+    assert isinstance(first_name_field, Field)
+    assert first_name_field.type == Int
 
 
 # Test Custom SQLAlchemyObjectType Implementation
-class CustomSQLAlchemyObjectType(SQLAlchemyObjectType):
-    class Meta:
-        abstract = True
-
-
-class CustomCharacter(CustomSQLAlchemyObjectType):
-    """Character description"""
-
-    class Meta:
-        model = Reporter
-        registry = registry
-
 
 def test_custom_objecttype_registered():
-    assert issubclass(CustomCharacter, ObjectType)
-    assert CustomCharacter._meta.model == Reporter
-    assert list(CustomCharacter._meta.fields.keys()) == [
-        "id",
-        "first_name",
-        "last_name",
-        "email",
-        "favorite_pet_kind",
-        "pets",
-        "articles",
-        "favorite_article",
-    ]
+    class CustomSQLAlchemyObjectType(SQLAlchemyObjectType):
+        class Meta:
+            abstract = True
+
+    class CustomReporterType(CustomSQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+
+    assert issubclass(CustomReporterType, ObjectType)
+    assert CustomReporterType._meta.model == Reporter
+    assert len(CustomReporterType._meta.fields) == 10
 
 
 # Test Custom SQLAlchemyObjectType with Custom Options
-class CustomOptions(SQLAlchemyObjectTypeOptions):
-    custom_option = None
-    custom_fields = None
-
-
-class SQLAlchemyObjectTypeWithCustomOptions(SQLAlchemyObjectType):
-    class Meta:
-        abstract = True
-
-    @classmethod
-    def __init_subclass_with_meta__(
-        cls, custom_option=None, custom_fields=None, **options
-    ):
-        _meta = CustomOptions(cls)
-        _meta.custom_option = custom_option
-        _meta.fields = custom_fields
-        super(SQLAlchemyObjectTypeWithCustomOptions, cls).__init_subclass_with_meta__(
-            _meta=_meta, **options
-        )
-
-
-class ReporterWithCustomOptions(SQLAlchemyObjectTypeWithCustomOptions):
-    class Meta:
-        model = Reporter
-        custom_option = "custom_option"
-        custom_fields = OrderedDict([("custom_field", Field(Int()))])
-
-
 def test_objecttype_with_custom_options():
+    class CustomOptions(SQLAlchemyObjectTypeOptions):
+        custom_option = None
+
+    class SQLAlchemyObjectTypeWithCustomOptions(SQLAlchemyObjectType):
+        class Meta:
+            abstract = True
+
+        @classmethod
+        def __init_subclass_with_meta__(cls, custom_option=None, **options):
+            _meta = CustomOptions(cls)
+            _meta.custom_option = custom_option
+            super(SQLAlchemyObjectTypeWithCustomOptions, cls).__init_subclass_with_meta__(
+                _meta=_meta, **options
+            )
+
+    class ReporterWithCustomOptions(SQLAlchemyObjectTypeWithCustomOptions):
+        class Meta:
+            model = Reporter
+            custom_option = "custom_option"
+
     assert issubclass(ReporterWithCustomOptions, ObjectType)
     assert ReporterWithCustomOptions._meta.model == Reporter
-    assert list(ReporterWithCustomOptions._meta.fields.keys()) == [
-        "custom_field",
-        "id",
-        "first_name",
-        "last_name",
-        "email",
-        "favorite_pet_kind",
-        "pets",
-        "articles",
-        "favorite_article",
-    ]
     assert ReporterWithCustomOptions._meta.custom_option == "custom_option"
-    assert isinstance(ReporterWithCustomOptions._meta.fields["custom_field"].type, Int)
-
-
-def test_promise_connection_resolver():
-    class TestConnection(Connection):
-        class Meta:
-            node = ReporterWithCustomOptions
-
-    def resolver(_obj, _info):
-        return Promise.resolve([])
-
-    result = SQLAlchemyConnectionField.connection_resolver(
-        resolver, TestConnection, ReporterWithCustomOptions, None, None
-    )
-    assert result is not None
 
 
 # Tests for connection_field_factory
@@ -200,42 +330,34 @@ class _TestSQLAlchemyConnectionField(SQLAlchemyConnectionField):
 
 
 def test_default_connection_field_factory():
-    _registry = Registry()
-
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
-            registry = _registry
             interfaces = (Node,)
 
     class ArticleType(SQLAlchemyObjectType):
         class Meta:
             model = Article
-            registry = _registry
             interfaces = (Node,)
 
     assert isinstance(ReporterType._meta.fields['articles'].type(), UnsortedSQLAlchemyConnectionField)
 
 
-def test_register_connection_field_factory():
+def test_custom_connection_field_factory():
     def test_connection_field_factory(relationship, registry):
         model = relationship.mapper.entity
         _type = registry.get_type_for_model(model)
         return _TestSQLAlchemyConnectionField(_type._meta.connection)
 
-    _registry = Registry()
-
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
-            registry = _registry
             interfaces = (Node,)
             connection_field_factory = test_connection_field_factory
 
     class ArticleType(SQLAlchemyObjectType):
         class Meta:
             model = Article
-            registry = _registry
             interfaces = (Node,)
 
     assert isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
@@ -244,18 +366,14 @@ def test_register_connection_field_factory():
 def test_deprecated_registerConnectionFieldFactory():
     registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
 
-    _registry = Registry()
-
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
-            registry = _registry
             interfaces = (Node,)
 
     class ArticleType(SQLAlchemyObjectType):
         class Meta:
             model = Article
-            registry = _registry
             interfaces = (Node,)
 
     assert isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
@@ -265,18 +383,14 @@ def test_deprecated_unregisterConnectionFieldFactory():
     registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
     unregisterConnectionFieldFactory()
 
-    _registry = Registry()
-
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
-            registry = _registry
             interfaces = (Node,)
 
     class ArticleType(SQLAlchemyObjectType):
         class Meta:
             model = Article
-            registry = _registry
             interfaces = (Node,)
 
     assert not isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)

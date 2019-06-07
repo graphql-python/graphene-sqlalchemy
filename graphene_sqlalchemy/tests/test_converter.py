@@ -1,11 +1,11 @@
 import enum
 
 import pytest
-from sqlalchemy import Column, Table, case, func, select, types
+from sqlalchemy import Column, func, select, types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import column_property, composite
-from sqlalchemy.sql.elements import Label
 from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
 
 import graphene
@@ -18,90 +18,79 @@ from ..converter import (convert_sqlalchemy_column,
                          convert_sqlalchemy_relationship)
 from ..fields import (UnsortedSQLAlchemyConnectionField,
                       default_connection_field_factory)
-from ..registry import Registry
+from ..registry import Registry, get_global_registry
 from ..types import SQLAlchemyObjectType
-from .models import Article, Pet, Reporter
+from .models import Article, CompositeFullName, Pet, Reporter
 
 
-def assert_column_conversion(sqlalchemy_type, graphene_field, **kwargs):
-    column = Column(sqlalchemy_type, doc="Custom Help Text", **kwargs)
-    graphene_type = convert_sqlalchemy_column(column)
-    assert isinstance(graphene_type, graphene_field)
-    field = (
-        graphene_type
-        if isinstance(graphene_type, graphene.Field)
-        else graphene_type.Field()
-    )
-    assert field.description == "Custom Help Text"
-    return field
+def get_field(sqlalchemy_type, **column_kwargs):
+    class Model(declarative_base()):
+        __tablename__ = 'model'
+        id_ = Column(types.Integer, primary_key=True)
+        column = Column(sqlalchemy_type, doc="Custom Help Text", **column_kwargs)
+
+    column_prop = inspect(Model).column_attrs['column']
+    return convert_sqlalchemy_column(column_prop, get_global_registry())
 
 
-def assert_composite_conversion(
-    composite_class, composite_columns, graphene_field, registry, **kwargs
-):
-    composite_column = composite(
-        composite_class, *composite_columns, doc="Custom Help Text", **kwargs
-    )
-    graphene_type = convert_sqlalchemy_composite(composite_column, registry)
-    assert isinstance(graphene_type, graphene_field)
-    field = graphene_type.Field()
-    # SQLAlchemy currently does not persist the doc onto the column, even though
-    # the documentation says it does....
-    # assert field.description == 'Custom Help Text'
-    return field
+def get_field_from_column(column_):
+    class Model(declarative_base()):
+        __tablename__ = 'model'
+        id_ = Column(types.Integer, primary_key=True)
+        column = column_
+
+    column_prop = inspect(Model).column_attrs['column']
+    return convert_sqlalchemy_column(column_prop, get_global_registry())
 
 
 def test_should_unknown_sqlalchemy_field_raise_exception():
     re_err = "Don't know how to convert the SQLAlchemy field"
     with pytest.raises(Exception, match=re_err):
-        convert_sqlalchemy_column(None)
+        get_field(types.Binary())
 
 
 def test_should_date_convert_string():
-    assert_column_conversion(types.Date(), graphene.String)
+    assert get_field(types.Date()).type == graphene.String
 
 
-def test_should_datetime_convert_string():
-    assert_column_conversion(types.DateTime(), DateTime)
+def test_should_datetime_convert_datetime():
+    assert get_field(types.DateTime()).type == DateTime
 
 
 def test_should_time_convert_string():
-    assert_column_conversion(types.Time(), graphene.String)
+    assert get_field(types.Time()).type == graphene.String
 
 
 def test_should_string_convert_string():
-    assert_column_conversion(types.String(), graphene.String)
+    assert get_field(types.String()).type == graphene.String
 
 
 def test_should_text_convert_string():
-    assert_column_conversion(types.Text(), graphene.String)
+    assert get_field(types.Text()).type == graphene.String
 
 
 def test_should_unicode_convert_string():
-    assert_column_conversion(types.Unicode(), graphene.String)
+    assert get_field(types.Unicode()).type == graphene.String
 
 
 def test_should_unicodetext_convert_string():
-    assert_column_conversion(types.UnicodeText(), graphene.String)
+    assert get_field(types.UnicodeText()).type == graphene.String
 
 
 def test_should_enum_convert_enum():
-    field = assert_column_conversion(
-        types.Enum(enum.Enum("TwoNumbers", ("one", "two"))), graphene.Field
-    )
+    field = get_field(types.Enum(enum.Enum("TwoNumbers", ("one", "two"))))
     field_type = field.type()
     assert isinstance(field_type, graphene.Enum)
+    assert field_type._meta.name == "TwoNumbers"
     assert hasattr(field_type, "ONE")
     assert not hasattr(field_type, "one")
     assert hasattr(field_type, "TWO")
     assert not hasattr(field_type, "two")
 
-    field = assert_column_conversion(
-        types.Enum("one", "two", name="two_numbers"), graphene.Field
-    )
+    field = get_field(types.Enum("one", "two", name="two_numbers"))
     field_type = field.type()
-    assert field_type._meta.name == "TwoNumbers"
     assert isinstance(field_type, graphene.Enum)
+    assert field_type._meta.name == "TwoNumbers"
     assert hasattr(field_type, "ONE")
     assert not hasattr(field_type, "one")
     assert hasattr(field_type, "TWO")
@@ -109,89 +98,65 @@ def test_should_enum_convert_enum():
 
 
 def test_should_not_enum_convert_enum_without_name():
-    field = assert_column_conversion(
-        types.Enum("one", "two"), graphene.Field
-    )
+    field = get_field(types.Enum("one", "two"))
     re_err = r"No type name specified for Enum\('one', 'two'\)"
     with pytest.raises(TypeError, match=re_err):
         field.type()
 
 
 def test_should_small_integer_convert_int():
-    assert_column_conversion(types.SmallInteger(), graphene.Int)
+    assert get_field(types.SmallInteger()).type == graphene.Int
 
 
 def test_should_big_integer_convert_int():
-    assert_column_conversion(types.BigInteger(), graphene.Float)
+    assert get_field(types.BigInteger()).type == graphene.Float
 
 
 def test_should_integer_convert_int():
-    assert_column_conversion(types.Integer(), graphene.Int)
+    assert get_field(types.Integer()).type == graphene.Int
 
 
-def test_should_integer_convert_id():
-    assert_column_conversion(types.Integer(), graphene.ID, primary_key=True)
+def test_should_primary_integer_convert_id():
+    assert get_field(types.Integer(), primary_key=True).type == graphene.NonNull(graphene.ID)
 
 
 def test_should_boolean_convert_boolean():
-    assert_column_conversion(types.Boolean(), graphene.Boolean)
+    assert get_field(types.Boolean()).type == graphene.Boolean
 
 
 def test_should_float_convert_float():
-    assert_column_conversion(types.Float(), graphene.Float)
+    assert get_field(types.Float()).type == graphene.Float
 
 
 def test_should_numeric_convert_float():
-    assert_column_conversion(types.Numeric(), graphene.Float)
-
-
-def test_should_label_convert_string():
-    label = Label("label_test", case([], else_="foo"), type_=types.Unicode())
-    graphene_type = convert_sqlalchemy_column(label)
-    assert isinstance(graphene_type, graphene.String)
-
-
-def test_should_label_convert_int():
-    label = Label("int_label_test", case([], else_="foo"), type_=types.Integer())
-    graphene_type = convert_sqlalchemy_column(label)
-    assert isinstance(graphene_type, graphene.Int)
+    assert get_field(types.Numeric()).type == graphene.Float
 
 
 def test_should_choice_convert_enum():
-    TYPES = [(u"es", u"Spanish"), (u"en", u"English")]
-    column = Column(ChoiceType(TYPES), doc="Language", name="language")
-    Base = declarative_base()
-
-    Table("translatedmodel", Base.metadata, column)
-    graphene_type = convert_sqlalchemy_column(column)
+    field = get_field(ChoiceType([(u"es", u"Spanish"), (u"en", u"English")]))
+    graphene_type = field.type
     assert issubclass(graphene_type, graphene.Enum)
-    assert graphene_type._meta.name == "TRANSLATEDMODEL_LANGUAGE"
-    assert graphene_type._meta.description == "Language"
+    assert graphene_type._meta.name == "MODEL_COLUMN"
     assert graphene_type._meta.enum.__members__["es"].value == "Spanish"
     assert graphene_type._meta.enum.__members__["en"].value == "English"
 
 
 def test_should_columproperty_convert():
+    field = get_field_from_column(column_property(
+        select([func.sum(func.cast(id, types.Integer))]).where(id == 1)
+    ))
 
-    Base = declarative_base()
-
-    class Test(Base):
-        __tablename__ = "test"
-        id = Column(types.Integer, primary_key=True)
-        column = column_property(
-            select([func.sum(func.cast(id, types.Integer))]).where(id == 1)
-        )
-
-    graphene_type = convert_sqlalchemy_column(Test.column)
-    assert not graphene_type.kwargs["required"]
+    assert field.type == graphene.Int
 
 
 def test_should_scalar_list_convert_list():
-    assert_column_conversion(ScalarListType(), graphene.List)
+    field = get_field(ScalarListType())
+    assert isinstance(field.type, graphene.List)
+    assert field.type.of_type == graphene.String
 
 
 def test_should_jsontype_convert_jsonstring():
-    assert_column_conversion(JSONType(), JSONString)
+    assert get_field(JSONType()).type == JSONString
 
 
 def test_should_manytomany_convert_connectionorlist():
@@ -287,16 +252,14 @@ def test_should_onetoone_convert_field():
 
 
 def test_should_postgresql_uuid_convert():
-    assert_column_conversion(postgresql.UUID(), graphene.String)
+    assert get_field(postgresql.UUID()).type == graphene.String
 
 
 def test_should_postgresql_enum_convert():
-    field = assert_column_conversion(
-        postgresql.ENUM("one", "two", name="two_numbers"), graphene.Field
-    )
+    field = get_field(postgresql.ENUM("one", "two", name="two_numbers"))
     field_type = field.type()
-    assert field_type._meta.name == "TwoNumbers"
     assert isinstance(field_type, graphene.Enum)
+    assert field_type._meta.name == "TwoNumbers"
     assert hasattr(field_type, "ONE")
     assert not hasattr(field_type, "one")
     assert hasattr(field_type, "TWO")
@@ -304,10 +267,7 @@ def test_should_postgresql_enum_convert():
 
 
 def test_should_postgresql_py_enum_convert():
-    field = assert_column_conversion(
-        postgresql.ENUM(enum.Enum("TwoNumbers", "one two"), name="two_numbers"),
-        graphene.Field,
-    )
+    field = get_field(postgresql.ENUM(enum.Enum("TwoNumbers", "one two"), name="two_numbers"))
     field_type = field.type()
     assert field_type._meta.name == "TwoNumbers"
     assert isinstance(field_type, graphene.Enum)
@@ -318,55 +278,51 @@ def test_should_postgresql_py_enum_convert():
 
 
 def test_should_postgresql_array_convert():
-    assert_column_conversion(postgresql.ARRAY(types.Integer), graphene.List)
+    field = get_field(postgresql.ARRAY(types.Integer))
+    assert isinstance(field.type, graphene.List)
+    assert field.type.of_type == graphene.Int
 
 
 def test_should_postgresql_json_convert():
-    assert_column_conversion(postgresql.JSON(), JSONString)
+    assert get_field(postgresql.JSON()).type == graphene.JSONString
 
 
 def test_should_postgresql_jsonb_convert():
-    assert_column_conversion(postgresql.JSONB(), JSONString)
+    assert get_field(postgresql.JSONB()).type == graphene.JSONString
 
 
 def test_should_postgresql_hstore_convert():
-    assert_column_conversion(postgresql.HSTORE(), JSONString)
+    assert get_field(postgresql.HSTORE()).type == graphene.JSONString
 
 
 def test_should_composite_convert():
+    registry = Registry()
+
     class CompositeClass:
         def __init__(self, col1, col2):
             self.col1 = col1
             self.col2 = col2
 
-    registry = Registry()
-
     @convert_sqlalchemy_composite.register(CompositeClass, registry)
     def convert_composite_class(composite, registry):
         return graphene.String(description=composite.doc)
 
-    assert_composite_conversion(
-        CompositeClass,
-        (Column(types.Unicode(50)), Column(types.Unicode(50))),
-        graphene.String,
+    field = convert_sqlalchemy_composite(
+        composite(CompositeClass, (Column(types.Unicode(50)), Column(types.Unicode(50))), doc="Custom Help Text"),
         registry,
     )
+    assert isinstance(field, graphene.String)
 
 
 def test_should_unknown_sqlalchemy_composite_raise_exception():
-    registry = Registry()
+    class CompositeClass:
+        def __init__(self, col1, col2):
+            self.col1 = col1
+            self.col2 = col2
 
     re_err = "Don't know how to convert the composite field"
     with pytest.raises(Exception, match=re_err):
-
-        class CompositeClass(object):
-            def __init__(self, col1, col2):
-                self.col1 = col1
-                self.col2 = col2
-
-        assert_composite_conversion(
-            CompositeClass,
-            (Column(types.Unicode(50)), Column(types.Unicode(50))),
-            graphene.String,
-            registry,
+        convert_sqlalchemy_composite(
+            composite(CompositeFullName, (Column(types.Unicode(50)), Column(types.Unicode(50)))),
+            Registry(),
         )

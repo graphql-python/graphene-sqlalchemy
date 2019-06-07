@@ -1,4 +1,4 @@
-from sqlalchemy import Column
+from sqlalchemy.orm import ColumnProperty
 from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
 from graphene import Argument, Enum, List
@@ -69,11 +69,12 @@ def enum_for_field(obj_type, field_name):
     orm_field = registry.get_orm_field_for_graphene_field(obj_type, field_name)
     if orm_field is None:
         raise TypeError("Cannot get {}.{}".format(obj_type._meta.name, field_name))
-    if not isinstance(orm_field, Column):
+    if not isinstance(orm_field, ColumnProperty):
         raise TypeError(
             "{}.{} does not map to model column".format(obj_type._meta.name, field_name)
         )
-    sa_enum = orm_field.type
+    column = orm_field.columns[0]
+    sa_enum = column.type
     if not isinstance(sa_enum, SQLAlchemyEnumType):
         raise TypeError(
             "{}.{} does not map to enum column".format(obj_type._meta.name, field_name)
@@ -138,15 +139,16 @@ def sort_enum_for_object_type(
             if only_fields and field_name not in only_fields:
                 continue
             orm_field = registry.get_orm_field_for_graphene_field(obj_type, field_name)
-            if not isinstance(orm_field, Column):
+            if not isinstance(orm_field, ColumnProperty):
                 continue
-            if only_indexed and not (orm_field.primary_key or orm_field.index):
+            column = orm_field.columns[0]
+            if only_indexed and not (column.primary_key or column.index):
                 continue
-            asc_name = get_name(orm_field.name, True)
-            asc_value = EnumValue(asc_name, orm_field.asc())
-            desc_name = get_name(orm_field.name, False)
-            desc_value = EnumValue(desc_name, orm_field.desc())
-            if orm_field.primary_key:
+            asc_name = get_name(column.name, True)
+            asc_value = EnumValue(asc_name, column.asc())
+            desc_name = get_name(column.name, False)
+            desc_value = EnumValue(desc_name, column.desc())
+            if column.primary_key:
                 default.append(asc_value)
             members.extend(((asc_name, asc_value), (desc_name, desc_value)))
         enum = Enum(name, members)
