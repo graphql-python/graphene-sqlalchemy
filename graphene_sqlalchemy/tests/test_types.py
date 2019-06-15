@@ -364,33 +364,35 @@ def test_custom_connection_field_factory():
 
 
 def test_deprecated_registerConnectionFieldFactory():
-    registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
+    with pytest.warns(DeprecationWarning):
+        registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
 
-    class ReporterType(SQLAlchemyObjectType):
-        class Meta:
-            model = Reporter
-            interfaces = (Node,)
+        class ReporterType(SQLAlchemyObjectType):
+            class Meta:
+                model = Reporter
+                interfaces = (Node,)
 
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
+        class ArticleType(SQLAlchemyObjectType):
+            class Meta:
+                model = Article
+                interfaces = (Node,)
 
-    assert isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
+        assert isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
 
 
 def test_deprecated_unregisterConnectionFieldFactory():
-    registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
-    unregisterConnectionFieldFactory()
+    with pytest.warns(DeprecationWarning):
+        registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
+        unregisterConnectionFieldFactory()
 
-    class ReporterType(SQLAlchemyObjectType):
-        class Meta:
-            model = Reporter
-            interfaces = (Node,)
+        class ReporterType(SQLAlchemyObjectType):
+            class Meta:
+                model = Reporter
+                interfaces = (Node,)
 
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
+        class ArticleType(SQLAlchemyObjectType):
+            class Meta:
+                model = Article
+                interfaces = (Node,)
 
-    assert not isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
+        assert not isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)

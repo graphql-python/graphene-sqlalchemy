@@ -1,4 +1,4 @@
-import logging
+import warnings
 from functools import partial
 
 from promise import Promise, is_thenable
@@ -9,8 +9,6 @@ from graphene.relay.connection import PageInfo
 from graphql_relay.connection.arrayconnection import connection_from_list_slice
 
 from .utils import get_query
-
-log = logging.getLogger()
 
 
 class UnsortedSQLAlchemyConnectionField(ConnectionField):
@@ -100,7 +98,7 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
 def default_connection_field_factory(relationship, registry, **field_kwargs):
     model = relationship.mapper.entity
     model_type = registry.get_type_for_model(model)
-    return createConnectionField(model_type, **field_kwargs)
+    return __connectionFactory(model_type, **field_kwargs)
 
 
 # TODO Remove in next major version
@@ -108,26 +106,29 @@ __connectionFactory = UnsortedSQLAlchemyConnectionField
 
 
 def createConnectionField(_type, **field_kwargs):
-    log.warning(
+    warnings.warn(
         'createConnectionField is deprecated and will be removed in the next '
-        'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.'
+        'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.',
+        DeprecationWarning,
     )
     return __connectionFactory(_type, **field_kwargs)
 
 
 def registerConnectionFieldFactory(factoryMethod):
-    log.warning(
+    warnings.warn(
         'registerConnectionFieldFactory is deprecated and will be removed in the next '
-        'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.'
+        'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.',
+        DeprecationWarning,
     )
     global __connectionFactory
     __connectionFactory = factoryMethod
 
 
 def unregisterConnectionFieldFactory():
-    log.warning(
+    warnings.warn(
         'registerConnectionFieldFactory is deprecated and will be removed in the next '
-        'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.'
+        'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.',
+        DeprecationWarning,
     )
     global __connectionFactory
     __connectionFactory = UnsortedSQLAlchemyConnectionField
