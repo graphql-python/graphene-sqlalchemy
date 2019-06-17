@@ -7,7 +7,7 @@ from graphene import (Dynamic, Field, GlobalID, Int, List, Node, NonNull,
 
 from ..converter import convert_sqlalchemy_composite
 from ..fields import (SQLAlchemyConnectionField,
-                      UnsortedSQLAlchemyConnectionField,
+                      UnsortedSQLAlchemyConnectionField, createConnectionField,
                       registerConnectionFieldFactory,
                       unregisterConnectionFieldFactory)
 from ..types import ORMField, SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
@@ -396,3 +396,8 @@ def test_deprecated_unregisterConnectionFieldFactory():
                 interfaces = (Node,)
 
         assert not isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
+
+
+def test_deprecated_createConnectionField():
+    with pytest.warns(DeprecationWarning):
+        createConnectionField(None)
