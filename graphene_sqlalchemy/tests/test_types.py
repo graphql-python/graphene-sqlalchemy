@@ -7,7 +7,7 @@ from graphene import (Dynamic, Field, GlobalID, Int, List, Node, NonNull,
 
 from ..converter import convert_sqlalchemy_composite
 from ..fields import (SQLAlchemyConnectionField,
-                      UnsortedSQLAlchemyConnectionField,
+                      UnsortedSQLAlchemyConnectionField, createConnectionField,
                       registerConnectionFieldFactory,
                       unregisterConnectionFieldFactory)
 from ..types import ORMField, SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
@@ -224,6 +224,19 @@ def test_sqlalchemy_override_fields():
     assert pets_field.type().description == 'Overridden'
 
 
+def test_invalid_model_attr():
+    err_msg = (
+        "Cannot map ORMField to a model attribute.\n"
+        "Field: 'ReporterType.first_name'"
+    )
+    with pytest.raises(ValueError, match=err_msg):
+        class ReporterType(SQLAlchemyObjectType):
+            class Meta:
+                model = Reporter
+
+            first_name = ORMField(model_attr='does_not_exist')
+
+
 def test_only_fields():
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
@@ -364,33 +377,40 @@ def test_custom_connection_field_factory():
 
 
 def test_deprecated_registerConnectionFieldFactory():
-    registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
+    with pytest.warns(DeprecationWarning):
+        registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
 
-    class ReporterType(SQLAlchemyObjectType):
-        class Meta:
-            model = Reporter
-            interfaces = (Node,)
+        class ReporterType(SQLAlchemyObjectType):
+            class Meta:
+                model = Reporter
+                interfaces = (Node,)
 
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
+        class ArticleType(SQLAlchemyObjectType):
+            class Meta:
+                model = Article
+                interfaces = (Node,)
 
-    assert isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
+        assert isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
 
 
 def test_deprecated_unregisterConnectionFieldFactory():
-    registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
-    unregisterConnectionFieldFactory()
+    with pytest.warns(DeprecationWarning):
+        registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
+        unregisterConnectionFieldFactory()
 
-    class ReporterType(SQLAlchemyObjectType):
-        class Meta:
-            model = Reporter
-            interfaces = (Node,)
+        class ReporterType(SQLAlchemyObjectType):
+            class Meta:
+                model = Reporter
+                interfaces = (Node,)
 
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
+        class ArticleType(SQLAlchemyObjectType):
+            class Meta:
+                model = Article
+                interfaces = (Node,)
 
-    assert not isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
+        assert not isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
+
+
+def test_deprecated_createConnectionField():
+    with pytest.warns(DeprecationWarning):
+        createConnectionField(None)
