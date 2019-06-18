@@ -133,7 +133,10 @@ def construct_fields(
     for orm_field_name, orm_field in custom_orm_fields_items:
         attr_name = orm_field.kwargs.get('model_attr', orm_field_name)
         if attr_name not in all_model_attrs:
-            raise Exception('Cannot map ORMField "{}" to SQLAlchemy model property'.format(orm_field_name))
+            raise ValueError((
+                "Cannot map ORMField to a model attribute.\n"
+                "Field: '{}.{}'"
+            ).format(obj_type.__name__, orm_field_name,))
         orm_field.kwargs['model_attr'] = attr_name
 
     # Merge automatic fields with custom ORM fields

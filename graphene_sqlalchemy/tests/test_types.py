@@ -224,6 +224,19 @@ def test_sqlalchemy_override_fields():
     assert pets_field.type().description == 'Overridden'
 
 
+def test_invalid_model_attr():
+    err_msg = (
+        "Cannot map ORMField to a model attribute.\n"
+        "Field: 'ReporterType.first_name'"
+    )
+    with pytest.raises(ValueError, match=err_msg):
+        class ReporterType(SQLAlchemyObjectType):
+            class Meta:
+                model = Reporter
+
+            first_name = ORMField(model_attr='does_not_exist')
+
+
 def test_only_fields():
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
