@@ -414,3 +414,20 @@ def test_deprecated_unregisterConnectionFieldFactory():
 def test_deprecated_createConnectionField():
     with pytest.warns(DeprecationWarning):
         createConnectionField(None)
+
+
+def test_default_resolvers(session):
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (Node,)
+
+        def resolve_first_name(self):
+            return self.first_name.upper()
+
+    reporter = Reporter(first_name='alice')
+    session.add(reporter)
+    session.commit()
+    info = mock.Mock(context={'session': session})
+    first_name = ReporterType._meta.fields['first_name']
+    assert first_name.resolver(reporter, info) == 'ALICE'
