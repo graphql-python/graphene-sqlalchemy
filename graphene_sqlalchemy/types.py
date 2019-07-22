@@ -21,7 +21,7 @@ from .enums import (enum_for_field, sort_argument_for_object_type,
                     sort_enum_for_object_type)
 from .fields import default_connection_field_factory
 from .registry import Registry, get_global_registry
-from .utils import get_query, is_mapped_class, is_mapped_instance
+from .utils import get_query
 
 
 class ORMField(OrderedType):
@@ -199,10 +199,6 @@ class SQLAlchemyObjectType(ObjectType):
         _meta=None,
         **options
     ):
-        assert is_mapped_class(model), (
-            "You need to pass a valid SQLAlchemy Model in " '{}.Meta, received "{}".'
-        ).format(cls.__name__, model)
-
         if not registry:
             registry = get_global_registry()
 
@@ -271,8 +267,6 @@ class SQLAlchemyObjectType(ObjectType):
     def is_type_of(cls, root, info):
         if isinstance(root, cls):
             return True
-        if not is_mapped_instance(root):
-            raise Exception(('Received incompatible instance "{}".').format(root))
         return isinstance(root, cls._meta.model)
 
     @classmethod
