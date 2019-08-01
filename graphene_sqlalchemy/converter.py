@@ -16,10 +16,6 @@ except ImportError:
     ChoiceType = JSONType = ScalarListType = TSVectorType = object
 
 
-def _get_attr_resolver(attr_name):
-    return lambda root, _info: getattr(root, attr_name, None)
-
-
 def get_column_doc(column):
     return getattr(column, "doc", None)
 
@@ -28,7 +24,7 @@ def is_column_nullable(column):
     return bool(getattr(column, "nullable", True))
 
 
-def convert_sqlalchemy_relationship(relationship_prop, registry, connection_field_factory, **field_kwargs):
+def convert_sqlalchemy_relationship(relationship_prop, registry, connection_field_factory, resolver, **field_kwargs):
     direction = relationship_prop.direction
     model = relationship_prop.mapper.entity
 
@@ -40,7 +36,7 @@ def convert_sqlalchemy_relationship(relationship_prop, registry, connection_fiel
         if direction == interfaces.MANYTOONE or not relationship_prop.uselist:
             return Field(
                 _type,
-                resolver=_get_attr_resolver(relationship_prop.key),
+                resolver=resolver,
                 **field_kwargs
             )
         elif direction in (interfaces.ONETOMANY, interfaces.MANYTOMANY):
@@ -55,18 +51,18 @@ def convert_sqlalchemy_relationship(relationship_prop, registry, connection_fiel
     return Dynamic(dynamic_type)
 
 
-def convert_sqlalchemy_hybrid_method(hybrid_prop, prop_name, **field_kwargs):
+def convert_sqlalchemy_hybrid_method(hybrid_prop, resolver, **field_kwargs):
     if 'type' not in field_kwargs:
         # TODO The default type should be dependent on the type of the property propety.
         field_kwargs['type'] = String
 
     return Field(
-        resolver=_get_attr_resolver(prop_name),
+        resolver=resolver,
         **field_kwargs
     )
 
 
-def convert_sqlalchemy_composite(composite_prop, registry):
+def convert_sqlalchemy_composite(composite_prop, registry, resolver):
     converter = registry.get_converter_for_composite(composite_prop.composite_class)
     if not converter:
         try:
@@ -100,14 +96,14 @@ def _register_composite_class(cls, registry=None):
 convert_sqlalchemy_composite.register = _register_composite_class
 
 
-def convert_sqlalchemy_column(column_prop, registry, **field_kwargs):
+def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
     column = column_prop.columns[0]
     field_kwargs.setdefault('type', convert_sqlalchemy_type(getattr(column, "type", None), column, registry))
     field_kwargs.setdefault('required', not is_column_nullable(column))
     field_kwargs.setdefault('description', get_column_doc(column))
 
     return Field(
-        resolver=_get_attr_resolver(column_prop.key),
+        resolver=resolver,
         **field_kwargs
     )
 

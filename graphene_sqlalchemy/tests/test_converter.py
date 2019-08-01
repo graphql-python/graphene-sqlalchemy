@@ -23,6 +23,10 @@ from ..types import SQLAlchemyObjectType
 from .models import Article, CompositeFullName, Pet, Reporter
 
 
+def mock_resolver():
+    pass
+
+
 def get_field(sqlalchemy_type, **column_kwargs):
     class Model(declarative_base()):
         __tablename__ = 'model'
@@ -30,7 +34,7 @@ def get_field(sqlalchemy_type, **column_kwargs):
         column = Column(sqlalchemy_type, doc="Custom Help Text", **column_kwargs)
 
     column_prop = inspect(Model).column_attrs['column']
-    return convert_sqlalchemy_column(column_prop, get_global_registry())
+    return convert_sqlalchemy_column(column_prop, get_global_registry(), mock_resolver)
 
 
 def get_field_from_column(column_):
@@ -40,7 +44,7 @@ def get_field_from_column(column_):
         column = column_
 
     column_prop = inspect(Model).column_attrs['column']
-    return convert_sqlalchemy_column(column_prop, get_global_registry())
+    return convert_sqlalchemy_column(column_prop, get_global_registry(), mock_resolver)
 
 
 def test_should_unknown_sqlalchemy_field_raise_exception():
@@ -162,7 +166,7 @@ def test_should_jsontype_convert_jsonstring():
 def test_should_manytomany_convert_connectionorlist():
     registry = Registry()
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.pets.property, registry, default_connection_field_factory
+        Reporter.pets.property, registry, default_connection_field_factory, mock_resolver,
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     assert not dynamic_field.get_type()
@@ -174,7 +178,7 @@ def test_should_manytomany_convert_connectionorlist_list():
             model = Pet
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.pets.property, A._meta.registry, default_connection_field_factory
+        Reporter.pets.property, A._meta.registry, default_connection_field_factory, mock_resolver,
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
@@ -190,7 +194,7 @@ def test_should_manytomany_convert_connectionorlist_connection():
             interfaces = (Node,)
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.pets.property, A._meta.registry, default_connection_field_factory
+        Reporter.pets.property, A._meta.registry, default_connection_field_factory, mock_resolver
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     assert isinstance(dynamic_field.get_type(), UnsortedSQLAlchemyConnectionField)
@@ -199,7 +203,10 @@ def test_should_manytomany_convert_connectionorlist_connection():
 def test_should_manytoone_convert_connectionorlist():
     registry = Registry()
     dynamic_field = convert_sqlalchemy_relationship(
-        Article.reporter.property, registry, default_connection_field_factory
+        Article.reporter.property,
+        registry,
+        default_connection_field_factory,
+        mock_resolver,
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     assert not dynamic_field.get_type()
@@ -211,7 +218,10 @@ def test_should_manytoone_convert_connectionorlist_list():
             model = Reporter
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Article.reporter.property, A._meta.registry, default_connection_field_factory
+        Article.reporter.property,
+        A._meta.registry,
+        default_connection_field_factory,
+        mock_resolver,
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
@@ -226,7 +236,10 @@ def test_should_manytoone_convert_connectionorlist_connection():
             interfaces = (Node,)
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Article.reporter.property, A._meta.registry, default_connection_field_factory
+        Article.reporter.property,
+        A._meta.registry,
+        default_connection_field_factory,
+        mock_resolver,
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
@@ -244,6 +257,7 @@ def test_should_onetoone_convert_field():
         Reporter.favorite_article.property,
         A._meta.registry,
         default_connection_field_factory,
+        mock_resolver,
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
@@ -310,6 +324,7 @@ def test_should_composite_convert():
     field = convert_sqlalchemy_composite(
         composite(CompositeClass, (Column(types.Unicode(50)), Column(types.Unicode(50))), doc="Custom Help Text"),
         registry,
+        mock_resolver,
     )
     assert isinstance(field, graphene.String)
 
@@ -325,4 +340,5 @@ def test_should_unknown_sqlalchemy_composite_raise_exception():
         convert_sqlalchemy_composite(
             composite(CompositeFullName, (Column(types.Unicode(50)), Column(types.Unicode(50)))),
             Registry(),
+            mock_resolver,
         )
