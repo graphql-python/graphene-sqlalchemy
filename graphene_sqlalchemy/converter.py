@@ -7,6 +7,7 @@ from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
                       String)
 from graphene.types.json import JSONString
 
+from enum import EnumMeta
 from .enums import enum_for_sa_enum
 from .registry import get_global_registry
 
@@ -167,7 +168,12 @@ def convert_enum_to_enum(type, column, registry=None):
 @convert_sqlalchemy_type.register(ChoiceType)
 def convert_choice_to_enum(type, column, registry=None):
     name = "{}_{}".format(column.table.name, column.name).upper()
-    return Enum(name, type.choices)
+    if isinstance(type.choices, EnumMeta):
+        # type.choices may be Enum/IntEnum, in ChoiceType both presented as EnumMeta
+        # do not use from_enum here because we can have more than one enum column in table
+        return Enum(name, list((v.name, v.value) for v in type.choices))
+    else:
+        return Enum(name, type.choices)
 
 
 @convert_sqlalchemy_type.register(ScalarListType)
