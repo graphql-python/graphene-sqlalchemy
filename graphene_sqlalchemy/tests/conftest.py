@@ -2,6 +2,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
+import graphene
+
 from ..converter import convert_sqlalchemy_composite
 from ..registry import reset_global_registry
 from .models import Base, CompositeFullName
@@ -17,7 +19,7 @@ def reset_registry():
     # Tests that explicitly depend on this behavior should re-register a converter
     @convert_sqlalchemy_composite.register(CompositeFullName)
     def convert_composite_class(composite, registry):
-        pass
+        return graphene.Field(graphene.Int)
 
 
 @pytest.yield_fixture(scope="function")
