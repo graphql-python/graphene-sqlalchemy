@@ -11,6 +11,7 @@ from graphene import Field
 from graphene.relay import Connection, Node
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
+from graphene.utils.get_unbound_function import get_unbound_function
 from graphene.utils.orderedtype import OrderedType
 
 from .converter import (convert_sqlalchemy_column,
@@ -151,20 +152,22 @@ def construct_fields(
     for orm_field_name, orm_field in orm_fields.items():
         attr_name = orm_field.kwargs.pop('model_attr')
         attr = all_model_attrs[attr_name]
+        resolver = _get_field_resolver(obj_type, orm_field_name, attr_name)
 
         if isinstance(attr, ColumnProperty):
-            field = convert_sqlalchemy_column(attr, registry, **orm_field.kwargs)
+            field = convert_sqlalchemy_column(attr, registry, resolver, **orm_field.kwargs)
         elif isinstance(attr, RelationshipProperty):
-            field = convert_sqlalchemy_relationship(attr, registry, connection_field_factory, **orm_field.kwargs)
+            field = convert_sqlalchemy_relationship(attr, registry, connection_field_factory, resolver,
+                                                    **orm_field.kwargs)
         elif isinstance(attr, CompositeProperty):
             if attr_name != orm_field_name or orm_field.kwargs:
                 # TODO Add a way to override composite property fields
                 raise ValueError(
                     "ORMField kwargs for composite fields must be empty. "
                     "Field: {}.{}".format(obj_type.__name__, orm_field_name))
-            field = convert_sqlalchemy_composite(attr, registry)
+            field = convert_sqlalchemy_composite(attr, registry, resolver)
         elif isinstance(attr, hybrid_property):
-            field = convert_sqlalchemy_hybrid_method(attr, attr_name, **orm_field.kwargs)
+            field = convert_sqlalchemy_hybrid_method(attr, resolver, **orm_field.kwargs)
         else:
             raise Exception('Property type is not supported')  # Should never happen
 
@@ -172,6 +175,25 @@ def construct_fields(
         fields[orm_field_name] = field
 
     return fields
+
+
+def _get_field_resolver(obj_type, orm_field_name, model_attr):
+    """
+    In order to support field renaming via `ORMField.model_attr`,
+    we need to define resolver functions for each field.
+
+    :param SQLAlchemyObjectType obj_type:
+    :param model: the SQLAlchemy model
+    :param str model_attr: the name of SQLAlchemy of the attribute used to resolve the field
+    :rtype: Callable
+    """
+    # Since `graphene` will call `resolve_<field_name>` on a field only if it
+    # does not have a `resolver`, we need to re-implement that logic here.
+    resolver = getattr(obj_type, 'resolve_{}'.format(orm_field_name), None)
+    if resolver:
+        return get_unbound_function(resolver)
+
+    return lambda root, _info: getattr(root, model_attr, None)
 
 
 class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
