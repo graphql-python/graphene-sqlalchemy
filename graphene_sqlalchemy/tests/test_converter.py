@@ -145,6 +145,32 @@ def test_should_choice_convert_enum():
     assert graphene_type._meta.enum.__members__["en"].value == "English"
 
 
+def test_should_enum_choice_convert_enum():
+    class TestEnum(enum.Enum):
+        es = u"Spanish"
+        en = u"English"
+
+    field = get_field(ChoiceType(TestEnum, impl=types.String()))
+    graphene_type = field.type
+    assert issubclass(graphene_type, graphene.Enum)
+    assert graphene_type._meta.name == "MODEL_COLUMN"
+    assert graphene_type._meta.enum.__members__["es"].value == "Spanish"
+    assert graphene_type._meta.enum.__members__["en"].value == "English"
+
+
+def test_should_intenum_choice_convert_enum():
+    class TestEnum(enum.IntEnum):
+        one = 1
+        two = 2
+
+    field = get_field(ChoiceType(TestEnum, impl=types.String()))
+    graphene_type = field.type
+    assert issubclass(graphene_type, graphene.Enum)
+    assert graphene_type._meta.name == "MODEL_COLUMN"
+    assert graphene_type._meta.enum.__members__["one"].value == 1
+    assert graphene_type._meta.enum.__members__["two"].value == 2
+
+
 def test_should_columproperty_convert():
     field = get_field_from_column(column_property(
         select([func.sum(func.cast(id, types.Integer))]).where(id == 1)
