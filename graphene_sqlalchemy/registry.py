@@ -1,5 +1,7 @@
 from collections import defaultdict
 
+import six
+
 from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
 from graphene import Enum
@@ -42,7 +44,7 @@ class Registry(object):
             raise TypeError(
                 "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
             )
-        if not field_name or not isinstance(field_name, str):
+        if not field_name or not isinstance(field_name, six.string_types):
             raise TypeError("Expected a field name, but got: {!r}".format(field_name))
         self._registry_orm_fields[obj_type][field_name] = orm_field
 
