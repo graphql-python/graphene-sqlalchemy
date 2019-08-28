@@ -1,7 +1,6 @@
 from collections import defaultdict
 
 import six
-
 from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
 from graphene import Enum
