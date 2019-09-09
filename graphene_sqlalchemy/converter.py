@@ -171,8 +171,9 @@ def convert_scalar_list_to_list(type, column, registry=None):
     return List(String)
 
 
+@convert_sqlalchemy_type.register(types.ARRAY)
 @convert_sqlalchemy_type.register(postgresql.ARRAY)
-def convert_postgres_array_to_list(_type, column, registry=None):
+def convert_array_to_list(_type, column, registry=None):
     inner_type = convert_sqlalchemy_type(column.type.item_type, column)
     return List(inner_type)
 
