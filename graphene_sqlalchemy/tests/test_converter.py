@@ -323,6 +323,12 @@ def test_should_postgresql_array_convert():
     assert field.type.of_type == graphene.Int
 
 
+def test_should_array_convert():
+    field = get_field(types.ARRAY(types.Integer))
+    assert isinstance(field.type, graphene.List)
+    assert field.type.of_type == graphene.Int
+
+
 def test_should_postgresql_json_convert():
     assert get_field(postgresql.JSON()).type == graphene.JSONString
 

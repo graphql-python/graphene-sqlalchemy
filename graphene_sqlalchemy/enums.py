@@ -1,3 +1,4 @@
+import six
 from sqlalchemy.orm import ColumnProperty
 from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
@@ -62,7 +63,7 @@ def enum_for_field(obj_type, field_name):
     if not isinstance(obj_type, type) or not issubclass(obj_type, SQLAlchemyObjectType):
         raise TypeError(
             "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type))
-    if not field_name or not isinstance(field_name, str):
+    if not field_name or not isinstance(field_name, six.string_types):
         raise TypeError(
             "Expected a field name, but got: {!r}".format(field_name))
     registry = obj_type._meta.registry
