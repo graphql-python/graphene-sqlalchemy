@@ -5,16 +5,7 @@ from ..converter import convert_sqlalchemy_composite
 from ..fields import SQLAlchemyConnectionField
 from ..types import ORMField, SQLAlchemyObjectType
 from .models import Article, CompositeFullName, Editor, HairKind, Pet, Reporter
-
-
-def to_std_dicts(value):
-    """Convert nested ordered dicts to normal dicts for better comparison."""
-    if isinstance(value, dict):
-        return {k: to_std_dicts(v) for k, v in value.items()}
-    elif isinstance(value, list):
-        return [to_std_dicts(v) for v in value]
-    else:
-        return value
+from .utils import to_std_dicts
 
 
 def add_test_data(session):

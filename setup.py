@@ -14,6 +14,7 @@ with open("graphene_sqlalchemy/__init__.py", "rb") as f:
 requirements = [
     # To keep things simple, we only support newer versions of Graphene
     "graphene>=2.1.3,<3",
+    "promise>=2.1",
     # Tests fail with 1.0.19
     "SQLAlchemy>=1.1,<2",
     "six>=1.10.0,<2",

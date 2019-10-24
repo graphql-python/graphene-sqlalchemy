@@ -1,11 +1,13 @@
 from collections import OrderedDict
 
 import sqlalchemy
+from promise import dataloader, promise
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect as sqlalchemyinspect
-from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
-                            RelationshipProperty)
+from sqlalchemy.orm import (ColumnProperty, CompositeProperty, Load,
+                            RelationshipProperty, Session)
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm.loading import PostLoad
 
 from graphene import Field
 from graphene.relay import Connection, Node
@@ -152,22 +154,40 @@ def construct_fields(
     for orm_field_name, orm_field in orm_fields.items():
         attr_name = orm_field.kwargs.pop('model_attr')
         attr = all_model_attrs[attr_name]
-        resolver = _get_field_resolver(obj_type, orm_field_name, attr_name)
+        custom_resolver = _get_custom_resolver(obj_type, orm_field_name)
 
         if isinstance(attr, ColumnProperty):
-            field = convert_sqlalchemy_column(attr, registry, resolver, **orm_field.kwargs)
+            field = convert_sqlalchemy_column(
+                attr,
+                registry,
+                custom_resolver or _get_attr_resolver(obj_type, orm_field_name, attr_name),
+                **orm_field.kwargs
+            )
         elif isinstance(attr, RelationshipProperty):
-            field = convert_sqlalchemy_relationship(attr, registry, connection_field_factory, resolver,
-                                                    **orm_field.kwargs)
+            field = convert_sqlalchemy_relationship(
+                attr,
+                registry,
+                connection_field_factory,
+                custom_resolver or _get_relationship_resolver(obj_type, attr, attr_name),
+                **orm_field.kwargs
+            )
         elif isinstance(attr, CompositeProperty):
             if attr_name != orm_field_name or orm_field.kwargs:
                 # TODO Add a way to override composite property fields
                 raise ValueError(
                     "ORMField kwargs for composite fields must be empty. "
                     "Field: {}.{}".format(obj_type.__name__, orm_field_name))
-            field = convert_sqlalchemy_composite(attr, registry, resolver)
+            field = convert_sqlalchemy_composite(
+                attr,
+                registry,
+                custom_resolver or _get_attr_resolver(obj_type, orm_field_name, attr_name),
+            )
         elif isinstance(attr, hybrid_property):
-            field = convert_sqlalchemy_hybrid_method(attr, resolver, **orm_field.kwargs)
+            field = convert_sqlalchemy_hybrid_method(
+                attr,
+                custom_resolver or _get_attr_resolver(obj_type, orm_field_name, attr_name),
+                **orm_field.kwargs
+            )
         else:
             raise Exception('Property type is not supported')  # Should never happen
 
@@ -177,22 +197,132 @@ def construct_fields(
     return fields
 
 
-def _get_field_resolver(obj_type, orm_field_name, model_attr):
+def _get_custom_resolver(obj_type, orm_field_name):
+    """
+    Since `graphene` will call `resolve_<field_name>` on a field only if it
+    does not have a `resolver`, we need to re-implement that logic here so
+    users are able to override the default resolvers that we provide.
+    """
+    resolver = getattr(obj_type, 'resolve_{}'.format(orm_field_name), None)
+    if resolver:
+        return get_unbound_function(resolver)
+
+    return None
+
+
+def _get_relationship_resolver(obj_type, relationship_prop, model_attr):
+    """
+    Batch SQL queries using Dataloader to avoid the N+1 problem.
+
+    :param SQLAlchemyObjectType obj_type:
+    :param sqlalchemy.orm.properties.RelationshipProperty relationship_prop:
+    :param str model_attr: the name of the SQLAlchemy attribute
+    :rtype: Callable
+    """
+    child_mapper = relationship_prop.mapper
+    parent_mapper = relationship_prop.parent
+
+    if relationship_prop.uselist:
+        # TODO Batch many-to-many and one-to-many relationships
+        return _get_attr_resolver(obj_type, model_attr, model_attr)
+
+    class NonListRelationshipLoader(dataloader.DataLoader):
+        cache = False
+
+        def batch_load_fn(self, parents):  # pylint: disable=method-hidden
+            """
+            Batch loads the relationship of all the parents as one SQL statement.
+
+            There is no way to do this out-of-the-box with SQLAlchemy but
+            we can piggyback on some internal APIs of the `selectin`
+            eager loading strategy. It's a bit hacky but it's preferable
+            than re-implementing and maintainnig a big chunk of the `selectin`
+            loader logic ourselves.
+
+            The approach is to here to build a regular query that
+            selects the parent and `selectin` load the relationship.
+            But instead of having the query emits 2 `SELECT` statements
+            when callling `all()`, we skip the first `SELECT` statement
+            and jump right before the `selectin` loader is called.
+            To accomplish this, we have to construct objects that are
+            normally built in the first part of the query and then
+            call then invoke the `selectin` post loader.
+
+            For this reason, if you're trying to understand the steps below,
+            it's easier to start at the bottom (ie `post_load.invoke`) and
+            go backward.
+            """
+            session = Session.object_session(parents[0])
+
+            # These issues are very unlikely to happen in practice...
+            for parent in parents:
+                assert parent.__mapper__ is parent_mapper
+                # All instances must share the same session
+                assert session is Session.object_session(parent)
+                # The behavior of `selectin` is undefined if the parent is dirty
+                assert parent not in session.dirty
+
+            load = Load(parent_mapper.entity).selectinload(model_attr)
+            query = session.query(parent_mapper.entity).options(load)
+
+            # Taken from orm.query.Query.__iter__
+            # https://git.io/JeuBi
+            context = query._compile_context()
+
+            # Taken from orm.loading.instances
+            # https://git.io/JeuBR
+            context.post_load_paths = {}
+
+            # Taken from orm.strategies.SelectInLoader.__init__
+            # https://git.io/JeuBd
+            selectin_strategy = getattr(parent_mapper.entity, model_attr).property._get_strategy(load.strategy)
+
+            # Taken from orm.loading._instance_processor._instance
+            # https://git.io/JeuBq
+            post_load = PostLoad()
+            post_load.loaders[model_attr] = (
+                model_attr,
+                parent_mapper,
+                selectin_strategy._load_for_path,
+                (child_mapper,),
+                {},
+            )
+
+            # Taken from orm.loading._instance_processor._instance
+            # https://git.io/JeuBn
+            # https://git.io/Jeu4j
+            context.partials = {}
+            for parent in parents:
+                post_load.add_state(parent._sa_instance_state, True)
+
+            # Taken from orm.strategies.SelectInLoader.create_row_processor
+            # https://git.io/Jeu4F
+            selectin_path = context.query._current_path + parent_mapper._path_registry
+
+            # Taken from orm.loading.instances
+            # https://git.io/JeuBO
+            post_load.invoke(context, selectin_path.path)
+
+            return promise.Promise.resolve([getattr(parent, model_attr) for parent in parents])
+
+    loader = NonListRelationshipLoader()
+
+    def resolve(root, info):
+        return loader.load(root)
+
+    return resolve
+
+
+def _get_attr_resolver(obj_type, orm_field_name, model_attr):
     """
     In order to support field renaming via `ORMField.model_attr`,
     we need to define resolver functions for each field.
 
     :param SQLAlchemyObjectType obj_type:
-    :param model: the SQLAlchemy model
-    :param str model_attr: the name of SQLAlchemy of the attribute used to resolve the field
+    :param str orm_field_name:
+    :param str model_attr: the name of the SQLAlchemy attribute
     :rtype: Callable
     """
-    # Since `graphene` will call `resolve_<field_name>` on a field only if it
-    # does not have a `resolver`, we need to re-implement that logic here.
-    resolver = getattr(obj_type, 'resolve_{}'.format(orm_field_name), None)
-    if resolver:
-        return get_unbound_function(resolver)
-
     return lambda root, _info: getattr(root, model_attr, None)
 
 
