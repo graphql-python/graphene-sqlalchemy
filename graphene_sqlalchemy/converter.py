@@ -6,7 +6,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import interfaces
 
 from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
-                      String, NonNull)
+                      NonNull, String)
 from graphene.types.json import JSONString
 
 from .enums import enum_for_sa_enum
