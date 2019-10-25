@@ -209,8 +209,12 @@ def test_should_manytomany_convert_connectionorlist_list():
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
-    assert isinstance(graphene_type.type, graphene.List)
-    assert graphene_type.type.of_type == A
+    assert isinstance(graphene_type.type, graphene.NonNull)
+    list_type = graphene_type.type.type.of_type
+    assert isinstance(list_type, graphene.List)
+    list_element_type = list_type.of_type
+    assert isinstance(list_element_type, graphene.NonNull)
+    assert list_element_type.of_type == A
 
 
 def test_should_manytomany_convert_connectionorlist_connection():
