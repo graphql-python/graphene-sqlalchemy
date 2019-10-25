@@ -6,7 +6,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import interfaces
 
 from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
-                      String)
+                      String, NonNull)
 from graphene.types.json import JSONString
 
 from .enums import enum_for_sa_enum
@@ -46,7 +46,8 @@ def convert_sqlalchemy_relationship(relationship_prop, registry, connection_fiel
                 # TODO Add a way to override connection_field_factory
                 return connection_field_factory(relationship_prop, registry, **field_kwargs)
             return Field(
-                List(_type),
+                List(NonNull(_type)),
+                required=True,
                 **field_kwargs
             )
 
