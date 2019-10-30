@@ -8,7 +8,6 @@ from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.query import QueryContext
 from sqlalchemy.orm.strategies import SelectInLoader
-from sqlalchemy.orm.util import PathRegistry
 
 from graphene import Field
 from graphene.relay import Connection, Node
@@ -265,9 +264,6 @@ def _get_relationship_resolver(obj_type, relationship_prop, model_attr):
 
             loader = SelectInLoader(relationship_prop, (('lazy', 'selectin'),))
 
-            # The path is a fixed single token in this case
-            path = PathRegistry.root + parent_mapper._path_registry
-
             # Should the boolean be set to False? Does it matter for our purposes?
             states = [(sqlalchemy.inspect(parent), True) for parent in parents]
 
@@ -276,7 +272,7 @@ def _get_relationship_resolver(obj_type, relationship_prop, model_attr):
 
             loader._load_for_path(
                 query_context,
-                path,
+                parent_mapper._path_registry,
                 states,
                 None,
                 child_mapper,
