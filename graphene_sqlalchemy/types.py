@@ -3,11 +3,12 @@ from collections import OrderedDict
 import sqlalchemy
 from promise import dataloader, promise
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.inspection import inspect as sqlalchemyinspect
-from sqlalchemy.orm import (ColumnProperty, CompositeProperty, Load,
+from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
                             RelationshipProperty, Session)
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.orm.loading import PostLoad
+from sqlalchemy.orm.query import QueryContext
+from sqlalchemy.orm.strategies import SelectInLoader
+from sqlalchemy.orm.util import PathRegistry
 
 from graphene import Field
 from graphene.relay import Connection, Node
@@ -106,7 +107,7 @@ def construct_fields(
     :param function connection_field_factory:
     :rtype: OrderedDict[str, graphene.Field]
     """
-    inspected_model = sqlalchemyinspect(model)
+    inspected_model = sqlalchemy.inspect(model)
     # Gather all the relevant attributes from the SQLAlchemy model in order
     all_model_attrs = OrderedDict(
         inspected_model.column_attrs.items() +
@@ -262,46 +263,24 @@ def _get_relationship_resolver(obj_type, relationship_prop, model_attr):
                 # The behavior of `selectin` is undefined if the parent is dirty
                 assert parent not in session.dirty
 
-            load = Load(parent_mapper.entity).selectinload(model_attr)
-            query = session.query(parent_mapper.entity).options(load)
+            loader = SelectInLoader(relationship_prop, (('lazy', 'selectin'),))
 
-            # Taken from orm.query.Query.__iter__
-            # https://git.io/JeuBi
-            context = query._compile_context()
+            # The path is a fixed single token in this case
+            path = PathRegistry.root + parent_mapper._path_registry
 
-            # Taken from orm.loading.instances
-            # https://git.io/JeuBR
-            context.post_load_paths = {}
+            # Should the boolean be set to False? Does it matter for our purposes?
+            states = [(sqlalchemy.inspect(parent), True) for parent in parents]
 
-            # Taken from orm.strategies.SelectInLoader.__init__
-            # https://git.io/JeuBd
-            selectin_strategy = getattr(parent_mapper.entity, model_attr).property._get_strategy(load.strategy)
+            # For our purposes, the query_context will only used to get the session
+            query_context = QueryContext(session.query(parent_mapper.entity))
 
-            # Taken from orm.loading._instance_processor._instance
-            # https://git.io/JeuBq
-            post_load = PostLoad()
-            post_load.loaders[model_attr] = (
-                model_attr,
-                parent_mapper,
-                selectin_strategy._load_for_path,
-                (child_mapper,),
-                {},
+            loader._load_for_path(
+                query_context,
+                path,
+                states,
+                None,
+                child_mapper,
             )
-
-            # Taken from orm.loading._instance_processor._instance
-            # https://git.io/JeuBn
-            # https://git.io/Jeu4j
-            context.partials = {}
-            for parent in parents:
-                post_load.add_state(parent._sa_instance_state, True)
-
-            # Taken from orm.strategies.SelectInLoader.create_row_processor
-            # https://git.io/Jeu4F
-            selectin_path = context.query._current_path + parent_mapper._path_registry
-
-            # Taken from orm.loading.instances
-            # https://git.io/JeuBO
-            post_load.invoke(context, selectin_path.path)
 
             return promise.Promise.resolve([getattr(parent, model_attr) for parent in parents])
 
