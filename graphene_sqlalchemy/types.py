@@ -245,12 +245,8 @@ def _get_relationship_resolver(obj_type, relationship_prop, model_attr):
             when callling `all()`, we skip the first `SELECT` statement
             and jump right before the `selectin` loader is called.
             To accomplish this, we have to construct objects that are
-            normally built in the first part of the query and then
-            call then invoke the `selectin` post loader.
-
-            For this reason, if you're trying to understand the steps below,
-            it's easier to start at the bottom (ie `post_load.invoke`) and
-            go backward.
+            normally built in the first part of the query in order
+            to call directly `SelectInLoader._load_for_path`.
             """
             session = Session.object_session(parents[0])
 
