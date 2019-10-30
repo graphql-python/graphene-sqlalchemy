@@ -16,7 +16,7 @@ requirements = [
     "graphene>=2.1.3,<3",
     "promise>=2.1",
     # Tests fail with 1.0.19
-    "SQLAlchemy>=1.1,<2",
+    "SQLAlchemy>=1.2,<2",
     "six>=1.10.0,<2",
     "singledispatch>=3.4.0.3,<4",
 ]
