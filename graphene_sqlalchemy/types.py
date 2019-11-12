@@ -4,10 +4,9 @@ import sqlalchemy
 from promise import dataloader, promise
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
-                            RelationshipProperty, Session)
+                            RelationshipProperty, Session, strategies)
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.query import QueryContext
-from sqlalchemy.orm.strategies import SelectInLoader
 
 from graphene import Field
 from graphene.relay import Connection, Node
@@ -213,6 +212,8 @@ def _get_custom_resolver(obj_type, orm_field_name):
 def _get_relationship_resolver(obj_type, relationship_prop, model_attr):
     """
     Batch SQL queries using Dataloader to avoid the N+1 problem.
+    SQL batching only works for SQLAlchemy 1.2+ since it depends on
+    the `selectin` loader.
 
     :param SQLAlchemyObjectType obj_type:
     :param sqlalchemy.orm.properties.RelationshipProperty relationship_prop:
@@ -222,7 +223,7 @@ def _get_relationship_resolver(obj_type, relationship_prop, model_attr):
     child_mapper = relationship_prop.mapper
     parent_mapper = relationship_prop.parent
 
-    if relationship_prop.uselist:
+    if not getattr(strategies, 'SelectInLoader', None) or relationship_prop.uselist:
         # TODO Batch many-to-many and one-to-many relationships
         return _get_attr_resolver(obj_type, model_attr, model_attr)
 
@@ -239,7 +240,7 @@ def _get_relationship_resolver(obj_type, relationship_prop, model_attr):
             than re-implementing and maintainnig a big chunk of the `selectin`
             loader logic ourselves.
 
-            The approach is to here to build a regular query that
+            The approach here is to build a regular query that
             selects the parent and `selectin` load the relationship.
             But instead of having the query emits 2 `SELECT` statements
             when callling `all()`, we skip the first `SELECT` statement
@@ -247,6 +248,10 @@ def _get_relationship_resolver(obj_type, relationship_prop, model_attr):
             To accomplish this, we have to construct objects that are
             normally built in the first part of the query in order
             to call directly `SelectInLoader._load_for_path`.
+
+            TODO Move this logic to a util in the SQLAlchemy repo as per
+              SQLAlchemy's main maitainer suggestion.
+              See https://git.io/JewQ7
             """
             session = Session.object_session(parents[0])
 
@@ -258,7 +263,7 @@ def _get_relationship_resolver(obj_type, relationship_prop, model_attr):
                 # The behavior of `selectin` is undefined if the parent is dirty
                 assert parent not in session.dirty
 
-            loader = SelectInLoader(relationship_prop, (('lazy', 'selectin'),))
+            loader = strategies.SelectInLoader(relationship_prop, (('lazy', 'selectin'),))
 
             # Should the boolean be set to False? Does it matter for our purposes?
             states = [(sqlalchemy.inspect(parent), True) for parent in parents]

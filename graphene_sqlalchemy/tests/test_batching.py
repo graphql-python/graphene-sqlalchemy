@@ -1,6 +1,9 @@
 import contextlib
 import logging
 
+import pkg_resources
+import pytest
+
 import graphene
 
 from ..types import SQLAlchemyObjectType
@@ -78,6 +81,14 @@ def get_schema(session):
     return graphene.Schema(query=Query)
 
 
+def is_sqlalchemy_version_less_than(version_string):
+    return pkg_resources.get_distribution('SQLAlchemy').parsed_version < pkg_resources.parse_version(version_string)
+
+
+if is_sqlalchemy_version_less_than('1.2'):
+    pytest.skip('SQL batching only works for SQLAlchemy 1.2+', allow_module_level=True)
+
+
 def test_many_to_one(session_factory):
     session = session_factory()
     make_fixture(session)
@@ -99,6 +110,13 @@ def test_many_to_one(session_factory):
         messages = sqlalchemy_logging_handler.messages
 
     assert len(messages) == 5
+
+    if is_sqlalchemy_version_less_than('1.3'):
+        # The batched SQL statement generated is different in 1.2.x
+        # SQLAlchemy 1.3+ optimizes out a JOIN statement in `selectin`
+        # See https://git.io/JewQu
+        return
+
     assert messages == [
       'BEGIN (implicit)',
 
@@ -161,6 +179,13 @@ def test_one_to_one(session_factory):
         messages = sqlalchemy_logging_handler.messages
 
     assert len(messages) == 5
+
+    if is_sqlalchemy_version_less_than('1.3'):
+        # The batched SQL statement generated is different in 1.2.x
+        # SQLAlchemy 1.3+ optimizes out a JOIN statement in `selectin`
+        # See https://git.io/JewQu
+        return
+
     assert messages == [
       'BEGIN (implicit)',
 
