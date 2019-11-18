@@ -61,7 +61,7 @@ class Reporter(Base):
     last_name = Column(String(30), doc="Last name")
     email = Column(String(), doc="Email")
     favorite_pet_kind = Column(PetKind)
-    pets = relationship("Pet", secondary=association_table, backref="reporters")
+    pets = relationship("Pet", secondary=association_table, backref="reporters", order_by="Pet.id")
     articles = relationship("Article", backref="reporter")
     favorite_article = relationship("Article", uselist=False)
 
