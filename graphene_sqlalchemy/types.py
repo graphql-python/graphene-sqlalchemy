@@ -3,25 +3,23 @@ from collections import OrderedDict
 import sqlalchemy
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
-                            RelationshipProperty, strategies)
+                            RelationshipProperty)
 from sqlalchemy.orm.exc import NoResultFound
 
 from graphene import Field
 from graphene.relay import Connection, Node
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
-from graphene.utils.get_unbound_function import get_unbound_function
 from graphene.utils.orderedtype import OrderedType
 
-from .batching import get_batch_resolver
 from .converter import (convert_sqlalchemy_column,
                         convert_sqlalchemy_composite,
                         convert_sqlalchemy_hybrid_method,
                         convert_sqlalchemy_relationship)
 from .enums import (enum_for_field, sort_argument_for_object_type,
                     sort_enum_for_object_type)
-from .fields import default_connection_field_factory
 from .registry import Registry, get_global_registry
+from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import get_query, is_mapped_class, is_mapped_instance
 
 
@@ -33,6 +31,7 @@ class ORMField(OrderedType):
         required=None,
         description=None,
         deprecation_reason=None,
+        batching=None,
         _creation_counter=None,
         **field_kwargs
     ):
@@ -69,6 +68,8 @@ class ORMField(OrderedType):
             Same behavior as in graphene.Field. Defaults to None.
         :param str deprecation_reason:
             Same behavior as in graphene.Field. Defaults to None.
+        :param bool batching:
+            Toggle SQL batching. Defaults to None, that is `SQLAlchemyObjectType.meta.batching`.
         :param int _creation_counter:
             Same behavior as in graphene.Field.
         """
@@ -80,6 +81,7 @@ class ORMField(OrderedType):
             'required': required,
             'description': description,
             'deprecation_reason': deprecation_reason,
+            'batching': batching,
         }
         common_kwargs = {kwarg: value for kwarg, value in common_kwargs.items() if value is not None}
         self.kwargs = field_kwargs
@@ -87,7 +89,7 @@ class ORMField(OrderedType):
 
 
 def construct_fields(
-    obj_type, model, registry, only_fields, exclude_fields, connection_field_factory
+    obj_type, model, registry, only_fields, exclude_fields, batching, connection_field_factory
 ):
     """
     Construct all the fields for a SQLAlchemyObjectType.
@@ -101,7 +103,8 @@ def construct_fields(
     :param Registry registry:
     :param tuple[string] only_fields:
     :param tuple[string] exclude_fields:
-    :param function connection_field_factory:
+    :param bool batching:
+    :param function|None connection_field_factory:
     :rtype: OrderedDict[str, graphene.Field]
     """
     inspected_model = sqlalchemy.inspect(model)
@@ -152,40 +155,24 @@ def construct_fields(
     for orm_field_name, orm_field in orm_fields.items():
         attr_name = orm_field.kwargs.pop('model_attr')
         attr = all_model_attrs[attr_name]
-        custom_resolver = _get_custom_resolver(obj_type, orm_field_name)
+        resolver = get_custom_resolver(obj_type, orm_field_name) or get_attr_resolver(obj_type, attr_name)
 
         if isinstance(attr, ColumnProperty):
-            field = convert_sqlalchemy_column(
-                attr,
-                registry,
-                custom_resolver or _get_attr_resolver(obj_type, orm_field_name, attr_name),
-                **orm_field.kwargs
-            )
+            field = convert_sqlalchemy_column(attr, registry, resolver, **orm_field.kwargs)
         elif isinstance(attr, RelationshipProperty):
+            batching_ = orm_field.kwargs.pop('batching', batching)
             field = convert_sqlalchemy_relationship(
-                attr,
-                registry,
-                connection_field_factory,
-                custom_resolver or _get_relationship_resolver(obj_type, attr, attr_name),
-                **orm_field.kwargs
-            )
+                attr, obj_type, connection_field_factory, batching_, attr_name,
+                orm_field_name, **orm_field.kwargs)
         elif isinstance(attr, CompositeProperty):
             if attr_name != orm_field_name or orm_field.kwargs:
                 # TODO Add a way to override composite property fields
                 raise ValueError(
                     "ORMField kwargs for composite fields must be empty. "
                     "Field: {}.{}".format(obj_type.__name__, orm_field_name))
-            field = convert_sqlalchemy_composite(
-                attr,
-                registry,
-                custom_resolver or _get_attr_resolver(obj_type, orm_field_name, attr_name),
-            )
+            field = convert_sqlalchemy_composite(attr, registry, resolver)
         elif isinstance(attr, hybrid_property):
-            field = convert_sqlalchemy_hybrid_method(
-                attr,
-                custom_resolver or _get_attr_resolver(obj_type, orm_field_name, attr_name),
-                **orm_field.kwargs
-            )
+            field = convert_sqlalchemy_hybrid_method(attr, resolver, **orm_field.kwargs)
         else:
             raise Exception('Property type is not supported')  # Should never happen
 
@@ -193,50 +180,6 @@ def construct_fields(
         fields[orm_field_name] = field
 
     return fields
-
-
-def _get_custom_resolver(obj_type, orm_field_name):
-    """
-    Since `graphene` will call `resolve_<field_name>` on a field only if it
-    does not have a `resolver`, we need to re-implement that logic here so
-    users are able to override the default resolvers that we provide.
-    """
-    resolver = getattr(obj_type, 'resolve_{}'.format(orm_field_name), None)
-    if resolver:
-        return get_unbound_function(resolver)
-
-    return None
-
-
-def _get_relationship_resolver(obj_type, relationship_prop, model_attr):
-    """
-    Batch SQL queries using Dataloader to avoid the N+1 problem.
-    SQL batching only works for SQLAlchemy 1.2+ since it depends on
-    the `selectin` loader.
-
-    :param SQLAlchemyObjectType obj_type:
-    :param sqlalchemy.orm.properties.RelationshipProperty relationship_prop:
-    :param str model_attr: the name of the SQLAlchemy attribute
-    :rtype: Callable
-    """
-    if not getattr(strategies, 'SelectInLoader', None) or relationship_prop.uselist:
-        # TODO Batch many-to-many and one-to-many relationships
-        return _get_attr_resolver(obj_type, model_attr, model_attr)
-
-    return get_batch_resolver(relationship_prop)
-
-
-def _get_attr_resolver(obj_type, orm_field_name, model_attr):
-    """
-    In order to support field renaming via `ORMField.model_attr`,
-    we need to define resolver functions for each field.
-
-    :param SQLAlchemyObjectType obj_type:
-    :param str orm_field_name:
-    :param str model_attr: the name of the SQLAlchemy attribute
-    :rtype: Callable
-    """
-    return lambda root, _info: getattr(root, model_attr, None)
 
 
 class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
@@ -260,7 +203,8 @@ class SQLAlchemyObjectType(ObjectType):
         use_connection=None,
         interfaces=(),
         id=None,
-        connection_field_factory=default_connection_field_factory,
+        batching=False,
+        connection_field_factory=None,
         _meta=None,
         **options
     ):
@@ -286,6 +230,7 @@ class SQLAlchemyObjectType(ObjectType):
                 registry=registry,
                 only_fields=only_fields,
                 exclude_fields=exclude_fields,
+                batching=batching,
                 connection_field_factory=connection_field_factory,
             ),
             _as=Field,

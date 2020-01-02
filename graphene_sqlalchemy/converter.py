@@ -3,19 +3,26 @@ from enum import EnumMeta
 from singledispatch import singledispatch
 from sqlalchemy import types
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.orm import interfaces
+from sqlalchemy.orm import interfaces, strategies
 
 from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
                       String)
 from graphene.types.json import JSONString
 
+from .batching import get_batch_resolver
 from .enums import enum_for_sa_enum
+from .fields import (BatchSQLAlchemyConnectionField,
+                     default_connection_field_factory)
 from .registry import get_global_registry
+from .resolvers import get_attr_resolver, get_custom_resolver
 
 try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
 except ImportError:
     ChoiceType = JSONType = ScalarListType = TSVectorType = object
+
+
+is_selectin_available = getattr(strategies, 'SelectInLoader', None)
 
 
 def get_column_doc(column):
@@ -26,29 +33,46 @@ def is_column_nullable(column):
     return bool(getattr(column, "nullable", True))
 
 
-def convert_sqlalchemy_relationship(relationship_prop, registry, connection_field_factory, resolver, **field_kwargs):
-    direction = relationship_prop.direction
-    model = relationship_prop.mapper.entity
-
+def convert_sqlalchemy_relationship(relationship_prop, obj_type, connection_field_factory, batching,
+                                    attr_name, orm_field_name, **field_kwargs):
+    """
+    :param sqlalchemy.RelationshipProperty relationship_prop:
+    :param Registry registry:
+    :type function|None connection_field_factory:
+    :type bool batching:
+    :param SQLAlchemyObjectType obj_type:
+    :param str orm_field_name:
+    :rtype: Dynamic
+    """
     def dynamic_type():
-        _type = registry.get_type_for_model(model)
+        direction = relationship_prop.direction
+        model = relationship_prop.mapper.entity
+        type_ = obj_type._meta.registry.get_type_for_model(model)
 
-        if not _type:
+        batching_ = batching if is_selectin_available else False
+        connection_field_factory_ = connection_field_factory
+
+        if not type_:
             return None
+
         if direction == interfaces.MANYTOONE or not relationship_prop.uselist:
-            return Field(
-                _type,
-                resolver=resolver,
-                **field_kwargs
-            )
-        elif direction in (interfaces.ONETOMANY, interfaces.MANYTOMANY):
-            if _type._meta.connection:
-                # TODO Add a way to override connection_field_factory
-                return connection_field_factory(relationship_prop, registry, **field_kwargs)
-            return Field(
-                List(_type),
-                **field_kwargs
-            )
+            resolver = get_custom_resolver(obj_type, orm_field_name)
+            if resolver is None:
+                resolver = get_batch_resolver(relationship_prop) if batching_ else \
+                    get_attr_resolver(obj_type, relationship_prop.key)
+
+            return Field(type_, resolver=resolver, **field_kwargs)
+
+        if direction in (interfaces.ONETOMANY, interfaces.MANYTOMANY):
+            if not type_._meta.connection:
+                return Field(List(type_), **field_kwargs)
+
+            if connection_field_factory_ is None:
+                connection_field_factory_ = BatchSQLAlchemyConnectionField.from_relationship if batching_ else \
+                    default_connection_field_factory
+
+            # TODO Allow override of connection_field_factory and resolver via ORMField
+            return connection_field_factory_(relationship_prop, obj_type._meta.registry, **field_kwargs)
 
     return Dynamic(dynamic_type)
 
