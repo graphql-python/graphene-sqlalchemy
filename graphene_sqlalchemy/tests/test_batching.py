@@ -125,6 +125,8 @@ def test_many_to_one(session_factory):
         # The batched SQL statement generated is different in 1.2.x
         # SQLAlchemy 1.3+ optimizes out a JOIN statement in `selectin`
         # See https://git.io/JewQu
+        sql_statements = [message for message in messages if 'SELECT' in message and 'JOIN reporters' in message]
+        assert len(sql_statements) == 1
         return
 
     assert messages == [
@@ -214,6 +216,8 @@ def test_one_to_one(session_factory):
         # The batched SQL statement generated is different in 1.2.x
         # SQLAlchemy 1.3+ optimizes out a JOIN statement in `selectin`
         # See https://git.io/JewQu
+        sql_statements = [message for message in messages if 'SELECT' in message and 'JOIN articles' in message]
+        assert len(sql_statements) == 1
         return
 
     assert messages == [
@@ -316,6 +320,8 @@ def test_one_to_many(session_factory):
         # The batched SQL statement generated is different in 1.2.x
         # SQLAlchemy 1.3+ optimizes out a JOIN statement in `selectin`
         # See https://git.io/JewQu
+        sql_statements = [message for message in messages if 'SELECT' in message and 'JOIN articles' in message]
+        assert len(sql_statements) == 1
         return
 
     assert messages == [
@@ -442,6 +448,8 @@ def test_many_to_many(session_factory):
         # The batched SQL statement generated is different in 1.2.x
         # SQLAlchemy 1.3+ optimizes out a JOIN statement in `selectin`
         # See https://git.io/JewQu
+        sql_statements = [message for message in messages if 'SELECT' in message and 'JOIN pets' in message]
+        assert len(sql_statements) == 1
         return
 
     assert messages == [
