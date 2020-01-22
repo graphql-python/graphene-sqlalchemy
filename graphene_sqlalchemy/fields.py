@@ -9,6 +9,7 @@ from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import PageInfo
 from graphql_relay.connection.arrayconnection import connection_from_list_slice
 
+from .batching import get_batch_resolver
 from .utils import get_query
 
 
@@ -33,14 +34,8 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
         return self.type._meta.node._meta.model
 
     @classmethod
-    def get_query(cls, model, info, sort=None, **args):
-        query = get_query(model, info.context)
-        if sort is not None:
-            if isinstance(sort, six.string_types):
-                query = query.order_by(sort.value)
-            else:
-                query = query.order_by(*(col.value for col in sort))
-        return query
+    def get_query(cls, model, info, **args):
+        return get_query(model, info.context)
 
     @classmethod
     def resolve_connection(cls, connection_type, model, info, args, resolved):
@@ -78,6 +73,7 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
         return partial(self.connection_resolver, parent_resolver, self.type, self.model)
 
 
+# TODO Rename this to SortableSQLAlchemyConnectionField
 class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
     def __init__(self, type, *args, **kwargs):
         if "sort" not in kwargs and issubclass(type, Connection):
@@ -94,6 +90,32 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
         elif "sort" in kwargs and kwargs["sort"] is None:
             del kwargs["sort"]
         super(SQLAlchemyConnectionField, self).__init__(type, *args, **kwargs)
+
+    @classmethod
+    def get_query(cls, model, info, sort=None, **args):
+        query = get_query(model, info.context)
+        if sort is not None:
+            if isinstance(sort, six.string_types):
+                query = query.order_by(sort.value)
+            else:
+                query = query.order_by(*(col.value for col in sort))
+        return query
+
+
+class BatchSQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
+    """
+    This is currently experimental.
+    The API and behavior may change in future versions.
+    Use at your own risk.
+    """
+    def get_resolver(self, parent_resolver):
+        return partial(self.connection_resolver, self.resolver, self.type, self.model)
+
+    @classmethod
+    def from_relationship(cls, relationship, registry, **field_kwargs):
+        model = relationship.mapper.entity
+        model_type = registry.get_type_for_model(model)
+        return cls(model_type._meta.connection, resolver=get_batch_resolver(relationship), **field_kwargs)
 
 
 def default_connection_field_factory(relationship, registry, **field_kwargs):
