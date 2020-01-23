@@ -63,7 +63,7 @@ setup(
         "dev": [
             "tox==3.7.0",  # Should be kept in sync with tox.ini
             "coveralls==1.7.0",
-            "pre-commit==1.21.0",
+            "pre-commit==1.18.3",
         ],
         "test": tests_require,
     },
