@@ -219,8 +219,12 @@ def test_sqlalchemy_override_fields():
 
     pets_field = ReporterType._meta.fields['pets']
     assert isinstance(pets_field, Dynamic)
-    assert isinstance(pets_field.type().type, List)
-    assert pets_field.type().type.of_type == PetType
+    assert isinstance(pets_field.type().type, NonNull)
+    list_type = pets_field.type().type.of_type
+    assert isinstance(list_type, List)
+    list_element_type = list_type.of_type
+    assert isinstance(list_element_type, NonNull)
+    assert list_element_type.of_type == PetType
     assert pets_field.type().description == 'Overridden'
 
 
