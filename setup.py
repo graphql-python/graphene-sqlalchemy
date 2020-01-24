@@ -60,7 +60,7 @@ setup(
     extras_require={
         "dev": [
             "tox==3.7.0",  # Should be kept in sync with tox.ini
-            "coveralls==1.7.0",
+            "coveralls==1.10.0",
             "pre-commit==1.14.4",
         ],
         "test": tests_require,
