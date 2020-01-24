@@ -49,8 +49,6 @@ setup(
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.3",
-        "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
@@ -63,7 +61,7 @@ setup(
         "dev": [
             "tox==3.7.0",  # Should be kept in sync with tox.ini
             "coveralls==1.7.0",
-            "pre-commit==1.18.3",
+            "pre-commit==1.14.4",
         ],
         "test": tests_require,
     },
