@@ -5,6 +5,11 @@ from sqlalchemy.orm.query import QueryContext
 
 
 def get_batch_resolver(relationship_prop):
+
+    # Cache this across `batch_load_fn` calls
+    # This is so SQL string generation is cached under-the-hood via `bakery`
+    selectin_loader = strategies.SelectInLoader(relationship_prop, (('lazy', 'selectin'),))
+
     class RelationshipLoader(dataloader.DataLoader):
         cache = False
 
@@ -43,15 +48,13 @@ def get_batch_resolver(relationship_prop):
                 # The behavior of `selectin` is undefined if the parent is dirty
                 assert parent not in session.dirty
 
-            loader = strategies.SelectInLoader(relationship_prop, (('lazy', 'selectin'),))
-
             # Should the boolean be set to False? Does it matter for our purposes?
             states = [(sqlalchemy.inspect(parent), True) for parent in parents]
 
             # For our purposes, the query_context will only used to get the session
             query_context = QueryContext(session.query(parent_mapper.entity))
 
-            loader._load_for_path(
+            selectin_loader._load_for_path(
                 query_context,
                 parent_mapper._path_registry,
                 states,

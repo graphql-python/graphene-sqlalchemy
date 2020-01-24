@@ -1,7 +1,6 @@
 import contextlib
 import logging
 
-import pkg_resources
 import pytest
 
 import graphene
@@ -10,7 +9,7 @@ from graphene import relay
 from ..fields import BatchSQLAlchemyConnectionField
 from ..types import SQLAlchemyObjectType
 from .models import Article, HairKind, Pet, Reporter
-from .utils import to_std_dicts
+from .utils import is_sqlalchemy_version_less_than, to_std_dicts
 
 
 class MockLoggingHandler(logging.Handler):
@@ -69,10 +68,6 @@ def get_schema():
             return info.context.get('session').query(Reporter).all()
 
     return graphene.Schema(query=Query)
-
-
-def is_sqlalchemy_version_less_than(version_string):
-    return pkg_resources.get_distribution('SQLAlchemy').parsed_version < pkg_resources.parse_version(version_string)
 
 
 if is_sqlalchemy_version_less_than('1.2'):

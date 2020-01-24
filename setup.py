@@ -30,6 +30,7 @@ tests_require = [
     "mock==2.0.0",
     "pytest-cov==2.6.1",
     "sqlalchemy_utils==0.33.9",
+    "pytest-benchmark==3.2.1",
 ]
 
 setup(
@@ -48,8 +49,6 @@ setup(
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.3",
-        "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
@@ -61,7 +60,7 @@ setup(
     extras_require={
         "dev": [
             "tox==3.7.0",  # Should be kept in sync with tox.ini
-            "coveralls==1.7.0",
+            "coveralls==1.10.0",
             "pre-commit==1.14.4",
         ],
         "test": tests_require,
