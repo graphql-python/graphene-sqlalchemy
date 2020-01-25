@@ -364,3 +364,69 @@ class SQLAlchemyObjectType(ObjectType):
     sort_enum = classmethod(sort_enum_for_object_type)
 
     sort_argument = classmethod(sort_argument_for_object_type)
+    
+def construct_fields_for_input(
+    obj_type, model, registry, connection_field_factory,only_fields, exclude_fields
+):
+    inspected_model = sqlalchemyinspect(model)
+
+    fields = OrderedDict()
+
+    for name, column in inspected_model.columns.items():
+        is_not_in_only = only_fields and name not in only_fields
+        # is_already_created = name in options.fields
+        is_excluded = name in exclude_fields  # or is_already_created
+        if is_not_in_only or is_excluded:
+            # We skip this field if we specify only_fields and is not
+            # in there. Or when we exclude this field in exclude_fields
+            continue
+        converted_column = convert_sqlalchemy_column(column, registry)
+        fields[name] = converted_column
+
+    for name, composite in inspected_model.composites.items():
+        is_not_in_only = only_fields and name not in only_fields
+        # is_already_created = name in options.fields
+        is_excluded = name in exclude_fields  # or is_already_created
+        if is_not_in_only or is_excluded:
+            # We skip this field if we specify only_fields and is not
+            # in there. Or when we exclude this field in exclude_fields
+            continue
+        converted_composite = convert_sqlalchemy_composite(composite, registry)
+        fields[name] = converted_composite
+
+    for hybrid_item in inspected_model.all_orm_descriptors:
+
+        if type(hybrid_item) == hybrid_property:
+            name = hybrid_item.__name__
+            is_not_in_only = only_fields and name not in only_fields
+            # is_already_created = name in options.fields
+            is_excluded = name in exclude_fields  # or is_already_created
+            if is_not_in_only or is_excluded:
+                # We skip this field if we specify only_fields and is not
+                # in there. Or when we exclude this field in exclude_fields
+                continue
+            converted_hybrid_property = convert_sqlalchemy_hybrid_method(hybrid_item)
+            
+            fields[name] = converted_hybrid_property
+
+    
+
+    return fields
+
+
+
+class SQLAlchemyInputObjectType(graphene.InputObjectType):
+    @classmethod
+    def __init_subclass_with_meta__(cls, model=None, registry=None, skip_registry=False,only_fields=(), exclude_fields=(),
+                                    connection=None,_meta=None,connection_field_factory=default_connection_field_factory,
+                                    use_connection=None, interfaces=(), id=None, **options):
+
+        if not registry:
+            registry = get_global_registry()
+            
+
+        sqla_fields = yank_fields_from_attrs(
+            construct_fields_for_input(model=model, registry=registry,only_fields=only_fields, exclude_fields=exclude_fields,
+                            connection_field_factory=connection_field_factory,obj_type=cls),
+            _as=graphene.Field,
+        )
