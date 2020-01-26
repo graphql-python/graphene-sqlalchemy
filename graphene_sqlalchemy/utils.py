@@ -1,10 +1,6 @@
 import re
 import warnings
 
-from sqlalchemy.exc import ArgumentError
-from sqlalchemy.orm import class_mapper, object_mapper
-from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
-
 
 def get_session(context):
     return context.get("session")
@@ -21,24 +17,6 @@ def get_query(model, context):
             )
         query = session.query(model)
     return query
-
-
-def is_mapped_class(cls):
-    try:
-        class_mapper(cls)
-    except (ArgumentError, UnmappedClassError):
-        return False
-    else:
-        return True
-
-
-def is_mapped_instance(cls):
-    try:
-        object_mapper(cls)
-    except (ArgumentError, UnmappedInstanceError):
-        return False
-    else:
-        return True
 
 
 def to_type_name(name):
