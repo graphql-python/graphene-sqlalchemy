@@ -637,7 +637,13 @@ def test_connection_factory_field_overrides_batching_is_false(session_factory):
         """, context_value={"session": session})
         messages = sqlalchemy_logging_handler.messages
 
-    select_statements = [message for message in messages if 'SELECT' in message and 'FROM articles' in message]
+    if is_sqlalchemy_version_less_than('1.3'):
+        # The batched SQL statement generated is different in 1.2.x
+        # SQLAlchemy 1.3+ optimizes out a JOIN statement in `selectin`
+        # See https://git.io/JewQu
+        select_statements = [message for message in messages if 'SELECT' in message and 'JOIN articles' in message]
+    else:
+        select_statements = [message for message in messages if 'SELECT' in message and 'FROM articles' in message]
     assert len(select_statements) == 1
 
 
