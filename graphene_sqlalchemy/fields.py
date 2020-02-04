@@ -5,6 +5,7 @@ import six
 from promise import Promise, is_thenable
 from sqlalchemy.orm.query import Query
 
+from graphene import NonNull
 from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import PageInfo
 from graphql_relay.connection.arrayconnection import connection_from_list_slice
@@ -19,19 +20,26 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
         from .types import SQLAlchemyObjectType
 
         _type = super(ConnectionField, self).type
-        if issubclass(_type, Connection):
+        nullable_type = get_nullable_type(_type)
+        if issubclass(nullable_type, Connection):
             return _type
-        assert issubclass(_type, SQLAlchemyObjectType), (
+        assert issubclass(nullable_type, SQLAlchemyObjectType), (
             "SQLALchemyConnectionField only accepts SQLAlchemyObjectType types, not {}"
-        ).format(_type.__name__)
-        assert _type.connection, "The type {} doesn't have a connection".format(
-            _type.__name__
+        ).format(nullable_type.__name__)
+        assert (
+            nullable_type.connection
+        ), "The type {} doesn't have a connection".format(
+            nullable_type.__name__
         )
-        return _type.connection
+        assert _type == nullable_type, (
+            "Passing a SQLAlchemyObjectType instance is deprecated. "
+            "Pass the connection type instead accessible via SQLAlchemyObjectType.connection"
+        )
+        return nullable_type.connection
 
     @property
     def model(self):
-        return self.type._meta.node._meta.model
+        return get_nullable_type(self.type)._meta.node._meta.model
 
     @classmethod
     def get_query(cls, model, info, **args):
@@ -70,21 +78,27 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
         return on_resolve(resolved)
 
     def get_resolver(self, parent_resolver):
-        return partial(self.connection_resolver, parent_resolver, self.type, self.model)
+        return partial(
+            self.connection_resolver,
+            parent_resolver,
+            get_nullable_type(self.type),
+            self.model,
+        )
 
 
 # TODO Rename this to SortableSQLAlchemyConnectionField
 class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
     def __init__(self, type, *args, **kwargs):
-        if "sort" not in kwargs and issubclass(type, Connection):
+        nullable_type = get_nullable_type(type)
+        if "sort" not in kwargs and issubclass(nullable_type, Connection):
             # Let super class raise if type is not a Connection
             try:
-                kwargs.setdefault("sort", type.Edge.node._type.sort_argument())
+                kwargs.setdefault("sort", nullable_type.Edge.node._type.sort_argument())
             except (AttributeError, TypeError):
                 raise TypeError(
                     'Cannot create sort argument for {}. A model is required. Set the "sort" argument'
                     " to None to disabling the creation of the sort query argument".format(
-                        type.__name__
+                        nullable_type.__name__
                     )
                 )
         elif "sort" in kwargs and kwargs["sort"] is None:
@@ -108,8 +122,14 @@ class BatchSQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
     The API and behavior may change in future versions.
     Use at your own risk.
     """
+
     def get_resolver(self, parent_resolver):
-        return partial(self.connection_resolver, self.resolver, self.type, self.model)
+        return partial(
+            self.connection_resolver,
+            self.resolver,
+            get_nullable_type(self.type),
+            self.model,
+        )
 
     @classmethod
     def from_relationship(cls, relationship, registry, **field_kwargs):
@@ -155,3 +175,9 @@ def unregisterConnectionFieldFactory():
     )
     global __connectionFactory
     __connectionFactory = UnsortedSQLAlchemyConnectionField
+
+
+def get_nullable_type(_type):
+    if isinstance(_type, NonNull):
+        return _type.of_type
+    return _type
