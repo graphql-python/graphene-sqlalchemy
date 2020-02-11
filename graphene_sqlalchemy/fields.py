@@ -24,10 +24,10 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
         assert issubclass(_type, SQLAlchemyObjectType), (
             "SQLALchemyConnectionField only accepts SQLAlchemyObjectType types, not {}"
         ).format(_type.__name__)
-        assert _type._meta.connection, "The type {} doesn't have a connection".format(
+        assert _type.connection, "The type {} doesn't have a connection".format(
             _type.__name__
         )
-        return _type._meta.connection
+        return _type.connection
 
     @property
     def model(self):
@@ -115,7 +115,7 @@ class BatchSQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
     def from_relationship(cls, relationship, registry, **field_kwargs):
         model = relationship.mapper.entity
         model_type = registry.get_type_for_model(model)
-        return cls(model_type._meta.connection, resolver=get_batch_resolver(relationship), **field_kwargs)
+        return cls(model_type.connection, resolver=get_batch_resolver(relationship), **field_kwargs)
 
 
 def default_connection_field_factory(relationship, registry, **field_kwargs):

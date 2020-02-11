@@ -31,7 +31,7 @@ def test_promise_connection_resolver():
         return Promise.resolve([])
 
     result = UnsortedSQLAlchemyConnectionField.connection_resolver(
-        resolver, Pet._meta.connection, Pet, None, None
+        resolver, Pet.connection, Pet, None, None
     )
     assert isinstance(result, Promise)
 
@@ -51,18 +51,18 @@ def test_type_assert_object_has_connection():
 
 
 def test_sort_added_by_default():
-    field = SQLAlchemyConnectionField(Pet._meta.connection)
+    field = SQLAlchemyConnectionField(Pet.connection)
     assert "sort" in field.args
     assert field.args["sort"] == Pet.sort_argument()
 
 
 def test_sort_can_be_removed():
-    field = SQLAlchemyConnectionField(Pet._meta.connection, sort=None)
+    field = SQLAlchemyConnectionField(Pet.connection, sort=None)
     assert "sort" not in field.args
 
 
 def test_custom_sort():
-    field = SQLAlchemyConnectionField(Pet._meta.connection, sort=Editor.sort_argument())
+    field = SQLAlchemyConnectionField(Pet.connection, sort=Editor.sort_argument())
     assert field.args["sort"] == Editor.sort_argument()
 
 
