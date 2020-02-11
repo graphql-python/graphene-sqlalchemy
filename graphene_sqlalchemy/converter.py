@@ -42,7 +42,7 @@ def convert_sqlalchemy_relationship(relationship_prop, registry, connection_fiel
                 **field_kwargs
             )
         elif direction in (interfaces.ONETOMANY, interfaces.MANYTOMANY):
-            if _type._meta.connection:
+            if _type.connection:
                 # TODO Add a way to override connection_field_factory
                 return connection_field_factory(relationship_prop, registry, **field_kwargs)
             return Field(
