@@ -162,8 +162,7 @@ def construct_fields(
         elif isinstance(attr, RelationshipProperty):
             batching_ = orm_field.kwargs.pop('batching', batching)
             field = convert_sqlalchemy_relationship(
-                attr, obj_type, connection_field_factory, batching_, attr_name,
-                orm_field_name, **orm_field.kwargs)
+                attr, obj_type, connection_field_factory, batching_, orm_field_name, **orm_field.kwargs)
         elif isinstance(attr, CompositeProperty):
             if attr_name != orm_field_name or orm_field.kwargs:
                 # TODO Add a way to override composite property fields

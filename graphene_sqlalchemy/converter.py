@@ -34,47 +34,79 @@ def is_column_nullable(column):
 
 
 def convert_sqlalchemy_relationship(relationship_prop, obj_type, connection_field_factory, batching,
-                                    attr_name, orm_field_name, **field_kwargs):
+                                    orm_field_name, **field_kwargs):
     """
     :param sqlalchemy.RelationshipProperty relationship_prop:
-    :param Registry registry:
-    :type function|None connection_field_factory:
-    :type bool batching:
     :param SQLAlchemyObjectType obj_type:
+    :param function|None connection_field_factory:
+    :param bool batching:
     :param str orm_field_name:
+    :param dict field_kwargs:
     :rtype: Dynamic
     """
     def dynamic_type():
+        """:rtype: Field|None"""
         direction = relationship_prop.direction
-        model = relationship_prop.mapper.entity
-        type_ = obj_type._meta.registry.get_type_for_model(model)
-
+        child_type = obj_type._meta.registry.get_type_for_model(relationship_prop.mapper.entity)
         batching_ = batching if is_selectin_available else False
-        connection_field_factory_ = connection_field_factory
 
-        if not type_:
+        if not child_type:
             return None
 
         if direction == interfaces.MANYTOONE or not relationship_prop.uselist:
-            resolver = get_custom_resolver(obj_type, orm_field_name)
-            if resolver is None:
-                resolver = get_batch_resolver(relationship_prop) if batching_ else \
-                    get_attr_resolver(obj_type, relationship_prop.key)
-
-            return Field(type_, resolver=resolver, **field_kwargs)
+            return _convert_o2o_or_m2o_relationship(relationship_prop, obj_type, batching_, orm_field_name,
+                                                    **field_kwargs)
 
         if direction in (interfaces.ONETOMANY, interfaces.MANYTOMANY):
-            if not type_._meta.connection:
-                return Field(List(type_), **field_kwargs)
-
-            if connection_field_factory_ is None:
-                connection_field_factory_ = BatchSQLAlchemyConnectionField.from_relationship if batching_ else \
-                    default_connection_field_factory
-
-            # TODO Allow override of connection_field_factory and resolver via ORMField
-            return connection_field_factory_(relationship_prop, obj_type._meta.registry, **field_kwargs)
+            return _convert_o2m_or_m2m_relationship(relationship_prop, obj_type, batching_,
+                                                    connection_field_factory, **field_kwargs)
 
     return Dynamic(dynamic_type)
+
+
+def _convert_o2o_or_m2o_relationship(relationship_prop, obj_type, batching, orm_field_name, **field_kwargs):
+    """
+    Convert one-to-one or many-to-one relationshsip. Return an object field.
+
+    :param sqlalchemy.RelationshipProperty relationship_prop:
+    :param SQLAlchemyObjectType obj_type:
+    :param bool batching:
+    :param str orm_field_name:
+    :param dict field_kwargs:
+    :rtype: Field
+    """
+    child_type = obj_type._meta.registry.get_type_for_model(relationship_prop.mapper.entity)
+
+    resolver = get_custom_resolver(obj_type, orm_field_name)
+    if resolver is None:
+        resolver = get_batch_resolver(relationship_prop) if batching else \
+            get_attr_resolver(obj_type, relationship_prop.key)
+
+    return Field(child_type, resolver=resolver, **field_kwargs)
+
+
+def _convert_o2m_or_m2m_relationship(relationship_prop, obj_type, batching, connection_field_factory, **field_kwargs):
+    """
+    Convert one-to-many or many-to-many relationshsip. Return a list field or a connection field.
+
+    :param sqlalchemy.RelationshipProperty relationship_prop:
+    :param SQLAlchemyObjectType obj_type:
+    :param bool batching:
+    :param function|None connection_field_factory:
+    :param dict field_kwargs:
+    :rtype: Field
+    """
+    child_type = obj_type._meta.registry.get_type_for_model(relationship_prop.mapper.entity)
+
+    if not child_type._meta.connection:
+        return Field(List(child_type), **field_kwargs)
+
+    # TODO Allow override of connection_field_factory and resolver via ORMField
+    if connection_field_factory is None:
+        connection_field_factory = BatchSQLAlchemyConnectionField.from_relationship if batching else \
+            default_connection_field_factory
+
+    return connection_field_factory(relationship_prop, obj_type._meta.registry, **field_kwargs)
 
 
 def convert_sqlalchemy_hybrid_method(hybrid_prop, resolver, **field_kwargs):
