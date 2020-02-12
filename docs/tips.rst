@@ -50,13 +50,8 @@ Given the model
             model = Pet
 
 
-    class PetConnection(Connection):
-        class Meta:
-            node = PetNode
-
-
     class Query(ObjectType):
-        allPets = SQLAlchemyConnectionField(PetConnection)
+        allPets = SQLAlchemyConnectionField(PetNode.connection)
 
 some of the allowed queries are
 

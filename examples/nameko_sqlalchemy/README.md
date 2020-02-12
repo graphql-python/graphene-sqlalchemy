@@ -46,7 +46,6 @@ Now the following command will setup the database, and start the server:
 
 ```bash
 ./run.sh
-
 ```
 
 Now head on over to postman and send POST request to:
