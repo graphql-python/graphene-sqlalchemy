@@ -2,7 +2,7 @@ import pytest
 import sqlalchemy as sa
 
 from graphene import Argument, Enum, List, ObjectType, Schema
-from graphene.relay import Connection, Node
+from graphene.relay import Node
 
 from ..fields import SQLAlchemyConnectionField
 from ..types import SQLAlchemyObjectType
@@ -249,22 +249,18 @@ def test_sort_query(session):
             model = Pet
             interfaces = (Node,)
 
-    class PetConnection(Connection):
-        class Meta:
-            node = PetNode
-
     class Query(ObjectType):
-        defaultSort = SQLAlchemyConnectionField(PetConnection)
-        nameSort = SQLAlchemyConnectionField(PetConnection)
-        multipleSort = SQLAlchemyConnectionField(PetConnection)
-        descSort = SQLAlchemyConnectionField(PetConnection)
+        defaultSort = SQLAlchemyConnectionField(PetNode.connection)
+        nameSort = SQLAlchemyConnectionField(PetNode.connection)
+        multipleSort = SQLAlchemyConnectionField(PetNode.connection)
+        descSort = SQLAlchemyConnectionField(PetNode.connection)
         singleColumnSort = SQLAlchemyConnectionField(
-            PetConnection, sort=Argument(PetNode.sort_enum())
+            PetNode.connection, sort=Argument(PetNode.sort_enum())
         )
         noDefaultSort = SQLAlchemyConnectionField(
-            PetConnection, sort=PetNode.sort_argument(has_default=False)
+            PetNode.connection, sort=PetNode.sort_argument(has_default=False)
         )
-        noSort = SQLAlchemyConnectionField(PetConnection, sort=None)
+        noSort = SQLAlchemyConnectionField(PetNode.connection, sort=None)
 
     query = """
         query sortTest {
