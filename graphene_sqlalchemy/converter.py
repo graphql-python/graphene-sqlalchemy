@@ -1,9 +1,14 @@
 from enum import EnumMeta
 
 from singledispatch import singledispatch
-from sqlalchemy import types
+from sqlalchemy import inspect, types
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.orm import interfaces, strategies
+from sqlalchemy.ext.associationproxy import AssociationProxy
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
+                            interfaces, RelationshipProperty,
+                            strategies)
+from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
                       String)
@@ -31,6 +36,59 @@ def get_column_doc(column):
 
 def is_column_nullable(column):
     return bool(getattr(column, "nullable", True))
+
+
+def convert_sqlalchemy_association_proxy(association_prop, obj_type, registry, connection_field_factory, batching, resolver, **field_kwargs):
+    model = association_prop.target_class
+
+    attr = getattr(model, association_prop.value_attr)
+    if isinstance(attr, InstrumentedAttribute):
+        attr = inspect(attr).property
+
+    def dynamic_type():
+        if isinstance(attr, AssociationProxy):
+            return convert_sqlalchemy_association_proxy(
+                attr,
+                registry,
+                connection_field_factory,
+                batching,
+                resolver,
+                **field_kwargs
+            )
+        elif isinstance(attr, ColumnProperty):
+            return convert_sqlalchemy_column(
+                attr,
+                registry,
+                resolver,
+                **field_kwargs
+            )
+        elif isinstance(attr, CompositeProperty):
+            return convert_sqlalchemy_composite(
+                attr,
+                registry,
+                resolver
+            )
+        elif isinstance(attr, RelationshipProperty):
+            batching_ = field_kwargs.pop('batching', batching)
+            return convert_sqlalchemy_relationship(
+                attr,
+                obj_type,
+                connection_field_factory,
+                batching_,
+                association_prop.value_attr,
+                **field_kwargs
+            # resolve Dynamic type
+            ).get_type()
+        elif isinstance(attr, hybrid_property):
+            return convert_sqlalchemy_hybrid_method(
+                attr,
+                resolver,
+                **field_kwargs
+            )
+
+        raise NotImplementedError(attr)
+
+    return Dynamic(dynamic_type)
 
 
 def convert_sqlalchemy_relationship(relationship_prop, obj_type, connection_field_factory, batching,

@@ -4,6 +4,7 @@ import enum
 
 from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, String, Table,
                         func, select)
+from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import column_property, composite, mapper, relationship
@@ -65,6 +66,8 @@ class Reporter(Base):
     articles = relationship("Article", backref="reporter")
     favorite_article = relationship("Article", uselist=False)
 
+    pet_names = association_proxy('pets', 'name')
+
     @hybrid_property
     def hybrid_prop(self):
         return self.first_name
@@ -82,6 +85,7 @@ class Article(Base):
     headline = Column(String(100))
     pub_date = Column(Date())
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
+    reporter_pets = association_proxy('reporter', 'pets')
 
 
 class ReflectedEditor(type):
