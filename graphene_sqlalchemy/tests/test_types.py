@@ -4,6 +4,7 @@ import six  # noqa F401
 
 from graphene import (Dynamic, Field, GlobalID, Int, List, Node, NonNull,
                       ObjectType, Schema, String)
+from graphene.relay import Connection
 
 from ..converter import convert_sqlalchemy_composite
 from ..fields import (SQLAlchemyConnectionField,
@@ -44,6 +45,15 @@ def test_sqlalchemy_node(session):
     info = mock.Mock(context={'session': session})
     reporter_node = ReporterType.get_node(info, reporter.id)
     assert reporter == reporter_node
+
+
+def test_connection():
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (Node,)
+
+    assert issubclass(ReporterType.connection, Connection)
 
 
 def test_sqlalchemy_default_fields():

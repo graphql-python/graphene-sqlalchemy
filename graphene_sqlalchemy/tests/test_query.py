@@ -1,5 +1,5 @@
 import graphene
-from graphene.relay import Connection, Node
+from graphene.relay import Node
 
 from ..converter import convert_sqlalchemy_composite
 from ..fields import SQLAlchemyConnectionField
@@ -96,14 +96,10 @@ def test_query_node(session):
             model = Article
             interfaces = (Node,)
 
-    class ArticleConnection(Connection):
-        class Meta:
-            node = ArticleNode
-
     class Query(graphene.ObjectType):
         node = Node.Field()
         reporter = graphene.Field(ReporterNode)
-        all_articles = SQLAlchemyConnectionField(ArticleConnection)
+        all_articles = SQLAlchemyConnectionField(ArticleNode.connection)
 
         def resolve_reporter(self, _info):
             return session.query(Reporter).first()
@@ -230,13 +226,9 @@ def test_custom_identifier(session):
             model = Editor
             interfaces = (Node,)
 
-    class EditorConnection(Connection):
-        class Meta:
-            node = EditorNode
-
     class Query(graphene.ObjectType):
         node = Node.Field()
-        all_editors = SQLAlchemyConnectionField(EditorConnection)
+        all_editors = SQLAlchemyConnectionField(EditorNode.connection)
 
     query = """
         query {

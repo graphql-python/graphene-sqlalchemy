@@ -269,6 +269,8 @@ class SQLAlchemyObjectType(ObjectType):
         _meta.connection = connection
         _meta.id = id or "id"
 
+        cls.connection = connection  # Public way to get the connection
+
         super(SQLAlchemyObjectType, cls).__init_subclass_with_meta__(
             _meta=_meta, interfaces=interfaces, **options
         )
