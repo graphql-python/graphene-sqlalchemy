@@ -3,11 +3,9 @@ from enum import EnumMeta
 from singledispatch import singledispatch
 from sqlalchemy import inspect, types
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
-                            interfaces, RelationshipProperty,
-                            strategies)
+                            RelationshipProperty, interfaces, strategies)
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
@@ -46,34 +44,18 @@ def convert_sqlalchemy_association_proxy(association_prop, obj_type, registry, c
         attr = inspect(attr).property
 
     def dynamic_type():
-        if isinstance(attr, AssociationProxy):
-            return convert_sqlalchemy_association_proxy(
+        if isinstance(attr, ColumnProperty):
+            field = convert_sqlalchemy_column(
                 attr,
-                obj_type,
                 registry,
-                connection_field_factory,
-                batching,
                 resolver,
                 **field_kwargs
             )
-        elif isinstance(attr, ColumnProperty):
-            # similar to convert_sqlalchemy_column, but supports lists
-            column = attr.columns[0]
-            type_ = field_kwargs.pop('type', convert_sqlalchemy_type(getattr(column, "type", None), column, registry))
-            field_kwargs.setdefault('required', not is_column_nullable(column))
-            field_kwargs.setdefault('description', get_column_doc(column))
+            if not association_prop.scalar:
+                # repackage as List
+                field.__dict__['_type'] = List(field.type)
 
-            return Field(
-                type_ if association_prop.scalar else List(type_),
-                resolver=resolver,
-                **field_kwargs
-            )
-        elif isinstance(attr, CompositeProperty):
-            return convert_sqlalchemy_composite(
-                attr,
-                registry,
-                resolver
-            )
+            return field
         elif isinstance(attr, RelationshipProperty):
             batching_ = field_kwargs.pop('batching', batching)
             return convert_sqlalchemy_relationship(
@@ -85,12 +67,6 @@ def convert_sqlalchemy_association_proxy(association_prop, obj_type, registry, c
                 **field_kwargs
             # resolve Dynamic type
             ).get_type()
-        elif isinstance(attr, hybrid_property):
-            return convert_sqlalchemy_hybrid_method(
-                attr,
-                resolver,
-                **field_kwargs
-            )
 
         raise NotImplementedError(attr)
 

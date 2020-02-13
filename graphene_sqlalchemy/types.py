@@ -116,7 +116,9 @@ def construct_fields(
         inspected_model.column_attrs.items() +
         inspected_model.composites.items() +
         [(name, item) for name, item in inspected_model.all_orm_descriptors.items()
-            if isinstance(item, (AssociationProxy, hybrid_property))] +
+            if isinstance(item, hybrid_property)] +
+        [(name, item) for name, item in inspected_model.all_orm_descriptors.items()
+            if isinstance(item, AssociationProxy)] +
         inspected_model.relationships.items()
     )
 

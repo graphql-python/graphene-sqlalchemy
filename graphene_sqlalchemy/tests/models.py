@@ -66,8 +66,6 @@ class Reporter(Base):
     articles = relationship("Article", backref="reporter")
     favorite_article = relationship("Article", uselist=False)
 
-    pet_names = association_proxy('pets', 'name')
-
     @hybrid_property
     def hybrid_prop(self):
         return self.first_name
@@ -77,6 +75,8 @@ class Reporter(Base):
     )
 
     composite_prop = composite(CompositeFullName, first_name, last_name, doc="Composite")
+
+    pet_names = association_proxy('pets', 'name')
 
 
 class Article(Base):
