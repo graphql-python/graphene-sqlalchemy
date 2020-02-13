@@ -302,7 +302,8 @@ def test_should_convert_association_proxy():
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
-    assert graphene_type.type == graphene.String
+    assert isinstance(graphene_type.type, graphene.List)
+    assert graphene_type.type.of_type == graphene.String
 
     dynamic_field = convert_sqlalchemy_association_proxy(
         Article.reporter_pets,
@@ -312,7 +313,6 @@ def test_should_convert_association_proxy():
         True,
         mock_resolver,
     )
-    assert isinstance(dynamic_field.get_type().type, graphene.List)
     assert dynamic_field.get_type().type.of_type == P
 
 

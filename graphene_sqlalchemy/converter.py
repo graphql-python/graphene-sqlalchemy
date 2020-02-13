@@ -49,6 +49,7 @@ def convert_sqlalchemy_association_proxy(association_prop, obj_type, registry, c
         if isinstance(attr, AssociationProxy):
             return convert_sqlalchemy_association_proxy(
                 attr,
+                obj_type,
                 registry,
                 connection_field_factory,
                 batching,
@@ -56,10 +57,15 @@ def convert_sqlalchemy_association_proxy(association_prop, obj_type, registry, c
                 **field_kwargs
             )
         elif isinstance(attr, ColumnProperty):
-            return convert_sqlalchemy_column(
-                attr,
-                registry,
-                resolver,
+            # similar to convert_sqlalchemy_column, but supports lists
+            column = attr.columns[0]
+            type_ = field_kwargs.pop('type', convert_sqlalchemy_type(getattr(column, "type", None), column, registry))
+            field_kwargs.setdefault('required', not is_column_nullable(column))
+            field_kwargs.setdefault('description', get_column_doc(column))
+
+            return Field(
+                type_ if association_prop.scalar else List(type_),
+                resolver=resolver,
                 **field_kwargs
             )
         elif isinstance(attr, CompositeProperty):
