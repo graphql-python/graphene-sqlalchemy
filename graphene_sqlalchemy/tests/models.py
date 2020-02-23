@@ -76,7 +76,7 @@ class Reporter(Base):
 
     composite_prop = composite(CompositeFullName, first_name, last_name, doc="Composite")
 
-    pet_names = association_proxy('pets', 'name')
+    headlines = association_proxy('articles', 'headline')
 
 
 class Article(Base):
@@ -85,7 +85,7 @@ class Article(Base):
     headline = Column(String(100))
     pub_date = Column(Date())
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
-    reporter_pets = association_proxy('reporter', 'pets')
+    recommended_reads = association_proxy('reporter', 'articles')
 
 
 class ReflectedEditor(type):

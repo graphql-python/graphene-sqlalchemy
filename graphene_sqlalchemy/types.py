@@ -13,7 +13,6 @@ from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
 from graphene.utils.orderedtype import OrderedType
 
-from .batching import get_batch_resolver
 from .converter import (convert_sqlalchemy_association_proxy,
                         convert_sqlalchemy_column,
                         convert_sqlalchemy_composite,
@@ -179,7 +178,8 @@ def construct_fields(
             field = convert_sqlalchemy_hybrid_method(attr, resolver, **orm_field.kwargs)
         elif isinstance(attr, AssociationProxy):
             field = convert_sqlalchemy_association_proxy(
-                attr.for_class(model),
+                model,
+                attr,
                 obj_type,
                 registry,
                 connection_field_factory,

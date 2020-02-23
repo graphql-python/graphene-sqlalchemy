@@ -287,33 +287,38 @@ def test_should_onetoone_convert_field():
 
 
 def test_should_convert_association_proxy():
-    class P(SQLAlchemyObjectType):
+    class ReporterType(SQLAlchemyObjectType):
         class Meta:
-            model = Pet
+            model = Reporter
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+
+    field = convert_sqlalchemy_association_proxy(
+        Reporter,
+        Reporter.headlines,
+        ReporterType,
+        get_global_registry(),
+        default_connection_field_factory,
+        True,
+        mock_resolver,
+    )
+    assert isinstance(field, graphene.Dynamic)
+    assert isinstance(field.get_type().type, graphene.List)
+    assert field.get_type().type.of_type == graphene.String
 
     dynamic_field = convert_sqlalchemy_association_proxy(
-        Reporter.pet_names,
-        P,
+        Article,
+        Article.recommended_reads,
+        ArticleType,
         get_global_registry(),
         default_connection_field_factory,
         True,
         mock_resolver,
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
-    graphene_type = dynamic_field.get_type()
-    assert isinstance(graphene_type, graphene.Field)
-    assert isinstance(graphene_type.type, graphene.List)
-    assert graphene_type.type.of_type == graphene.String
-
-    dynamic_field = convert_sqlalchemy_association_proxy(
-        Article.reporter_pets,
-        P,
-        get_global_registry(),
-        default_connection_field_factory,
-        True,
-        mock_resolver,
-    )
-    assert dynamic_field.get_type().type.of_type == P
+    assert dynamic_field.get_type().type.of_type == ArticleType
 
 
 def test_should_postgresql_uuid_convert():

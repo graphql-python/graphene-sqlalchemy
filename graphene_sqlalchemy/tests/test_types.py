@@ -71,6 +71,11 @@ def test_sqlalchemy_default_fields():
             model = Article
             interfaces = (Node,)
 
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            interfaces = (Node,)
+
     assert list(ReporterType._meta.fields.keys()) == [
         # Columns
         "column_prop",  # SQLAlchemy retuns column properties first
@@ -84,7 +89,7 @@ def test_sqlalchemy_default_fields():
         # Hybrid
         "hybrid_prop",
         # AssociationProxy
-        "pet_names",
+        "headlines",
         # Relationship
         "pets",
         "articles",
@@ -121,9 +126,14 @@ def test_sqlalchemy_default_fields():
     assert favorite_article_field.type().description is None
 
     # assocation proxy
-    assoc_prop = ReporterType._meta.fields['pet_names']
-    assert isinstance(assoc_prop, Dynamic)
-    assert assoc_prop.type().type == List(String)
+    assoc_field = ReporterType._meta.fields['headlines']
+    assert isinstance(assoc_field, Dynamic)
+    assert isinstance(assoc_field.type().type, List)
+    assert assoc_field.type().type.of_type == String
+
+    assoc_field = ArticleType._meta.fields['recommended_reads']
+    assert isinstance(assoc_field, Dynamic)
+    assert assoc_field.type().type == ArticleType.connection
 
 
 def test_sqlalchemy_override_fields():
@@ -186,7 +196,7 @@ def test_sqlalchemy_override_fields():
         # Then the automatic SQLAlchemy fields
         "id",
         "favorite_pet_kind",
-        "pet_names",
+        "headlines",
     ]
 
     first_name_field = ReporterType._meta.fields['first_name']
@@ -284,7 +294,7 @@ def test_exclude_fields():
         "favorite_pet_kind",
         "composite_prop",
         "hybrid_prop",
-        "pet_names",
+        "headlines",
         "pets",
         "articles",
         "favorite_article",
