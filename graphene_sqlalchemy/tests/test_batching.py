@@ -233,8 +233,7 @@ def test_one_to_one(session_factory):
       'articles.headline AS articles_headline, '
       'articles.pub_date AS articles_pub_date \n'
       'FROM articles \n'
-      'WHERE articles.reporter_id IN (?, ?) '
-      'ORDER BY articles.reporter_id',
+      'WHERE articles.reporter_id IN (?, ?)',
       '(1, 2)'
     ]
 
@@ -337,8 +336,7 @@ def test_one_to_many(session_factory):
       'articles.headline AS articles_headline, '
       'articles.pub_date AS articles_pub_date \n'
       'FROM articles \n'
-      'WHERE articles.reporter_id IN (?, ?) '
-      'ORDER BY articles.reporter_id',
+      'WHERE articles.reporter_id IN (?, ?)',
       '(1, 2)'
     ]
 
@@ -470,7 +468,7 @@ def test_many_to_many(session_factory):
       'JOIN association AS association_1 ON reporters_1.id = association_1.reporter_id '
       'JOIN pets ON pets.id = association_1.pet_id \n'
       'WHERE reporters_1.id IN (?, ?) '
-      'ORDER BY reporters_1.id, pets.id',
+      'ORDER BY pets.id',
       '(1, 2)'
     ]
 
