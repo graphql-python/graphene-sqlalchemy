@@ -16,10 +16,16 @@ from .fields import (BatchSQLAlchemyConnectionField,
 from .registry import get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
 
+
+class DummyImport:
+    def __getattr__(self, name):
+        return object
+
+
 try:
-    from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
+    import sqlalchemy_utils
 except ImportError:
-    ChoiceType = JSONType = ScalarListType = TSVectorType = object
+    sqlalchemy_utils = DummyImport()
 
 
 is_selectin_available = getattr(strategies, 'SelectInLoader', None)
@@ -183,7 +189,11 @@ def convert_sqlalchemy_type(type, column, registry=None):
 @convert_sqlalchemy_type.register(postgresql.UUID)
 @convert_sqlalchemy_type.register(postgresql.INET)
 @convert_sqlalchemy_type.register(postgresql.CIDR)
-@convert_sqlalchemy_type.register(TSVectorType)
+@convert_sqlalchemy_type.register(sqlalchemy_utils.TSVectorType)
+@convert_sqlalchemy_type.register(sqlalchemy_utils.UUIDType)
+@convert_sqlalchemy_type.register(sqlalchemy_utils.EmailType)
+@convert_sqlalchemy_type.register(sqlalchemy_utils.URLType)
+@convert_sqlalchemy_type.register(sqlalchemy_utils.IPAddressType)
 def convert_column_to_string(type, column, registry=None):
     return String
 
@@ -218,7 +228,7 @@ def convert_enum_to_enum(type, column, registry=None):
 
 
 # TODO Make ChoiceType conversion consistent with other enums
-@convert_sqlalchemy_type.register(ChoiceType)
+@convert_sqlalchemy_type.register(sqlalchemy_utils.ChoiceType)
 def convert_choice_to_enum(type, column, registry=None):
     name = "{}_{}".format(column.table.name, column.name).upper()
     if isinstance(type.choices, EnumMeta):
@@ -229,7 +239,7 @@ def convert_choice_to_enum(type, column, registry=None):
         return Enum(name, type.choices)
 
 
-@convert_sqlalchemy_type.register(ScalarListType)
+@convert_sqlalchemy_type.register(sqlalchemy_utils.ScalarListType)
 def convert_scalar_list_to_list(type, column, registry=None):
     return List(String)
 
@@ -248,6 +258,6 @@ def convert_json_to_string(type, column, registry=None):
     return JSONString
 
 
-@convert_sqlalchemy_type.register(JSONType)
+@convert_sqlalchemy_type.register(sqlalchemy_utils.JSONType)
 def convert_json_type_to_string(type, column, registry=None):
     return JSONString

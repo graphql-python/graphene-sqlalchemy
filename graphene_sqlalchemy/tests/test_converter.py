@@ -13,7 +13,7 @@ from graphene.relay import Node
 from graphene.types.datetime import DateTime
 from graphene.types.json import JSONString
 
-from ..converter import (convert_sqlalchemy_column,
+from ..converter import (DummyImport, convert_sqlalchemy_column,
                          convert_sqlalchemy_composite,
                          convert_sqlalchemy_relationship)
 from ..fields import (UnsortedSQLAlchemyConnectionField,
@@ -369,3 +369,9 @@ def test_should_unknown_sqlalchemy_composite_raise_exception():
             Registry(),
             mock_resolver,
         )
+
+
+def test_dummy_import():
+    """The dummy module returns 'object' for a query for any member"""
+    dummy_module = DummyImport()
+    assert dummy_module.foo == object
