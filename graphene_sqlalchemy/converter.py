@@ -249,5 +249,6 @@ def convert_json_to_string(type, column, registry=None):
 
 
 @convert_sqlalchemy_type.register(JSONType)
+@convert_sqlalchemy_type.register(types.JSON)
 def convert_json_type_to_string(type, column, registry=None):
     return JSONString

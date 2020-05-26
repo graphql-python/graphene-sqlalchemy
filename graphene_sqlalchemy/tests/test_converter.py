@@ -188,6 +188,7 @@ def test_should_scalar_list_convert_list():
 
 def test_should_jsontype_convert_jsonstring():
     assert get_field(JSONType()).type == JSONString
+    assert get_field(types.JSON()).type == JSONString
 
 
 def test_should_manytomany_convert_connectionorlist():
