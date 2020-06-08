@@ -4,6 +4,7 @@ import enum
 
 from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, String, Table,
                         func, select)
+from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import column_property, composite, mapper, relationship
@@ -75,6 +76,8 @@ class Reporter(Base):
 
     composite_prop = composite(CompositeFullName, first_name, last_name, doc="Composite")
 
+    headlines = association_proxy('articles', 'headline')
+
 
 class Article(Base):
     __tablename__ = "articles"
@@ -82,6 +85,7 @@ class Article(Base):
     headline = Column(String(100))
     pub_date = Column(Date())
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
+    recommended_reads = association_proxy('reporter', 'articles')
 
 
 class ReflectedEditor(type):

@@ -71,6 +71,11 @@ def test_sqlalchemy_default_fields():
             model = Article
             interfaces = (Node,)
 
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            interfaces = (Node,)
+
     assert list(ReporterType._meta.fields.keys()) == [
         # Columns
         "column_prop",  # SQLAlchemy retuns column properties first
@@ -83,6 +88,8 @@ def test_sqlalchemy_default_fields():
         "composite_prop",
         # Hybrid
         "hybrid_prop",
+        # AssociationProxy
+        "headlines",
         # Relationship
         "pets",
         "articles",
@@ -117,6 +124,16 @@ def test_sqlalchemy_default_fields():
     assert isinstance(favorite_article_field, Dynamic)
     assert favorite_article_field.type().type == ArticleType
     assert favorite_article_field.type().description is None
+
+    # assocation proxy
+    assoc_field = ReporterType._meta.fields['headlines']
+    assert isinstance(assoc_field, Dynamic)
+    assert isinstance(assoc_field.type().type, List)
+    assert assoc_field.type().type.of_type == String
+
+    assoc_field = ArticleType._meta.fields['recommended_reads']
+    assert isinstance(assoc_field, Dynamic)
+    assert assoc_field.type().type == ArticleType.connection
 
 
 def test_sqlalchemy_override_fields():
@@ -179,6 +196,7 @@ def test_sqlalchemy_override_fields():
         # Then the automatic SQLAlchemy fields
         "id",
         "favorite_pet_kind",
+        "headlines",
     ]
 
     first_name_field = ReporterType._meta.fields['first_name']
@@ -276,6 +294,7 @@ def test_exclude_fields():
         "favorite_pet_kind",
         "composite_prop",
         "hybrid_prop",
+        "headlines",
         "pets",
         "articles",
         "favorite_article",
@@ -384,7 +403,7 @@ def test_custom_objecttype_registered():
 
     assert issubclass(CustomReporterType, ObjectType)
     assert CustomReporterType._meta.model == Reporter
-    assert len(CustomReporterType._meta.fields) == 11
+    assert len(CustomReporterType._meta.fields) == 12
 
 
 # Test Custom SQLAlchemyObjectType with Custom Options

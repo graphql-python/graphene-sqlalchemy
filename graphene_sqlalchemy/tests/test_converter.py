@@ -13,7 +13,8 @@ from graphene.relay import Node
 from graphene.types.datetime import DateTime
 from graphene.types.json import JSONString
 
-from ..converter import (convert_sqlalchemy_column,
+from ..converter import (convert_sqlalchemy_association_proxy,
+                         convert_sqlalchemy_column,
                          convert_sqlalchemy_composite,
                          convert_sqlalchemy_relationship)
 from ..fields import (UnsortedSQLAlchemyConnectionField,
@@ -284,6 +285,41 @@ def test_should_onetoone_convert_field():
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
     assert graphene_type.type == A
+
+
+def test_should_convert_association_proxy():
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+
+    field = convert_sqlalchemy_association_proxy(
+        Reporter,
+        Reporter.headlines,
+        ReporterType,
+        get_global_registry(),
+        default_connection_field_factory,
+        True,
+        mock_resolver,
+    )
+    assert isinstance(field, graphene.Dynamic)
+    assert isinstance(field.get_type().type, graphene.List)
+    assert field.get_type().type.of_type == graphene.String
+
+    dynamic_field = convert_sqlalchemy_association_proxy(
+        Article,
+        Article.recommended_reads,
+        ArticleType,
+        get_global_registry(),
+        default_connection_field_factory,
+        True,
+        mock_resolver,
+    )
+    assert isinstance(dynamic_field, graphene.Dynamic)
+    assert dynamic_field.get_type().type.of_type == ArticleType
 
 
 def test_should_postgresql_uuid_convert():
