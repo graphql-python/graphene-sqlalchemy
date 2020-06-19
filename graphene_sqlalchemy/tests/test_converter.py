@@ -188,6 +188,7 @@ def test_should_scalar_list_convert_list():
 
 def test_should_jsontype_convert_jsonstring():
     assert get_field(JSONType()).type == JSONString
+    assert get_field(types.JSON()).type == JSONString
 
 
 def test_should_manytomany_convert_connectionorlist():
@@ -284,6 +285,14 @@ def test_should_onetoone_convert_field():
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
     assert graphene_type.type == A
+
+
+def test_should_variant_int_convert_int():
+    assert get_field(types.Variant(types.Integer(), {})).type == graphene.Int
+
+
+def test_should_variant_string_convert_string():
+    assert get_field(types.Variant(types.String(), {})).type == graphene.String
 
 
 def test_should_postgresql_uuid_convert():
