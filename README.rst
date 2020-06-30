@@ -75,8 +75,12 @@ Then you can simply query the schema:
 
 To learn more check out the following `examples <examples/>`__:
 
--  **Full example**: `Flask SQLAlchemy
+-  **Full example (Flask)**: `Flask SQLAlchemy
    example <examples/flask_sqlalchemy>`__
+-  **Full example (Nameko)**: `Nameko SQLAlchemy
+   example <examples/nameko_sqlalchemy>`__
+-  **Full example (Falcon)**: `Falcon SQLAlchemy
+   example <examples/falcon_sqlalchemy>`__
 
 Contributing
 ------------
