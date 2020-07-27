@@ -3,7 +3,6 @@ import pytest
 import six  # noqa F401
 import sqlalchemy.exc
 import sqlalchemy.orm.exc
-from promise import Promise
 
 from .. import utils
 
