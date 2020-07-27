@@ -4,12 +4,11 @@ import six  # noqa F401
 import sqlalchemy.exc
 import sqlalchemy.orm.exc
 
-from .. import utils
-
 from graphene import (Dynamic, Field, GlobalID, Int, List, Node, NonNull,
                       ObjectType, Schema, String)
 from graphene.relay import Connection
 
+from .. import utils
 from ..converter import convert_sqlalchemy_composite
 from ..fields import (SQLAlchemyConnectionField,
                       UnsortedSQLAlchemyConnectionField, createConnectionField,
