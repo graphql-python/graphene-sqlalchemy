@@ -27,6 +27,11 @@ try:
 except ImportError:
     sqlalchemy_utils = DummyImport()
 
+try:
+    from geoalchemy2.elements import Geometry
+except ImportError:
+    Geometry = object
+
 
 is_selectin_available = getattr(strategies, 'SelectInLoader', None)
 
@@ -194,6 +199,7 @@ def convert_sqlalchemy_type(type, column, registry=None):
 @convert_sqlalchemy_type.register(sqlalchemy_utils.EmailType)
 @convert_sqlalchemy_type.register(sqlalchemy_utils.URLType)
 @convert_sqlalchemy_type.register(sqlalchemy_utils.IPAddressType)
+@convert_sqlalchemy_type.register(Geometry)
 def convert_column_to_string(type, column, registry=None):
     return String
 
