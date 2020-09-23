@@ -2,8 +2,7 @@ Example Flask+SQLAlchemy Project
 ================================
 
 This example project demos integration between Graphene, Flask and SQLAlchemy.
-The project contains two models, one named `Department` and another
-named `Employee`.
+The project contains three models, named `Department`, `Employee` and `Role`.
 
 Getting started
 ---------------
@@ -41,10 +40,71 @@ Now the following command will setup the database, and start the server:
 
 ```bash
 ./app.py
-
 ```
 
 
 Now head on over to
 [http://127.0.0.1:5000/graphql](http://127.0.0.1:5000/graphql)
 and run some queries!
+
+```graphql
+{
+  allEmployees(sort: [HIRED_ON_ASC, NAME_ASC], first: 2) {
+    edges {
+      cursor
+      node {
+        id
+        name
+        hiredOn
+        department {
+          id
+          name
+        }
+        role {
+          id
+          name
+        }
+      }
+    }
+    totalCount
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+  }
+
+  allRoles(sort: NAME_ASC) {
+    totalCount
+    edges {
+      node {
+        name
+        employees {
+          totalCount
+          edges {
+            node {
+              name
+            }
+          }
+        }
+      }
+    }
+  }
+
+  allDepartments {
+    totalCount
+    edges {
+      node {
+        name
+        employees {
+          totalCount
+          edges {
+            node {
+              name
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```

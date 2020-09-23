@@ -7,8 +7,7 @@ If you need a [graphiql](https://github.com/graphql/graphiql) interface on your 
 
 Using [nameko](https://github.com/nameko/nameko) as an example, but you can get rid of `service.py`
 
-The project contains two models, one named `Department` and another
-named `Employee`.
+The project contains three models, named `Department`, `Employee` and `Role`.
 
 Getting started
 ---------------
