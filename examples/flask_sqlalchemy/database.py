@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -33,6 +35,6 @@ def init_db():
     db_session.add(peter)
     roy = Employee(name='Roy', department=engineering, role=engineer)
     db_session.add(roy)
-    tracy = Employee(name='Tracy', department=hr, role=manager)
+    tracy = Employee(name='Tracy', department=hr, role=manager, hired_on=datetime(2020, 6, 30))
     db_session.add(tracy)
     db_session.commit()
