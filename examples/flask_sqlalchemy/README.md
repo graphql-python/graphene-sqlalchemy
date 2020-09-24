@@ -53,6 +53,11 @@ and run some queries!
     __typename
   }
 
+  employee(id: "RW1wbG95ZWU6Mw==") {
+    name
+    hiredOn
+  }
+
   allEmployees(sort: [HIRED_ON_ASC, NAME_ASC], first: 2) {
     edges {
       cursor

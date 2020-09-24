@@ -51,6 +51,11 @@ class Query(graphene.ObjectType):
     # Expose `node` root field as mandated by Relay specification
     node = relay.Node.Field()
 
+    # Basic root fields, e.g. `employee(id: "RW1wbG95ZWU6Mw==")`
+    employee = relay.Node.Field(Employee)
+    role = relay.Node.Field(Role)
+    department = relay.Node.Field(Department)
+
     # Allow sorting over one or multiple columns, by default over the primary
     # key, e.g. `allEmployees(sort: [HIRED_ON_ASC, NAME_ASC, ID_ASC])`; not
     # specifying `sort` is the same as using `sort=Employee.sort_argument()`
