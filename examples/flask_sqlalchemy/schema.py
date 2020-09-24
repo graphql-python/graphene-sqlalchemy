@@ -18,8 +18,9 @@ class CountableConnection(relay.Connection):
 
     total_count = graphene.Int(description='Total number of (paginated) results.')
 
-    def resolve_total_count(self, info, *args, **kwargs):
-        return self.length
+    @staticmethod
+    def resolve_total_count(connection, info, *args, **kwargs):
+        return connection.length
 
 
 class Department(SQLAlchemyObjectType):
