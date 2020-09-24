@@ -48,14 +48,16 @@ class Role(SQLAlchemyObjectType):
 
 
 class Query(graphene.ObjectType):
+    # Expose `node` root field as mandated by Relay specification
     node = relay.Node.Field()
+
     # Allow sorting over one or multiple columns, by default over the primary
-    # key, e.g. `all_employees(sort: [HIRED_ON_ASC, NAME_ASC, ID_ASC])`; not
+    # key, e.g. `allEmployees(sort: [HIRED_ON_ASC, NAME_ASC, ID_ASC])`; not
     # specifying `sort` is the same as using `sort=Employee.sort_argument()`
     all_employees = SQLAlchemyConnectionField(Employee.connection)
 
-    # Allow sorting on a single column only, e.g. `all_roles(sort: NAME_ASC)`
-    # or `all_roles(sort: ID_ASC)` but not a combination
+    # Allow sorting on a single column only, e.g. `allRoles(sort: NAME_ASC)`
+    # or `allRoles(sort: ID_ASC)` but not a combination
     all_roles_sort = Role.sort_enum()
     all_roles = SQLAlchemyConnectionField(
         Role.connection,

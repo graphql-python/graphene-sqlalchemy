@@ -49,6 +49,10 @@ and run some queries!
 
 ```graphql
 {
+  node(id: "RW1wbG95ZWU6Mw==") {
+    __typename
+  }
+
   allEmployees(sort: [HIRED_ON_ASC, NAME_ASC], first: 2) {
     edges {
       cursor
