@@ -234,11 +234,15 @@ def convert_scalar_list_to_list(type, column, registry=None):
     return List(String)
 
 
+def init_array_list_recursive(inner_type, n):
+    return inner_type if n == 0 else List(init_array_list_recursive(inner_type, n-1))
+
+
 @convert_sqlalchemy_type.register(types.ARRAY)
 @convert_sqlalchemy_type.register(postgresql.ARRAY)
 def convert_array_to_list(_type, column, registry=None):
     inner_type = convert_sqlalchemy_type(column.type.item_type, column)
-    return List(inner_type)
+    return List(init_array_list_recursive(inner_type, (column.type.dimensions or 1) - 1))
 
 
 @convert_sqlalchemy_type.register(postgresql.HSTORE)

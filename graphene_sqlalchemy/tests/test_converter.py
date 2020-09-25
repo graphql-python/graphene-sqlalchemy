@@ -324,6 +324,21 @@ def test_should_array_convert():
     assert field.type.of_type == graphene.Int
 
 
+def test_should_2d_array_convert():
+    field = get_field(types.ARRAY(types.Integer, dimensions=2))
+    assert isinstance(field.type, graphene.List)
+    assert isinstance(field.type.of_type, graphene.List)
+    assert field.type.of_type.of_type == graphene.Int
+
+
+def test_should_3d_array_convert():
+    field = get_field(types.ARRAY(types.Integer, dimensions=3))
+    assert isinstance(field.type, graphene.List)
+    assert isinstance(field.type.of_type, graphene.List)
+    assert isinstance(field.type.of_type.of_type, graphene.List)
+    assert field.type.of_type.of_type.of_type == graphene.Int
+
+
 def test_should_postgresql_json_convert():
     assert get_field(postgresql.JSON()).type == graphene.JSONString
 
