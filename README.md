@@ -10,7 +10,7 @@ A [SQLAlchemy](http://www.sqlalchemy.org/) integration for [Graphene](http://gra
 
 ## Installation
 
-For instaling graphene, just run this command in your shell
+For installing Graphene, just run this command in your shell.
 
 ```bash
 pip install "graphene-sqlalchemy>=2.0"
@@ -34,7 +34,7 @@ class UserModel(Base):
     last_name = Column(String)
 ```
 
-To create a GraphQL schema for it you simply have to write the following:
+To create a GraphQL schema for it, you simply have to write the following:
 
 ```python
 import graphene
