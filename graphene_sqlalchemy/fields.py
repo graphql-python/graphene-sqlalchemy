@@ -7,8 +7,8 @@ from sqlalchemy.orm.query import Query
 
 from graphene import NonNull
 from graphene.relay import Connection, ConnectionField
-from graphene.relay.connection import PageInfo
-from graphql_relay.connection.arrayconnection import connection_from_list_slice
+from graphene.relay.connection import PageInfo, connection_adapter, page_info_adapter
+from graphql_relay.connection.arrayconnection import connection_from_array_slice
 
 from .batching import get_batch_resolver
 from .utils import get_query
@@ -53,15 +53,19 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
             _len = resolved.count()
         else:
             _len = len(resolved)
-        connection = connection_from_list_slice(
-            resolved,
-            args,
+
+        def adjusted_connection_adapter(edges, pageInfo):
+            return connection_adapter(connection_type, edges, pageInfo)
+        
+        connection = connection_from_array_slice(
+            array_slice=resolved,
+            args=args,
             slice_start=0,
-            list_length=_len,
-            list_slice_length=_len,
-            connection_type=connection_type,
-            pageinfo_type=PageInfo,
+            array_length=_len,
+            array_slice_length=_len,
+            connection_type=adjusted_connection_adapter,
             edge_type=connection_type.Edge,
+            page_info_type=page_info_adapter,
         )
         connection.iterable = resolved
         connection.length = _len
@@ -77,7 +81,7 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
 
         return on_resolve(resolved)
 
-    def get_resolver(self, parent_resolver):
+    def wrap_resolve(self, parent_resolver):
         return partial(
             self.connection_resolver,
             parent_resolver,
@@ -123,7 +127,7 @@ class BatchSQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
     Use at your own risk.
     """
 
-    def get_resolver(self, parent_resolver):
+    def wrap_resolve(self, parent_resolver):
         return partial(
             self.connection_resolver,
             self.resolver,
