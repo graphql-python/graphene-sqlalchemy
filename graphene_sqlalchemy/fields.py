@@ -19,10 +19,10 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
     def type(self):
         from .types import SQLAlchemyObjectType
 
-        _type = super(ConnectionField, self).type
-        nullable_type = get_nullable_type(_type)
+        type_ = super(ConnectionField, self).type
+        nullable_type = get_nullable_type(type_)
         if issubclass(nullable_type, Connection):
-            return _type
+            return type_
         assert issubclass(nullable_type, SQLAlchemyObjectType), (
             "SQLALchemyConnectionField only accepts SQLAlchemyObjectType types, not {}"
         ).format(nullable_type.__name__)
@@ -31,7 +31,7 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
         ), "The type {} doesn't have a connection".format(
             nullable_type.__name__
         )
-        assert _type == nullable_type, (
+        assert type_ == nullable_type, (
             "Passing a SQLAlchemyObjectType instance is deprecated. "
             "Pass the connection type instead accessible via SQLAlchemyObjectType.connection"
         )
@@ -88,8 +88,8 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
 
 # TODO Rename this to SortableSQLAlchemyConnectionField
 class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
-    def __init__(self, type, *args, **kwargs):
-        nullable_type = get_nullable_type(type)
+    def __init__(self, type_, *args, **kwargs):
+        nullable_type = get_nullable_type(type_)
         if "sort" not in kwargs and issubclass(nullable_type, Connection):
             # Let super class raise if type is not a Connection
             try:
@@ -103,7 +103,7 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
                 )
         elif "sort" in kwargs and kwargs["sort"] is None:
             del kwargs["sort"]
-        super(SQLAlchemyConnectionField, self).__init__(type, *args, **kwargs)
+        super(SQLAlchemyConnectionField, self).__init__(type_, *args, **kwargs)
 
     @classmethod
     def get_query(cls, model, info, sort=None, **args):
@@ -148,13 +148,13 @@ def default_connection_field_factory(relationship, registry, **field_kwargs):
 __connectionFactory = UnsortedSQLAlchemyConnectionField
 
 
-def createConnectionField(_type, **field_kwargs):
+def createConnectionField(type_, **field_kwargs):
     warnings.warn(
         'createConnectionField is deprecated and will be removed in the next '
         'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.',
         DeprecationWarning,
     )
-    return __connectionFactory(_type, **field_kwargs)
+    return __connectionFactory(type_, **field_kwargs)
 
 
 def registerConnectionFieldFactory(factoryMethod):

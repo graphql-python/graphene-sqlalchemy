@@ -110,9 +110,9 @@ def _convert_o2m_or_m2m_relationship(relationship_prop, obj_type, batching, conn
 
 
 def convert_sqlalchemy_hybrid_method(hybrid_prop, resolver, **field_kwargs):
-    if 'type' not in field_kwargs:
+    if 'type_' not in field_kwargs:
         # TODO The default type should be dependent on the type of the property propety.
-        field_kwargs['type'] = String
+        field_kwargs['type_'] = String
 
     return Field(
         resolver=resolver,
@@ -156,7 +156,8 @@ convert_sqlalchemy_composite.register = _register_composite_class
 
 def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
     column = column_prop.columns[0]
-    field_kwargs.setdefault('type', convert_sqlalchemy_type(getattr(column, "type", None), column, registry))
+
+    field_kwargs.setdefault('type_', convert_sqlalchemy_type(getattr(column, "type", None), column, registry))
     field_kwargs.setdefault('required', not is_column_nullable(column))
     field_kwargs.setdefault('description', get_column_doc(column))
 
