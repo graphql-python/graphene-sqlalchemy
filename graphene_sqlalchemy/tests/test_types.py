@@ -136,10 +136,10 @@ def test_sqlalchemy_override_fields():
 
         # columns
         email = ORMField(deprecation_reason='Overridden')
-        email_v2 = ORMField(model_attr='email', type=Int)
+        email_v2 = ORMField(model_attr='email', type_=Int)
 
         # column_property
-        column_prop = ORMField(type=String)
+        column_prop = ORMField(type_=String)
 
         # composite
         composite_prop = ORMField()
