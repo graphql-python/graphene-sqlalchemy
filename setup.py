@@ -15,8 +15,8 @@ requirements = [
     # To keep things simple, we only support newer versions of Graphene
     "graphene>=2.1.3,<3",
     "promise>=2.3",
-    # Tests fail with 1.0.19
-    "SQLAlchemy>=1.2,<2",
+    # Tests fail with 1.3.18
+    "SQLAlchemy>=1.3.19,<2",
     "six>=1.10.0,<2",
     "singledispatch>=3.4.0.3,<4",
 ]

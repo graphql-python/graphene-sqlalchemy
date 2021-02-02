@@ -114,6 +114,9 @@ def convert_sqlalchemy_hybrid_method(hybrid_prop, resolver, **field_kwargs):
         # TODO The default type should be dependent on the type of the property propety.
         field_kwargs['type'] = String
 
+    if 'description' not in field_kwargs:
+        field_kwargs['description'] = getattr(hybrid_prop, "__doc__", None)
+
     return Field(
         resolver=resolver,
         **field_kwargs
