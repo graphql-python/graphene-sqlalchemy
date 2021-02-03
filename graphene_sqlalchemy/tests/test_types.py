@@ -82,6 +82,7 @@ def test_sqlalchemy_default_fields():
         # Composite
         "composite_prop",
         # Hybrid
+        "hybrid_prop_with_doc",
         "hybrid_prop",
         # Relationship
         "pets",
@@ -111,6 +112,12 @@ def test_sqlalchemy_default_fields():
     assert hybrid_prop.type == String
     # "doc" is ignored by hybrid_property
     assert hybrid_prop.description is None
+
+    # hybrid_prop_with_doc
+    hybrid_prop_with_doc = ReporterType._meta.fields['hybrid_prop_with_doc']
+    assert hybrid_prop_with_doc.type == String
+    # docstring is picked up from hybrid_prop_with_doc
+    assert hybrid_prop_with_doc.description == "Docstring test"
 
     # relationship
     favorite_article_field = ReporterType._meta.fields['favorite_article']
@@ -145,6 +152,7 @@ def test_sqlalchemy_override_fields():
         composite_prop = ORMField()
 
         # hybrid_property
+        hybrid_prop_with_doc = ORMField(description='Overridden')
         hybrid_prop = ORMField(description='Overridden')
 
         # relationships
@@ -172,6 +180,7 @@ def test_sqlalchemy_override_fields():
         "email_v2",
         "column_prop",
         "composite_prop",
+        "hybrid_prop_with_doc",
         "hybrid_prop",
         "favorite_article",
         "articles",
@@ -206,6 +215,11 @@ def test_sqlalchemy_override_fields():
     assert hybrid_prop_field.type == String
     assert hybrid_prop_field.description == "Overridden"
     assert hybrid_prop_field.deprecation_reason is None
+
+    hybrid_prop_with_doc_field = ReporterType._meta.fields['hybrid_prop_with_doc']
+    assert hybrid_prop_with_doc_field.type == String
+    assert hybrid_prop_with_doc_field.description == "Overridden"
+    assert hybrid_prop_with_doc_field.deprecation_reason is None
 
     column_prop_field_v2 = ReporterType._meta.fields['column_prop']
     assert column_prop_field_v2.type == String
@@ -275,6 +289,7 @@ def test_exclude_fields():
         "email",
         "favorite_pet_kind",
         "composite_prop",
+        "hybrid_prop_with_doc",
         "hybrid_prop",
         "pets",
         "articles",
@@ -384,7 +399,7 @@ def test_custom_objecttype_registered():
 
     assert issubclass(CustomReporterType, ObjectType)
     assert CustomReporterType._meta.model == Reporter
-    assert len(CustomReporterType._meta.fields) == 11
+    assert len(CustomReporterType._meta.fields) == 12
 
 
 # Test Custom SQLAlchemyObjectType with Custom Options
