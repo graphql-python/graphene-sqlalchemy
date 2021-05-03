@@ -26,10 +26,10 @@ except ImportError:  # Python < 2.7 and Python 3.3
     requirements.append("enum34 >= 1.1.6")
 
 tests_require = [
-    "pytest==4.3.1",
-    "pytest-cov==2.6.1",
-    "sqlalchemy_utils==0.37.0",
-    "pytest-benchmark==3.2.1",
+    "pytest>=6.2.0,<7.0",
+    "pytest-cov>=2.11.0,<3.0",
+    "sqlalchemy_utils>=0.37.0,<1.0",
+    "pytest-benchmark>=3.4.0,<4.0",
 ]
 
 setup(
