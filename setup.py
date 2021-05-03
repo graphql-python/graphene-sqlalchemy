@@ -16,7 +16,7 @@ requirements = [
     "graphene>=3.0b5",
     "promise>=2.3",
     # Tests fail with 1.0.19
-    "SQLAlchemy>=1.2,<1.4",
+    "SQLAlchemy>=1.2,<2.0",
     "six>=1.10.0,<2",
     "singledispatch>=3.4.0.3,<4",
 ]
@@ -28,7 +28,7 @@ except ImportError:  # Python < 2.7 and Python 3.3
 tests_require = [
     "pytest==4.3.1",
     "pytest-cov==2.6.1",
-    "sqlalchemy_utils==0.33.9",
+    "sqlalchemy_utils==0.37.0",
     "pytest-benchmark==3.2.1",
 ]
 
