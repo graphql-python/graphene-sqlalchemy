@@ -1,4 +1,5 @@
 import pytest
+
 import graphene
 from graphene import relay
 
