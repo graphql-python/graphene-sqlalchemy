@@ -1,3 +1,4 @@
+import enum
 import warnings
 from functools import partial
 
@@ -6,11 +7,13 @@ from sqlalchemy.orm.query import Query
 
 from graphene import NonNull
 from graphene.relay import Connection, ConnectionField
-from graphene.relay.connection import PageInfo, connection_adapter, page_info_adapter
-from graphql_relay.connection.arrayconnection import connection_from_array_slice
+from graphene.relay.connection import (PageInfo, connection_adapter,
+                                       page_info_adapter)
+from graphql_relay.connection.arrayconnection import \
+    connection_from_array_slice
 
 from .batching import get_batch_resolver
-from .utils import get_query
+from .utils import EnumValue, get_query
 
 
 class UnsortedSQLAlchemyConnectionField(ConnectionField):
@@ -112,10 +115,19 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
     def get_query(cls, model, info, sort=None, **args):
         query = get_query(model, info.context)
         if sort is not None:
-            if isinstance(sort, str):
-                query = query.order_by(sort.value)
-            else:
-                query = query.order_by(*(col.value for col in sort))
+            if not isinstance(sort, list):
+                sort = [sort]
+            sort_args = []
+            # ensure consistent handling of graphene Enums, enum values and
+            # plain strings
+            for item in sort:
+                if isinstance(item, enum.Enum):
+                    sort_args.append(item.value.value)
+                elif isinstance(item, EnumValue):
+                    sort_args.append(item.value)
+                else:
+                    sort_args.append(item)
+            query = query.order_by(*sort_args)
         return query
 
 
