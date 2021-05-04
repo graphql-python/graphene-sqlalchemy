@@ -1,6 +1,6 @@
 from enum import EnumMeta
+from functools import singledispatch
 
-from singledispatch import singledispatch
 from sqlalchemy import types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import interfaces, strategies
