@@ -1,7 +1,6 @@
 import warnings
 from functools import partial
 
-import six
 from promise import Promise, is_thenable
 from sqlalchemy.orm.query import Query
 
@@ -56,7 +55,7 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
 
         def adjusted_connection_adapter(edges, pageInfo):
             return connection_adapter(connection_type, edges, pageInfo)
-        
+
         connection = connection_from_array_slice(
             array_slice=resolved,
             args=args,
@@ -113,7 +112,7 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
     def get_query(cls, model, info, sort=None, **args):
         query = get_query(model, info.context)
         if sort is not None:
-            if isinstance(sort, six.string_types):
+            if isinstance(sort, str):
                 query = query.order_by(sort.value)
             else:
                 query = query.order_by(*(col.value for col in sort))

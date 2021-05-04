@@ -1,7 +1,6 @@
 from unittest import mock
 
 import pytest
-import six  # noqa F401
 
 from graphene import (Dynamic, Field, GlobalID, Int, List, Node, NonNull,
                       ObjectType, Schema, String)
