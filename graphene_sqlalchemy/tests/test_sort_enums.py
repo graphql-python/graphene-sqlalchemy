@@ -354,7 +354,7 @@ def test_sort_query(session):
     """
     result = schema.execute(queryError, context_value={"session": session})
     assert result.errors is not None
-    assert '"sort" has invalid value' in result.errors[0].message
+    assert 'cannot represent non-enum value' in result.errors[0].message
 
     queryNoSort = """
         query sortTest {
