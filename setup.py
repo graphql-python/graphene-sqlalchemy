@@ -16,7 +16,7 @@ requirements = [
     "graphene>=3.0b5",
     "promise>=2.3",
     # Tests fail with 1.0.19
-    "SQLAlchemy>=1.2,<2.0",
+    "SQLAlchemy>=1.1,<2.0",
 ]
 
 tests_require = [
@@ -39,12 +39,10 @@ setup(
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "Topic :: Software Development :: Libraries",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
     keywords="api graphql protocol rest relay graphene",
