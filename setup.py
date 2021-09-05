@@ -63,8 +63,6 @@ setup(
             "coveralls==1.10.0",
             "pre-commit==1.14.4",
             "flake8==3.7.9",
-            "flake8-black==0.1.1",
-            "flake8-bugbear==20.1.4",
         ],
         "test": tests_require,
     },
