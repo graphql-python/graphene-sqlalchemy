@@ -31,6 +31,7 @@ tests_require = [
     "pytest-cov==2.6.1",
     "sqlalchemy_utils==0.33.9",
     "pytest-benchmark==3.2.1",
+    "coveralls==1.10.0",
 ]
 
 setup(
@@ -60,7 +61,6 @@ setup(
     extras_require={
         "dev": [
             "tox==3.7.0",  # Should be kept in sync with tox.ini
-            "coveralls==1.10.0",
             "pre-commit==1.14.4",
             "flake8==3.7.9",
         ],
