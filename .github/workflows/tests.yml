@@ -8,7 +8,7 @@ jobs:
     strategy:
       max-parallel: 10
       matrix:
-        sql-alchemy: ["1.1", "1.2", "1.3", "1.4"]
+        sql-alchemy: ["1.2", "1.3"]
         python-version: ["3.6", "3.7", "3.8", "3.9"]
 
     steps:
@@ -26,3 +26,13 @@ jobs:
       env:
         SQLALCHEMY: ${{ matrix.sql-alchemy }}
         TOXENV: ${{ matrix.toxenv }}
+    - name: Upload coverage.xml
+      if: ${{ matrix.sql-alchemy == '1.3' && matrix.python-version == '3.9' }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: graphene-sqlalchemy-coverage
+        path: coverage.xml
+        if-no-files-found: error
+    - name: Upload coverage.xml to codecov
+      if: ${{ matrix.sql-alchemy == '1.3' && matrix.python-version == '3.9' }}
+      uses: codecov/codecov-action@v1

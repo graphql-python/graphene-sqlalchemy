@@ -31,7 +31,6 @@ tests_require = [
     "pytest-cov==2.6.1",
     "sqlalchemy_utils==0.33.9",
     "pytest-benchmark==3.2.1",
-    "coveralls==1.10.0",
 ]
 
 setup(
