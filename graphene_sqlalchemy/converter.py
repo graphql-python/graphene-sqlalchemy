@@ -1,4 +1,3 @@
-from enum import EnumMeta
 from functools import singledispatch
 
 from sqlalchemy import types
@@ -20,6 +19,11 @@ try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
 except ImportError:
     ChoiceType = JSONType = ScalarListType = TSVectorType = object
+
+try:
+    from sqlalchemy_utils.types.choice import EnumTypeImpl
+except ImportError:
+    EnumTypeImpl = object
 
 
 is_selectin_available = getattr(strategies, 'SelectInLoader', None)
@@ -222,7 +226,7 @@ def convert_enum_to_enum(type, column, registry=None):
 @convert_sqlalchemy_type.register(ChoiceType)
 def convert_choice_to_enum(type, column, registry=None):
     name = "{}_{}".format(column.table.name, column.name).upper()
-    if isinstance(type.choices, EnumMeta):
+    if isinstance(type.type_impl, EnumTypeImpl):
         # type.choices may be Enum/IntEnum, in ChoiceType both presented as EnumMeta
         # do not use from_enum here because we can have more than one enum column in table
         return Enum(name, list((v.name, v.value) for v in type.choices))
