@@ -13,10 +13,10 @@ with open("graphene_sqlalchemy/__init__.py", "rb") as f:
 
 requirements = [
     # To keep things simple, we only support newer versions of Graphene
-    "graphene>=3.0b5",
+    "graphene>=3.0.0b7",
     "promise>=2.3",
-    # Tests fail with 1.0.19
     "SQLAlchemy>=1.1,<2.0",
+    "aiodataloader>=0.2.0,<1.0",
 ]
 
 tests_require = [
