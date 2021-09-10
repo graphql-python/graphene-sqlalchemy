@@ -75,7 +75,8 @@ if is_sqlalchemy_version_less_than('1.2'):
     pytest.skip('SQL batching only works for SQLAlchemy 1.2+', allow_module_level=True)
 
 
-def test_many_to_one(session_factory):
+@pytest.mark.asyncio
+async def test_many_to_one(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
@@ -103,7 +104,7 @@ def test_many_to_one(session_factory):
     with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
-        result = schema.execute("""
+        result = await schema.execute_async("""
           query {
             articles {
               headline
@@ -166,7 +167,8 @@ def test_many_to_one(session_factory):
     }
 
 
-def test_one_to_one(session_factory):
+@pytest.mark.asyncio
+async def test_one_to_one(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
@@ -194,7 +196,7 @@ def test_one_to_one(session_factory):
     with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
-        result = schema.execute("""
+        result = await schema.execute_async("""
           query {
             reporters {
               firstName
@@ -257,7 +259,8 @@ def test_one_to_one(session_factory):
     }
 
 
-def test_one_to_many(session_factory):
+@pytest.mark.asyncio
+async def test_one_to_many(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
@@ -293,7 +296,7 @@ def test_one_to_many(session_factory):
     with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
-        result = schema.execute("""
+        result = await schema.execute_async("""
           query {
             reporters {
               firstName
@@ -382,7 +385,8 @@ def test_one_to_many(session_factory):
     }
 
 
-def test_many_to_many(session_factory):
+@pytest.mark.asyncio
+async def test_many_to_many(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
@@ -420,7 +424,7 @@ def test_many_to_many(session_factory):
     with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
-        result = schema.execute("""
+        result = await schema.execute_async("""
           query {
             reporters {
               firstName
@@ -586,7 +590,8 @@ def test_disable_batching_via_ormfield(session_factory):
     assert len(select_statements) == 2
 
 
-def test_connection_factory_field_overrides_batching_is_false(session_factory):
+@pytest.mark.asyncio
+async def test_connection_factory_field_overrides_batching_is_false(session_factory):
     session = session_factory()
     reporter_1 = Reporter(first_name='Reporter_1')
     session.add(reporter_1)
@@ -620,7 +625,7 @@ def test_connection_factory_field_overrides_batching_is_false(session_factory):
     with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
-        schema.execute("""
+        await schema.execute_async("""
           query {
             reporters {
               articles {

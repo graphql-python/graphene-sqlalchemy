@@ -15,12 +15,13 @@ requirements = [
     # To keep things simple, we only support newer versions of Graphene
     "graphene>=3.0.0b7",
     "promise>=2.3",
-    "SQLAlchemy>=1.1,<2.0",
+    "SQLAlchemy>=1.1,<1.4",
     "aiodataloader>=0.2.0,<1.0",
 ]
 
 tests_require = [
     "pytest>=6.2.0,<7.0",
+    "pytest-asyncio>=0.15.1",
     "pytest-cov>=2.11.0,<3.0",
     "sqlalchemy_utils>=0.37.0,<1.0",
     "pytest-benchmark>=3.4.0,<4.0",
