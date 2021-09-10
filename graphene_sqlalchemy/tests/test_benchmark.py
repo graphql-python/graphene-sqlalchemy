@@ -3,7 +3,6 @@ import pytest
 import graphene
 from graphene import relay
 
-from ..fields import BatchSQLAlchemyConnectionField
 from ..types import SQLAlchemyObjectType
 from .models import Article, HairKind, Pet, Reporter
 from .utils import is_sqlalchemy_version_less_than
@@ -17,19 +16,16 @@ def get_schema():
         class Meta:
             model = Reporter
             interfaces = (relay.Node,)
-            connection_field_factory = BatchSQLAlchemyConnectionField.from_relationship
 
     class ArticleType(SQLAlchemyObjectType):
         class Meta:
             model = Article
             interfaces = (relay.Node,)
-            connection_field_factory = BatchSQLAlchemyConnectionField.from_relationship
 
     class PetType(SQLAlchemyObjectType):
         class Meta:
             model = Pet
             interfaces = (relay.Node,)
-            connection_field_factory = BatchSQLAlchemyConnectionField.from_relationship
 
     class Query(graphene.ObjectType):
         articles = graphene.Field(graphene.List(ArticleType))
