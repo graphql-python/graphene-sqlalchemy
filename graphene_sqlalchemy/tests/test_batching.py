@@ -10,7 +10,8 @@ from ..fields import (BatchSQLAlchemyConnectionField,
                       default_connection_field_factory)
 from ..types import ORMField, SQLAlchemyObjectType
 from .models import Article, HairKind, Pet, Reporter
-from .utils import is_sqlalchemy_version_less_than, to_std_dicts
+from ..utils import is_sqlalchemy_version_less_than
+from .utils import to_std_dicts
 
 
 class MockLoggingHandler(logging.Handler):

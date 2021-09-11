@@ -47,7 +47,7 @@ def get_field_from_column(column_):
     return convert_sqlalchemy_column(column_prop, get_global_registry(), mock_resolver)
 
 
-def _test_should_unknown_sqlalchemy_field_raise_exception():
+def test_should_unknown_sqlalchemy_field_raise_exception():
     # TODO: SQLALchemy does not export types.Binary, remove or update this test
     re_err = "Don't know how to convert the SQLAlchemy field"
     with pytest.raises(Exception, match=re_err):

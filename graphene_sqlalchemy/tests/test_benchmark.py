@@ -4,8 +4,8 @@ import graphene
 from graphene import relay
 
 from ..types import SQLAlchemyObjectType
+from ..utils import is_sqlalchemy_version_less_than
 from .models import Article, HairKind, Pet, Reporter
-from .utils import is_sqlalchemy_version_less_than
 
 if is_sqlalchemy_version_less_than('1.2'):
     pytest.skip('SQL batching only works for SQLAlchemy 1.2+', allow_module_level=True)
