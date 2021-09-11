@@ -48,11 +48,10 @@ def get_field_from_column(column_):
 
 
 def test_should_unknown_sqlalchemy_field_raise_exception():
-    # TODO: SQLALchemy does not export types.Binary, remove or update this test
     re_err = "Don't know how to convert the SQLAlchemy field"
     with pytest.raises(Exception, match=re_err):
         # support legacy Binary type and subsequent LargeBinary
-        get_field(getattr(types, 'LargeBinary', types.Binary)())
+        get_field(getattr(types, 'LargeBinary', types.BINARY)())
 
 
 def test_should_date_convert_string():
