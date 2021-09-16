@@ -60,8 +60,8 @@ setup(
     extras_require={
         "dev": [
             "tox==3.7.0",  # Should be kept in sync with tox.ini
-            "coveralls==1.10.0",
             "pre-commit==1.14.4",
+            "flake8==3.7.9",
         ],
         "test": tests_require,
     },
