@@ -27,12 +27,12 @@ jobs:
           SQLALCHEMY: ${{ matrix.sql-alchemy }}
           TOXENV: ${{ matrix.toxenv }}
       - name: Upload coverage.xml
-        if: ${{ matrix.sql-alchemy == '1.3' && matrix.python-version == '3.9' }}
+        if: ${{ matrix.sql-alchemy == '1.4' && matrix.python-version == '3.9' }}
         uses: actions/upload-artifact@v2
         with:
           name: graphene-sqlalchemy-coverage
           path: coverage.xml
           if-no-files-found: error
       - name: Upload coverage.xml to codecov
-        if: ${{ matrix.sql-alchemy == '1.3' && matrix.python-version == '3.9' }}
+        if: ${{ matrix.sql-alchemy == '1.4' && matrix.python-version == '3.9' }}
         uses: codecov/codecov-action@v1
