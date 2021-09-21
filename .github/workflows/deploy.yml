@@ -3,7 +3,7 @@ name: 🚀 Deploy to PyPI
 on:
   push:
     tags:
-      - 'v*'
+      - '*'
 
 jobs:
   build:
