@@ -1,6 +1,5 @@
-from enum import EnumMeta
+from functools import singledispatch
 
-from singledispatch import singledispatch
 from sqlalchemy import types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import interfaces, strategies
@@ -20,6 +19,11 @@ try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
 except ImportError:
     ChoiceType = JSONType = ScalarListType = TSVectorType = object
+
+try:
+    from sqlalchemy_utils.types.choice import EnumTypeImpl
+except ImportError:
+    EnumTypeImpl = object
 
 
 is_selectin_available = getattr(strategies, 'SelectInLoader', None)
@@ -110,9 +114,9 @@ def _convert_o2m_or_m2m_relationship(relationship_prop, obj_type, batching, conn
 
 
 def convert_sqlalchemy_hybrid_method(hybrid_prop, resolver, **field_kwargs):
-    if 'type' not in field_kwargs:
+    if 'type_' not in field_kwargs:
         # TODO The default type should be dependent on the type of the property propety.
-        field_kwargs['type'] = String
+        field_kwargs['type_'] = String
 
     return Field(
         resolver=resolver,
@@ -156,7 +160,8 @@ convert_sqlalchemy_composite.register = _register_composite_class
 
 def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
     column = column_prop.columns[0]
-    field_kwargs.setdefault('type', convert_sqlalchemy_type(getattr(column, "type", None), column, registry))
+
+    field_kwargs.setdefault('type_', convert_sqlalchemy_type(getattr(column, "type", None), column, registry))
     field_kwargs.setdefault('required', not is_column_nullable(column))
     field_kwargs.setdefault('description', get_column_doc(column))
 
@@ -221,7 +226,7 @@ def convert_enum_to_enum(type, column, registry=None):
 @convert_sqlalchemy_type.register(ChoiceType)
 def convert_choice_to_enum(type, column, registry=None):
     name = "{}_{}".format(column.table.name, column.name).upper()
-    if isinstance(type.choices, EnumMeta):
+    if isinstance(type.type_impl, EnumTypeImpl):
         # type.choices may be Enum/IntEnum, in ChoiceType both presented as EnumMeta
         # do not use from_enum here because we can have more than one enum column in table
         return Enum(name, list((v.name, v.value) for v in type.choices))

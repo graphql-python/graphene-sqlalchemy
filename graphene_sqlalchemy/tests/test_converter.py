@@ -51,7 +51,7 @@ def test_should_unknown_sqlalchemy_field_raise_exception():
     re_err = "Don't know how to convert the SQLAlchemy field"
     with pytest.raises(Exception, match=re_err):
         # support legacy Binary type and subsequent LargeBinary
-        get_field(getattr(types, 'LargeBinary', types.Binary)())
+        get_field(getattr(types, 'LargeBinary', types.BINARY)())
 
 
 def test_should_date_convert_string():

@@ -1,6 +1,7 @@
 import re
 import warnings
 
+import pkg_resources
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
@@ -140,3 +141,8 @@ def sort_argument_for_model(cls, has_default=True):
         enum.default = None
 
     return Argument(List(enum), default_value=enum.default)
+
+
+def is_sqlalchemy_version_less_than(version_string):
+    """Check the installed SQLAlchemy version"""
+    return pkg_resources.get_distribution('SQLAlchemy').parsed_version < pkg_resources.parse_version(version_string)
