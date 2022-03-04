@@ -2,8 +2,8 @@ from unittest import mock
 
 import pytest
 
-from graphene import (Dynamic, Field, GlobalID, Int, List, Node, NonNull,
-                      ObjectType, Schema, String)
+from graphene import (Boolean, Dynamic, Field, Float, GlobalID, Int, List,
+                      Node, NonNull, ObjectType, Schema, String)
 from graphene.relay import Connection
 
 from ..converter import convert_sqlalchemy_composite
@@ -83,6 +83,11 @@ def test_sqlalchemy_default_fields():
         "composite_prop",
         # Hybrid
         "hybrid_prop",
+        "hybrid_prop_str",
+        "hybrid_prop_int",
+        "hybrid_prop_float",
+        "hybrid_prop_bool",
+        "hybrid_prop_list",
         # Relationship
         "pets",
         "articles",
@@ -111,6 +116,36 @@ def test_sqlalchemy_default_fields():
     assert hybrid_prop.type == String
     # "doc" is ignored by hybrid_property
     assert hybrid_prop.description is None
+
+    # hybrid_property_str
+    hybrid_prop_str = ReporterType._meta.fields['hybrid_prop_str']
+    assert hybrid_prop_str.type == String
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_str.description is None
+
+    # hybrid_property_int
+    hybrid_prop_int = ReporterType._meta.fields['hybrid_prop_int']
+    assert hybrid_prop_int.type == Int
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_int.description is None
+
+    # hybrid_property_float
+    hybrid_prop_float = ReporterType._meta.fields['hybrid_prop_float']
+    assert hybrid_prop_float.type == Float
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_float.description is None
+
+    # hybrid_property_bool
+    hybrid_prop_bool = ReporterType._meta.fields['hybrid_prop_bool']
+    assert hybrid_prop_bool.type == Boolean
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_bool.description is None
+
+    # hybrid_property_list
+    hybrid_prop_list = ReporterType._meta.fields['hybrid_prop_list']
+    assert hybrid_prop_list.type == List(Int)
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_list.description is None
 
     # relationship
     favorite_article_field = ReporterType._meta.fields['favorite_article']
@@ -179,6 +214,11 @@ def test_sqlalchemy_override_fields():
         # Then the automatic SQLAlchemy fields
         "id",
         "favorite_pet_kind",
+        "hybrid_prop_str",
+        "hybrid_prop_int",
+        "hybrid_prop_float",
+        "hybrid_prop_bool",
+        "hybrid_prop_list",
     ]
 
     first_name_field = ReporterType._meta.fields['first_name']
@@ -276,6 +316,11 @@ def test_exclude_fields():
         "favorite_pet_kind",
         "composite_prop",
         "hybrid_prop",
+        "hybrid_prop_str",
+        "hybrid_prop_int",
+        "hybrid_prop_float",
+        "hybrid_prop_bool",
+        "hybrid_prop_list",
         "pets",
         "articles",
         "favorite_article",
@@ -384,7 +429,7 @@ def test_custom_objecttype_registered():
 
     assert issubclass(CustomReporterType, ObjectType)
     assert CustomReporterType._meta.model == Reporter
-    assert len(CustomReporterType._meta.fields) == 11
+    assert len(CustomReporterType._meta.fields) == 16
 
 
 # Test Custom SQLAlchemyObjectType with Custom Options
