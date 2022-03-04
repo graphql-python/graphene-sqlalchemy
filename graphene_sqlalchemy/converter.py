@@ -1,3 +1,4 @@
+import datetime
 from functools import singledispatch
 
 from sqlalchemy import types
@@ -115,8 +116,9 @@ def _convert_o2m_or_m2m_relationship(relationship_prop, obj_type, batching, conn
 
 def convert_sqlalchemy_hybrid_method(hybrid_prop, resolver, **field_kwargs):
     if 'type_' not in field_kwargs:
-        # TODO The default type should be dependent on the type of the property propety.
-        field_kwargs['type_'] = String
+        field_kwargs['type_'] = convert_hybrid_type(
+            hybrid_prop.fget.__annotations__.get('return', str), hybrid_prop
+        )
 
     return Field(
         resolver=resolver,
@@ -260,3 +262,33 @@ def convert_json_to_string(type, column, registry=None):
 @convert_sqlalchemy_type.register(JSONType)
 def convert_json_type_to_string(type, column, registry=None):
     return JSONString
+
+
+def convert_hybrid_type(type, column):
+    if type in [str, datetime.date, datetime.time]:
+        return String
+    elif type == datetime.datetime:
+        from graphene.types.datetime import DateTime
+        return DateTime
+    elif type == int:
+        return Int
+    elif type == float:
+        return Float
+    elif type == bool:
+        return Boolean
+    elif getattr(type, "__origin__", None) == list:  # check for typing.List[T]
+        args = getattr(type, "__args__", [])
+        if len(args) != 1:
+            return String  # Unknown fallback
+
+        inner_type = convert_hybrid_type(args[0], column)
+        return List(inner_type)
+    elif getattr(type, "__name__", None) == "list":  # check for list[T]
+        args = getattr(type, "__args__", [])
+        if len(args) != 1:
+            return String  # Unknown fallback
+
+        inner_type = convert_hybrid_type(args[0], column)
+        return List(inner_type)
+
+    return String

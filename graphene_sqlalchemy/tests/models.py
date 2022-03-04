@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 import enum
+from typing import List
 
 from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, String, Table,
                         func, select)
@@ -68,6 +69,26 @@ class Reporter(Base):
     @hybrid_property
     def hybrid_prop(self):
         return self.first_name
+
+    @hybrid_property
+    def hybrid_prop_str(self) -> str:
+        return self.first_name
+
+    @hybrid_property
+    def hybrid_prop_int(self) -> int:
+        return 42
+
+    @hybrid_property
+    def hybrid_prop_float(self) -> float:
+        return 42.3
+
+    @hybrid_property
+    def hybrid_prop_bool(self) -> bool:
+        return True
+
+    @hybrid_property
+    def hybrid_prop_list(self) -> List[int]:
+        return [1, 2, 3]
 
     column_prop = column_property(
         select([func.cast(func.count(id), Integer)]), doc="Column property"
