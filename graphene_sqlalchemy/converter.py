@@ -1,4 +1,5 @@
 import datetime
+import warnings
 from functools import singledispatch
 
 from sqlalchemy import types
@@ -279,6 +280,7 @@ def convert_hybrid_type(type_, column):
     elif _check_type(getattr(type_, "__origin__", None), [list]):  # check for typing.List[T]
         args = getattr(type_, "__args__", [])
         if len(args) != 1:
+            warnings.warn('seems to typing.List[T] but it has more than one argument', RuntimeWarning, stacklevel=2)
             return String  # Unknown fallback
 
         inner_type = convert_hybrid_type(args[0], column)
@@ -286,9 +288,11 @@ def convert_hybrid_type(type_, column):
     elif _check_type(getattr(type_, "__name__", None), [list]):  # check for list[T]
         args = getattr(type_, "__args__", [])
         if len(args) != 1:
+            warnings.warn('seems to list[T] but it has more than one argument', RuntimeWarning)
             return String  # Unknown fallback
 
         inner_type = convert_hybrid_type(args[0], column)
         return List(inner_type)
 
+    warnings.warn('Could not convert type %s to graphene type' % type_, RuntimeWarning)
     return String
