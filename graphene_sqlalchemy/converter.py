@@ -260,26 +260,30 @@ def convert_json_type_to_string(type, column, registry=None):
     return JSONString
 
 
+def _check_type(type_, args):
+    return type_ in (args + [x.__name__ for x in args])
+
+
 def convert_hybrid_type(type_, column):
-    if type_ in [str, datetime.date, datetime.time]:
+    if _check_type(type_, [str, datetime.date, datetime.time]):
         return String
-    elif type_ == datetime.datetime:
+    elif _check_type(type_, [datetime.datetime]):
         from graphene.types.datetime import DateTime
         return DateTime
-    elif type_ == int:
+    elif _check_type(type_, [Int]):
         return Int
-    elif type_ == float:
+    elif _check_type(type_, [float]):
         return Float
-    elif type_ == bool:
+    elif _check_type(type_, [bool]):
         return Boolean
-    elif getattr(type_, "__origin__", None) == list:  # check for typing.List[T]
+    elif _check_type(getattr(type_, "__origin__", None), [list]):  # check for typing.List[T]
         args = getattr(type_, "__args__", [])
         if len(args) != 1:
             return String  # Unknown fallback
 
         inner_type = convert_hybrid_type(args[0], column)
         return List(inner_type)
-    elif getattr(type_, "__name__", None) == "list":  # check for list[T]
+    elif _check_type(getattr(type_, "__name__", None), [list]):  # check for list[T]
         args = getattr(type_, "__args__", [])
         if len(args) != 1:
             return String  # Unknown fallback
