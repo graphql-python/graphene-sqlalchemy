@@ -8,8 +8,7 @@ from sqlalchemy.orm.query import Query
 from graphene import NonNull
 from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import connection_adapter, page_info_adapter
-from graphql_relay.connection.arrayconnection import \
-    connection_from_array_slice
+from graphql_relay import connection_from_array_slice
 
 from .batching import get_batch_resolver
 from .utils import EnumValue, get_query
