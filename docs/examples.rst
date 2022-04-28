@@ -13,20 +13,10 @@ Search all Models with Union
             interfaces = (relay.Node,)
 
 
-    class BookConnection(relay.Connection):
-        class Meta:
-            node = Book
-
-
     class Author(SQLAlchemyObjectType):
         class Meta:
             model = AuthorModel
             interfaces = (relay.Node,)
-
-
-    class AuthorConnection(relay.Connection):
-        class Meta:
-            node = Author
 
 
     class SearchResult(graphene.Union):
@@ -39,8 +29,8 @@ Search all Models with Union
         search = graphene.List(SearchResult, q=graphene.String())  # List field for search results
 
         # Normal Fields
-        all_books = SQLAlchemyConnectionField(BookConnection)
-        all_authors = SQLAlchemyConnectionField(AuthorConnection)
+        all_books = SQLAlchemyConnectionField(Book.connection)
+        all_authors = SQLAlchemyConnectionField(Author.connection)
 
         def resolve_search(self, info, **args):
             q = args.get("q")  # Search query

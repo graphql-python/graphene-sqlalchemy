@@ -26,6 +26,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+.python-version
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -47,6 +48,7 @@ nosetests.xml
 coverage.xml
 *,cover
 .pytest_cache/
+.benchmarks/
 
 # Translations
 *.mo
@@ -67,3 +69,6 @@ target/
 # Databases
 *.sqlite3
 .vscode
+
+# mypy cache
+.mypy_cache/

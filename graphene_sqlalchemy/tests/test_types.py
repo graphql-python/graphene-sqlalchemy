@@ -1,9 +1,10 @@
-import mock
+from unittest import mock
+
 import pytest
-import six  # noqa F401
 
 from graphene import (Dynamic, Field, GlobalID, Int, List, Node, NonNull,
-                      ObjectType, String)
+                      ObjectType, Schema, String)
+from graphene.relay import Connection
 
 from ..converter import convert_sqlalchemy_composite
 from ..fields import (SQLAlchemyConnectionField,
@@ -44,6 +45,15 @@ def test_sqlalchemy_node(session):
     info = mock.Mock(context={'session': session})
     reporter_node = ReporterType.get_node(info, reporter.id)
     assert reporter == reporter_node
+
+
+def test_connection():
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (Node,)
+
+    assert issubclass(ReporterType.connection, Connection)
 
 
 def test_sqlalchemy_default_fields():
@@ -126,10 +136,10 @@ def test_sqlalchemy_override_fields():
 
         # columns
         email = ORMField(deprecation_reason='Overridden')
-        email_v2 = ORMField(model_attr='email', type=Int)
+        email_v2 = ORMField(model_attr='email', type_=Int)
 
         # column_property
-        column_prop = ORMField(type=String)
+        column_prop = ORMField(type_=String)
 
         # composite
         composite_prop = ORMField()
@@ -264,6 +274,7 @@ def test_exclude_fields():
         "column_prop",
         "email",
         "favorite_pet_kind",
+        "composite_prop",
         "hybrid_prop",
         "pets",
         "articles",
@@ -293,6 +304,73 @@ def test_sqlalchemy_redefine_field():
     assert first_name_field.type == Int
 
 
+def test_resolvers(session):
+    """Test that the correct resolver functions are called"""
+
+    class ReporterMixin(object):
+        def resolve_id(root, _info):
+            return 'ID'
+
+    class ReporterType(ReporterMixin, SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+
+        email = ORMField()
+        email_v2 = ORMField(model_attr='email')
+        favorite_pet_kind = Field(String)
+        favorite_pet_kind_v2 = Field(String)
+
+        def resolve_last_name(root, _info):
+            return root.last_name.upper()
+
+        def resolve_email_v2(root, _info):
+            return root.email + '_V2'
+
+        def resolve_favorite_pet_kind_v2(root, _info):
+            return str(root.favorite_pet_kind) + '_V2'
+
+    class Query(ObjectType):
+        reporter = Field(ReporterType)
+
+        def resolve_reporter(self, _info):
+            return session.query(Reporter).first()
+
+    reporter = Reporter(first_name='first_name', last_name='last_name', email='email', favorite_pet_kind='cat')
+    session.add(reporter)
+    session.commit()
+
+    schema = Schema(query=Query)
+    result = schema.execute("""
+        query {
+            reporter {
+                id
+                firstName
+                lastName
+                email
+                emailV2
+                favoritePetKind
+                favoritePetKindV2
+            }
+        }
+    """)
+
+    assert not result.errors
+    # Custom resolver on a base class
+    assert result.data['reporter']['id'] == 'ID'
+    # Default field + default resolver
+    assert result.data['reporter']['firstName'] == 'first_name'
+    # Default field + custom resolver
+    assert result.data['reporter']['lastName'] == 'LAST_NAME'
+    # ORMField + default resolver
+    assert result.data['reporter']['email'] == 'email'
+    # ORMField + custom resolver
+    assert result.data['reporter']['emailV2'] == 'email_V2'
+    # Field + default resolver
+    assert result.data['reporter']['favoritePetKind'] == 'cat'
+    # Field + custom resolver
+    assert result.data['reporter']['favoritePetKindV2'] == 'cat_V2'
+
+
 # Test Custom SQLAlchemyObjectType Implementation
 
 def test_custom_objecttype_registered():
@@ -306,7 +384,7 @@ def test_custom_objecttype_registered():
 
     assert issubclass(CustomReporterType, ObjectType)
     assert CustomReporterType._meta.model == Reporter
-    assert len(CustomReporterType._meta.fields) == 10
+    assert len(CustomReporterType._meta.fields) == 11
 
 
 # Test Custom SQLAlchemyObjectType with Custom Options

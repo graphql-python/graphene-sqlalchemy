@@ -2,7 +2,6 @@ from collections import OrderedDict
 
 import sqlalchemy
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.inspection import inspect as sqlalchemyinspect
 from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
                             RelationshipProperty)
 from sqlalchemy.orm.exc import NoResultFound
@@ -19,8 +18,8 @@ from .converter import (convert_sqlalchemy_column,
                         convert_sqlalchemy_relationship)
 from .enums import (enum_for_field, sort_argument_for_object_type,
                     sort_enum_for_object_type)
-from .fields import default_connection_field_factory
 from .registry import Registry, get_global_registry
+from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import get_query, is_mapped_class, is_mapped_instance
 
 
@@ -28,10 +27,11 @@ class ORMField(OrderedType):
     def __init__(
         self,
         model_attr=None,
-        type=None,
+        type_=None,
         required=None,
         description=None,
         deprecation_reason=None,
+        batching=None,
         _creation_counter=None,
         **field_kwargs
     ):
@@ -49,7 +49,7 @@ class ORMField(OrderedType):
                 class Meta:
                     model = MyModel
 
-                id = ORMField(type=graphene.Int)
+                id = ORMField(type_=graphene.Int)
                 name = ORMField(required=True)
 
         -> MyType.id will be of type Int (vs ID).
@@ -58,7 +58,7 @@ class ORMField(OrderedType):
         :param str model_attr:
             Name of the SQLAlchemy model attribute used to resolve this field.
             Default to the name of the attribute referencing the ORMField.
-        :param type:
+        :param type_:
             Default to the type mapping in converter.py.
         :param str description:
             Default to the `doc` attribute of the SQLAlchemy column property.
@@ -68,6 +68,8 @@ class ORMField(OrderedType):
             Same behavior as in graphene.Field. Defaults to None.
         :param str deprecation_reason:
             Same behavior as in graphene.Field. Defaults to None.
+        :param bool batching:
+            Toggle SQL batching. Defaults to None, that is `SQLAlchemyObjectType.meta.batching`.
         :param int _creation_counter:
             Same behavior as in graphene.Field.
         """
@@ -75,10 +77,11 @@ class ORMField(OrderedType):
         # The is only useful for documentation and auto-completion
         common_kwargs = {
             'model_attr': model_attr,
-            'type': type,
+            'type_': type_,
             'required': required,
             'description': description,
             'deprecation_reason': deprecation_reason,
+            'batching': batching,
         }
         common_kwargs = {kwarg: value for kwarg, value in common_kwargs.items() if value is not None}
         self.kwargs = field_kwargs
@@ -86,7 +89,7 @@ class ORMField(OrderedType):
 
 
 def construct_fields(
-    obj_type, model, registry, only_fields, exclude_fields, connection_field_factory
+    obj_type, model, registry, only_fields, exclude_fields, batching, connection_field_factory
 ):
     """
     Construct all the fields for a SQLAlchemyObjectType.
@@ -100,10 +103,11 @@ def construct_fields(
     :param Registry registry:
     :param tuple[string] only_fields:
     :param tuple[string] exclude_fields:
-    :param function connection_field_factory:
+    :param bool batching:
+    :param function|None connection_field_factory:
     :rtype: OrderedDict[str, graphene.Field]
     """
-    inspected_model = sqlalchemyinspect(model)
+    inspected_model = sqlalchemy.inspect(model)
     # Gather all the relevant attributes from the SQLAlchemy model in order
     all_model_attrs = OrderedDict(
         inspected_model.column_attrs.items() +
@@ -151,20 +155,23 @@ def construct_fields(
     for orm_field_name, orm_field in orm_fields.items():
         attr_name = orm_field.kwargs.pop('model_attr')
         attr = all_model_attrs[attr_name]
+        resolver = get_custom_resolver(obj_type, orm_field_name) or get_attr_resolver(obj_type, attr_name)
 
         if isinstance(attr, ColumnProperty):
-            field = convert_sqlalchemy_column(attr, registry, **orm_field.kwargs)
+            field = convert_sqlalchemy_column(attr, registry, resolver, **orm_field.kwargs)
         elif isinstance(attr, RelationshipProperty):
-            field = convert_sqlalchemy_relationship(attr, registry, connection_field_factory, **orm_field.kwargs)
+            batching_ = orm_field.kwargs.pop('batching', batching)
+            field = convert_sqlalchemy_relationship(
+                attr, obj_type, connection_field_factory, batching_, orm_field_name, **orm_field.kwargs)
         elif isinstance(attr, CompositeProperty):
             if attr_name != orm_field_name or orm_field.kwargs:
                 # TODO Add a way to override composite property fields
                 raise ValueError(
                     "ORMField kwargs for composite fields must be empty. "
                     "Field: {}.{}".format(obj_type.__name__, orm_field_name))
-            field = convert_sqlalchemy_composite(attr, registry)
+            field = convert_sqlalchemy_composite(attr, registry, resolver)
         elif isinstance(attr, hybrid_property):
-            field = convert_sqlalchemy_hybrid_method(attr, attr_name, **orm_field.kwargs)
+            field = convert_sqlalchemy_hybrid_method(attr, resolver, **orm_field.kwargs)
         else:
             raise Exception('Property type is not supported')  # Should never happen
 
@@ -195,7 +202,8 @@ class SQLAlchemyObjectType(ObjectType):
         use_connection=None,
         interfaces=(),
         id=None,
-        connection_field_factory=default_connection_field_factory,
+        batching=False,
+        connection_field_factory=None,
         _meta=None,
         **options
     ):
@@ -221,6 +229,7 @@ class SQLAlchemyObjectType(ObjectType):
                 registry=registry,
                 only_fields=only_fields,
                 exclude_fields=exclude_fields,
+                batching=batching,
                 connection_field_factory=connection_field_factory,
             ),
             _as=Field,
@@ -259,6 +268,8 @@ class SQLAlchemyObjectType(ObjectType):
 
         _meta.connection = connection
         _meta.id = id or "id"
+
+        cls.connection = connection  # Public way to get the connection
 
         super(SQLAlchemyObjectType, cls).__init_subclass_with_meta__(
             _meta=_meta, interfaces=interfaces, **options
