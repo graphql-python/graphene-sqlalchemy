@@ -207,9 +207,11 @@ class SQLAlchemyObjectType(ObjectType):
         _meta=None,
         **options
     ):
-        assert is_mapped_class(model), (
-            "You need to pass a valid SQLAlchemy Model in " '{}.Meta, received "{}".'
-        ).format(cls.__name__, model)
+        # Make sure model is a valid SQLAlchemy model
+        if not is_mapped_class(model):
+            raise ValueError(
+                "You need to pass a valid SQLAlchemy Model in " '{}.Meta, received "{}".'.format(cls.__name__, model)
+            )
 
         if not registry:
             registry = get_global_registry()

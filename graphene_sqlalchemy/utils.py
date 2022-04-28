@@ -27,7 +27,13 @@ def get_query(model, context):
 def is_mapped_class(cls):
     try:
         class_mapper(cls)
-    except (ArgumentError, UnmappedClassError):
+    except ArgumentError as error:
+        # Only handle ArgumentErrors for non-class objects
+        if "Class object expected" in str(error):
+            return False
+        raise
+    except UnmappedClassError:
+        # Unmapped classes return false
         return False
     else:
         return True
