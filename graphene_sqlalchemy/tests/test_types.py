@@ -1,9 +1,10 @@
-import mock
+from unittest import mock
+
 import pytest
-import six  # noqa F401
 
 from graphene import (Dynamic, Field, GlobalID, Int, List, Node, NonNull,
                       ObjectType, Schema, String)
+from graphene.relay import Connection
 
 from ..converter import convert_sqlalchemy_composite
 from ..fields import (SQLAlchemyConnectionField,
@@ -44,6 +45,15 @@ def test_sqlalchemy_node(session):
     info = mock.Mock(context={'session': session})
     reporter_node = ReporterType.get_node(info, reporter.id)
     assert reporter == reporter_node
+
+
+def test_connection():
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (Node,)
+
+    assert issubclass(ReporterType.connection, Connection)
 
 
 def test_sqlalchemy_default_fields():
@@ -126,10 +136,10 @@ def test_sqlalchemy_override_fields():
 
         # columns
         email = ORMField(deprecation_reason='Overridden')
-        email_v2 = ORMField(model_attr='email', type=Int)
+        email_v2 = ORMField(model_attr='email', type_=Int)
 
         # column_property
-        column_prop = ORMField(type=String)
+        column_prop = ORMField(type_=String)
 
         # composite
         composite_prop = ORMField()

@@ -1,6 +1,6 @@
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 import graphene
 
@@ -22,20 +22,18 @@ def reset_registry():
         return graphene.Field(graphene.Int)
 
 
-@pytest.yield_fixture(scope="function")
-def session():
-    db = create_engine(test_db_url)
-    connection = db.engine.connect()
-    transaction = connection.begin()
-    Base.metadata.create_all(connection)
+@pytest.fixture(scope="function")
+def session_factory():
+    engine = create_engine(test_db_url)
+    Base.metadata.create_all(engine)
 
-    # options = dict(bind=connection, binds={})
-    session_factory = sessionmaker(bind=connection)
-    session = scoped_session(session_factory)
+    yield sessionmaker(bind=engine)
 
-    yield session
+    # SQLite in-memory db is deleted when its connection is closed.
+    # https://www.sqlite.org/inmemorydb.html
+    engine.dispose()
 
-    # Finalize test here
-    transaction.rollback()
-    connection.close()
-    session.remove()
+
+@pytest.fixture(scope="function")
+def session(session_factory):
+    return session_factory()

@@ -1,21 +1,32 @@
-from enum import EnumMeta
+from functools import singledispatch
 
-from singledispatch import singledispatch
 from sqlalchemy import types
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.orm import interfaces
+from sqlalchemy.orm import interfaces, strategies
 
 from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
                       String)
 from graphene.types.json import JSONString
 
+from .batching import get_batch_resolver
 from .enums import enum_for_sa_enum
+from .fields import (BatchSQLAlchemyConnectionField,
+                     default_connection_field_factory)
 from .registry import get_global_registry
+from .resolvers import get_attr_resolver, get_custom_resolver
 
 try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
 except ImportError:
     ChoiceType = JSONType = ScalarListType = TSVectorType = object
+
+try:
+    from sqlalchemy_utils.types.choice import EnumTypeImpl
+except ImportError:
+    EnumTypeImpl = object
+
+
+is_selectin_available = getattr(strategies, 'SelectInLoader', None)
 
 
 def get_column_doc(column):
@@ -26,37 +37,86 @@ def is_column_nullable(column):
     return bool(getattr(column, "nullable", True))
 
 
-def convert_sqlalchemy_relationship(relationship_prop, registry, connection_field_factory, resolver, **field_kwargs):
-    direction = relationship_prop.direction
-    model = relationship_prop.mapper.entity
-
+def convert_sqlalchemy_relationship(relationship_prop, obj_type, connection_field_factory, batching,
+                                    orm_field_name, **field_kwargs):
+    """
+    :param sqlalchemy.RelationshipProperty relationship_prop:
+    :param SQLAlchemyObjectType obj_type:
+    :param function|None connection_field_factory:
+    :param bool batching:
+    :param str orm_field_name:
+    :param dict field_kwargs:
+    :rtype: Dynamic
+    """
     def dynamic_type():
-        _type = registry.get_type_for_model(model)
+        """:rtype: Field|None"""
+        direction = relationship_prop.direction
+        child_type = obj_type._meta.registry.get_type_for_model(relationship_prop.mapper.entity)
+        batching_ = batching if is_selectin_available else False
 
-        if not _type:
+        if not child_type:
             return None
+
         if direction == interfaces.MANYTOONE or not relationship_prop.uselist:
-            return Field(
-                _type,
-                resolver=resolver,
-                **field_kwargs
-            )
-        elif direction in (interfaces.ONETOMANY, interfaces.MANYTOMANY):
-            if _type._meta.connection:
-                # TODO Add a way to override connection_field_factory
-                return connection_field_factory(relationship_prop, registry, **field_kwargs)
-            return Field(
-                List(_type),
-                **field_kwargs
-            )
+            return _convert_o2o_or_m2o_relationship(relationship_prop, obj_type, batching_, orm_field_name,
+                                                    **field_kwargs)
+
+        if direction in (interfaces.ONETOMANY, interfaces.MANYTOMANY):
+            return _convert_o2m_or_m2m_relationship(relationship_prop, obj_type, batching_,
+                                                    connection_field_factory, **field_kwargs)
 
     return Dynamic(dynamic_type)
 
 
+def _convert_o2o_or_m2o_relationship(relationship_prop, obj_type, batching, orm_field_name, **field_kwargs):
+    """
+    Convert one-to-one or many-to-one relationshsip. Return an object field.
+
+    :param sqlalchemy.RelationshipProperty relationship_prop:
+    :param SQLAlchemyObjectType obj_type:
+    :param bool batching:
+    :param str orm_field_name:
+    :param dict field_kwargs:
+    :rtype: Field
+    """
+    child_type = obj_type._meta.registry.get_type_for_model(relationship_prop.mapper.entity)
+
+    resolver = get_custom_resolver(obj_type, orm_field_name)
+    if resolver is None:
+        resolver = get_batch_resolver(relationship_prop) if batching else \
+            get_attr_resolver(obj_type, relationship_prop.key)
+
+    return Field(child_type, resolver=resolver, **field_kwargs)
+
+
+def _convert_o2m_or_m2m_relationship(relationship_prop, obj_type, batching, connection_field_factory, **field_kwargs):
+    """
+    Convert one-to-many or many-to-many relationshsip. Return a list field or a connection field.
+
+    :param sqlalchemy.RelationshipProperty relationship_prop:
+    :param SQLAlchemyObjectType obj_type:
+    :param bool batching:
+    :param function|None connection_field_factory:
+    :param dict field_kwargs:
+    :rtype: Field
+    """
+    child_type = obj_type._meta.registry.get_type_for_model(relationship_prop.mapper.entity)
+
+    if not child_type._meta.connection:
+        return Field(List(child_type), **field_kwargs)
+
+    # TODO Allow override of connection_field_factory and resolver via ORMField
+    if connection_field_factory is None:
+        connection_field_factory = BatchSQLAlchemyConnectionField.from_relationship if batching else \
+            default_connection_field_factory
+
+    return connection_field_factory(relationship_prop, obj_type._meta.registry, **field_kwargs)
+
+
 def convert_sqlalchemy_hybrid_method(hybrid_prop, resolver, **field_kwargs):
-    if 'type' not in field_kwargs:
+    if 'type_' not in field_kwargs:
         # TODO The default type should be dependent on the type of the property propety.
-        field_kwargs['type'] = String
+        field_kwargs['type_'] = String
 
     return Field(
         resolver=resolver,
@@ -100,7 +160,8 @@ convert_sqlalchemy_composite.register = _register_composite_class
 
 def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
     column = column_prop.columns[0]
-    field_kwargs.setdefault('type', convert_sqlalchemy_type(getattr(column, "type", None), column, registry))
+
+    field_kwargs.setdefault('type_', convert_sqlalchemy_type(getattr(column, "type", None), column, registry))
     field_kwargs.setdefault('required', not is_column_nullable(column))
     field_kwargs.setdefault('description', get_column_doc(column))
 
@@ -165,7 +226,7 @@ def convert_enum_to_enum(type, column, registry=None):
 @convert_sqlalchemy_type.register(ChoiceType)
 def convert_choice_to_enum(type, column, registry=None):
     name = "{}_{}".format(column.table.name, column.name).upper()
-    if isinstance(type.choices, EnumMeta):
+    if isinstance(type.type_impl, EnumTypeImpl):
         # type.choices may be Enum/IntEnum, in ChoiceType both presented as EnumMeta
         # do not use from_enum here because we can have more than one enum column in table
         return Enum(name, list((v.name, v.value) for v in type.choices))
@@ -178,11 +239,15 @@ def convert_scalar_list_to_list(type, column, registry=None):
     return List(String)
 
 
+def init_array_list_recursive(inner_type, n):
+    return inner_type if n == 0 else List(init_array_list_recursive(inner_type, n-1))
+
+
 @convert_sqlalchemy_type.register(types.ARRAY)
 @convert_sqlalchemy_type.register(postgresql.ARRAY)
 def convert_array_to_list(_type, column, registry=None):
     inner_type = convert_sqlalchemy_type(column.type.item_type, column)
-    return List(inner_type)
+    return List(init_array_list_recursive(inner_type, (column.type.dimensions or 1) - 1))
 
 
 @convert_sqlalchemy_type.register(postgresql.HSTORE)

@@ -50,7 +50,8 @@ def get_field_from_column(column_):
 def test_should_unknown_sqlalchemy_field_raise_exception():
     re_err = "Don't know how to convert the SQLAlchemy field"
     with pytest.raises(Exception, match=re_err):
-        get_field(types.Binary())
+        # support legacy Binary type and subsequent LargeBinary
+        get_field(getattr(types, 'LargeBinary', types.BINARY)())
 
 
 def test_should_date_convert_string():
@@ -190,9 +191,12 @@ def test_should_jsontype_convert_jsonstring():
 
 
 def test_should_manytomany_convert_connectionorlist():
-    registry = Registry()
+    class A(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.pets.property, registry, default_connection_field_factory, mock_resolver,
+        Reporter.pets.property, A, default_connection_field_factory, True, 'orm_field_name',
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     assert not dynamic_field.get_type()
@@ -204,7 +208,7 @@ def test_should_manytomany_convert_connectionorlist_list():
             model = Pet
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.pets.property, A._meta.registry, default_connection_field_factory, mock_resolver,
+        Reporter.pets.property, A, default_connection_field_factory, True, 'orm_field_name',
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
@@ -220,19 +224,19 @@ def test_should_manytomany_convert_connectionorlist_connection():
             interfaces = (Node,)
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.pets.property, A._meta.registry, default_connection_field_factory, mock_resolver
+        Reporter.pets.property, A, default_connection_field_factory, True, 'orm_field_name',
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     assert isinstance(dynamic_field.get_type(), UnsortedSQLAlchemyConnectionField)
 
 
 def test_should_manytoone_convert_connectionorlist():
-    registry = Registry()
+    class A(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+
     dynamic_field = convert_sqlalchemy_relationship(
-        Article.reporter.property,
-        registry,
-        default_connection_field_factory,
-        mock_resolver,
+        Reporter.pets.property, A, default_connection_field_factory, True, 'orm_field_name',
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     assert not dynamic_field.get_type()
@@ -244,10 +248,7 @@ def test_should_manytoone_convert_connectionorlist_list():
             model = Reporter
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Article.reporter.property,
-        A._meta.registry,
-        default_connection_field_factory,
-        mock_resolver,
+        Article.reporter.property, A, default_connection_field_factory, True, 'orm_field_name',
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
@@ -262,10 +263,7 @@ def test_should_manytoone_convert_connectionorlist_connection():
             interfaces = (Node,)
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Article.reporter.property,
-        A._meta.registry,
-        default_connection_field_factory,
-        mock_resolver,
+        Article.reporter.property, A, default_connection_field_factory, True, 'orm_field_name',
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
@@ -280,10 +278,7 @@ def test_should_onetoone_convert_field():
             interfaces = (Node,)
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.favorite_article.property,
-        A._meta.registry,
-        default_connection_field_factory,
-        mock_resolver,
+        Reporter.favorite_article.property, A, default_connection_field_factory, True, 'orm_field_name',
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
@@ -327,6 +322,21 @@ def test_should_array_convert():
     field = get_field(types.ARRAY(types.Integer))
     assert isinstance(field.type, graphene.List)
     assert field.type.of_type == graphene.Int
+
+
+def test_should_2d_array_convert():
+    field = get_field(types.ARRAY(types.Integer, dimensions=2))
+    assert isinstance(field.type, graphene.List)
+    assert isinstance(field.type.of_type, graphene.List)
+    assert field.type.of_type.of_type == graphene.Int
+
+
+def test_should_3d_array_convert():
+    field = get_field(types.ARRAY(types.Integer, dimensions=3))
+    assert isinstance(field.type, graphene.List)
+    assert isinstance(field.type.of_type, graphene.List)
+    assert isinstance(field.type.of_type.of_type, graphene.List)
+    assert field.type.of_type.of_type.of_type == graphene.Int
 
 
 def test_should_postgresql_json_convert():
