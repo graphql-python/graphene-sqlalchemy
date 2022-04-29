@@ -106,6 +106,7 @@ def test_sqlalchemy_default_fields():
         "hybrid_prop_date",
         "hybrid_prop_time",
         "hybrid_prop_datetime",
+        "hybrid_prop_decimal",
         "hybrid_prop_first_article",
         # Relationship
         "pets",
@@ -173,6 +174,11 @@ def test_sqlalchemy_default_fields():
     hybrid_prop_datetime = ReporterType._meta.fields['hybrid_prop_datetime']
     assert hybrid_prop_datetime.type == DateTime
     assert hybrid_prop_datetime.description is None  # "doc" is ignored by hybrid_property
+
+    hybrid_prop_decimal = ReporterType._meta.fields['hybrid_prop_decimal']
+    # Decimal (base10) should serialize to String for correctness.
+    assert hybrid_prop_decimal.type == String
+    assert hybrid_prop_decimal.description is None  # "doc" is ignored by hybrid_property
 
     # relationship
     favorite_article_field = ReporterType._meta.fields['favorite_article']
@@ -251,6 +257,7 @@ def test_sqlalchemy_override_fields():
         "hybrid_prop_date",
         "hybrid_prop_time",
         "hybrid_prop_datetime",
+        "hybrid_prop_decimal",
         "hybrid_prop_first_article",
     ])
 
@@ -367,6 +374,7 @@ def test_exclude_fields():
         "hybrid_prop_date",
         "hybrid_prop_time",
         "hybrid_prop_datetime",
+        "hybrid_prop_decimal",
         "hybrid_prop_first_article",
     ])
 
@@ -488,7 +496,7 @@ def test_custom_objecttype_registered():
 
     assert issubclass(CustomReporterType, ObjectType)
     assert CustomReporterType._meta.model == Reporter
-    assert len(CustomReporterType._meta.fields) == 21
+    assert len(CustomReporterType._meta.fields) == 22
 
 
 # Test Custom SQLAlchemyObjectType with Custom Options

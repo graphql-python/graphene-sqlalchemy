@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 import datetime
 import enum
+from decimal import Decimal
 from typing import List
 
 from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, String, Table,
@@ -114,6 +115,10 @@ class Reporter(Base):
     @hybrid_property
     def hybrid_prop_datetime(self) -> datetime.datetime:
         return datetime.datetime.now()
+
+    @hybrid_property
+    def hybrid_prop_decimal(self) -> Decimal:
+        return Decimal("3.14")
 
     @hybrid_property
     def hybrid_prop_first_article(self) -> Article:

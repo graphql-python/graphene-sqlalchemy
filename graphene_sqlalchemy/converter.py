@@ -1,5 +1,6 @@
 import datetime
 import typing
+from decimal import Decimal
 from functools import singledispatch
 from typing import Any
 
@@ -286,6 +287,14 @@ def convert_hybrid_property_return_type_inner_int(arg):
 @convert_hybrid_property_return_type_inner.register(value_equals(float))
 def convert_hybrid_property_return_type_inner_float(arg):
     return Float
+
+
+@convert_hybrid_property_return_type_inner.register(value_equals(Decimal))
+def convert_hybrid_property_return_type_inner_decimal(arg):
+    # The reason Decimal should be serialized as a String is because this is a
+    # base10 type used in things like money, and string allows it to not
+    # lose precision (which would happen if we downcasted to a Float, for example)
+    return String
 
 
 @convert_hybrid_property_return_type_inner.register(value_equals(bool))
