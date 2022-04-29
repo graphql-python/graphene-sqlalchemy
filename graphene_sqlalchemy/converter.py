@@ -1,5 +1,4 @@
 import datetime
-import enum
 import typing
 import warnings
 from decimal import Decimal
@@ -20,8 +19,7 @@ from .fields import (BatchSQLAlchemyConnectionField,
                      default_connection_field_factory)
 from .registry import get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
-from .utils import (singledispatchbymatchfunction, value_equals,
-                    value_is_subclass)
+from .utils import singledispatchbymatchfunction, value_equals
 
 try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
@@ -324,11 +322,6 @@ def convert_sqlalchemy_hybrid_property_type_date(arg):
 @convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.time))
 def convert_sqlalchemy_hybrid_property_type_time(arg):
     return Time
-
-
-@convert_sqlalchemy_hybrid_property_type.register(value_is_subclass(enum.Enum))
-def convert_sqlalchemy_hybrid_property_type_enum(arg):
-    return Enum.from_enum(arg)
 
 
 @convert_sqlalchemy_hybrid_property_type.register(lambda x: getattr(x, '__origin__', None) in [list, typing.List])
