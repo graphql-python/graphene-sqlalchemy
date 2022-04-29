@@ -1,11 +1,16 @@
+import datetime
+import typing
+import warnings
+from decimal import Decimal
 from functools import singledispatch
+from typing import Any
 
 from sqlalchemy import types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import interfaces, strategies
 
-from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
-                      String)
+from graphene import (ID, Boolean, Date, DateTime, Dynamic, Enum, Field, Float,
+                      Int, List, String, Time)
 from graphene.types.json import JSONString
 
 from .batching import get_batch_resolver
@@ -14,6 +19,14 @@ from .fields import (BatchSQLAlchemyConnectionField,
                      default_connection_field_factory)
 from .registry import get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
+from .utils import (registry_sqlalchemy_model_from_str, safe_isinstance,
+                    singledispatchbymatchfunction, value_equals)
+
+try:
+    from typing import ForwardRef
+except ImportError:
+    # python 3.6
+    from typing import _ForwardRef as ForwardRef
 
 try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
@@ -24,7 +37,6 @@ try:
     from sqlalchemy_utils.types.choice import EnumTypeImpl
 except ImportError:
     EnumTypeImpl = object
-
 
 is_selectin_available = getattr(strategies, 'SelectInLoader', None)
 
@@ -48,6 +60,7 @@ def convert_sqlalchemy_relationship(relationship_prop, obj_type, connection_fiel
     :param dict field_kwargs:
     :rtype: Dynamic
     """
+
     def dynamic_type():
         """:rtype: Field|None"""
         direction = relationship_prop.direction
@@ -115,8 +128,7 @@ def _convert_o2m_or_m2m_relationship(relationship_prop, obj_type, batching, conn
 
 def convert_sqlalchemy_hybrid_method(hybrid_prop, resolver, **field_kwargs):
     if 'type_' not in field_kwargs:
-        # TODO The default type should be dependent on the type of the property propety.
-        field_kwargs['type_'] = String
+        field_kwargs['type_'] = convert_hybrid_property_return_type(hybrid_prop)
 
     return Field(
         resolver=resolver,
@@ -240,7 +252,7 @@ def convert_scalar_list_to_list(type, column, registry=None):
 
 
 def init_array_list_recursive(inner_type, n):
-    return inner_type if n == 0 else List(init_array_list_recursive(inner_type, n-1))
+    return inner_type if n == 0 else List(init_array_list_recursive(inner_type, n - 1))
 
 
 @convert_sqlalchemy_type.register(types.ARRAY)
@@ -260,3 +272,103 @@ def convert_json_to_string(type, column, registry=None):
 @convert_sqlalchemy_type.register(JSONType)
 def convert_json_type_to_string(type, column, registry=None):
     return JSONString
+
+
+@singledispatchbymatchfunction
+def convert_sqlalchemy_hybrid_property_type(arg: Any):
+    existing_graphql_type = get_global_registry().get_type_for_model(arg)
+    if existing_graphql_type:
+        return existing_graphql_type
+
+    # No valid type found, warn and fall back to graphene.String
+    warnings.warn(
+        (f"I don't know how to generate a GraphQL type out of a \"{arg}\" type."
+         "Falling back to \"graphene.String\"")
+    )
+    return String
+
+
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(str))
+def convert_sqlalchemy_hybrid_property_type_str(arg):
+    return String
+
+
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(int))
+def convert_sqlalchemy_hybrid_property_type_int(arg):
+    return Int
+
+
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(float))
+def convert_sqlalchemy_hybrid_property_type_float(arg):
+    return Float
+
+
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(Decimal))
+def convert_sqlalchemy_hybrid_property_type_decimal(arg):
+    # The reason Decimal should be serialized as a String is because this is a
+    # base10 type used in things like money, and string allows it to not
+    # lose precision (which would happen if we downcasted to a Float, for example)
+    return String
+
+
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(bool))
+def convert_sqlalchemy_hybrid_property_type_bool(arg):
+    return Boolean
+
+
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.datetime))
+def convert_sqlalchemy_hybrid_property_type_datetime(arg):
+    return DateTime
+
+
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.date))
+def convert_sqlalchemy_hybrid_property_type_date(arg):
+    return Date
+
+
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.time))
+def convert_sqlalchemy_hybrid_property_type_time(arg):
+    return Time
+
+
+@convert_sqlalchemy_hybrid_property_type.register(lambda x: getattr(x, '__origin__', None) in [list, typing.List])
+def convert_sqlalchemy_hybrid_property_type_list_t(arg):
+    # type is either list[T] or List[T], generic argument at __args__[0]
+    internal_type = arg.__args__[0]
+
+    graphql_internal_type = convert_sqlalchemy_hybrid_property_type(internal_type)
+
+    return List(graphql_internal_type)
+
+
+@convert_sqlalchemy_hybrid_property_type.register(safe_isinstance(ForwardRef))
+def convert_sqlalchemy_hybrid_property_forwardref(arg):
+    """
+    Generate a lambda that will resolve the type at runtime
+    This takes care of self-references
+    """
+
+    def forward_reference_solver():
+        model = registry_sqlalchemy_model_from_str(arg.__forward_arg__)
+        if not model:
+            return String
+        # Always fall back to string if no ForwardRef type found.
+        return get_global_registry().get_type_for_model(model)
+
+    return forward_reference_solver
+
+
+@convert_sqlalchemy_hybrid_property_type.register(safe_isinstance(str))
+def convert_sqlalchemy_hybrid_property_bare_str(arg):
+    """
+    Convert Bare String into a ForwardRef
+    """
+
+    return convert_sqlalchemy_hybrid_property_type(ForwardRef(arg))
+
+
+def convert_hybrid_property_return_type(hybrid_prop):
+    # Grab the original method's return type annotations from inside the hybrid property
+    return_type_annotation = hybrid_prop.fget.__annotations__.get('return', str)
+
+    return convert_sqlalchemy_hybrid_property_type(return_type_annotation)

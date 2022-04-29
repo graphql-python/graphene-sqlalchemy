@@ -1,6 +1,9 @@
 from __future__ import absolute_import
 
+import datetime
 import enum
+from decimal import Decimal
+from typing import List, Tuple
 
 from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, String, Table,
                         func, select)
@@ -69,6 +72,26 @@ class Reporter(Base):
     def hybrid_prop(self):
         return self.first_name
 
+    @hybrid_property
+    def hybrid_prop_str(self) -> str:
+        return self.first_name
+
+    @hybrid_property
+    def hybrid_prop_int(self) -> int:
+        return 42
+
+    @hybrid_property
+    def hybrid_prop_float(self) -> float:
+        return 42.3
+
+    @hybrid_property
+    def hybrid_prop_bool(self) -> bool:
+        return True
+
+    @hybrid_property
+    def hybrid_prop_list(self) -> List[int]:
+        return [1, 2, 3]
+
     column_prop = column_property(
         select([func.cast(func.count(id), Integer)]), doc="Column property"
     )
@@ -95,3 +118,102 @@ class ReflectedEditor(type):
 editor_table = Table("editors", Base.metadata, autoload=True)
 
 mapper(ReflectedEditor, editor_table)
+
+
+############################################
+# The models below are mainly used in the
+# @hybrid_property type inference scenarios
+############################################
+
+
+class ShoppingCartItem(Base):
+    __tablename__ = "shopping_cart_items"
+
+    id = Column(Integer(), primary_key=True)
+
+    @hybrid_property
+    def hybrid_prop_shopping_cart(self) -> List['ShoppingCart']:
+        return [ShoppingCart(id=1)]
+
+
+class ShoppingCart(Base):
+    __tablename__ = "shopping_carts"
+
+    id = Column(Integer(), primary_key=True)
+
+    # Standard Library types
+
+    @hybrid_property
+    def hybrid_prop_str(self) -> str:
+        return self.first_name
+
+    @hybrid_property
+    def hybrid_prop_int(self) -> int:
+        return 42
+
+    @hybrid_property
+    def hybrid_prop_float(self) -> float:
+        return 42.3
+
+    @hybrid_property
+    def hybrid_prop_bool(self) -> bool:
+        return True
+
+    @hybrid_property
+    def hybrid_prop_decimal(self) -> Decimal:
+        return Decimal("3.14")
+
+    @hybrid_property
+    def hybrid_prop_date(self) -> datetime.date:
+        return datetime.datetime.now().date()
+
+    @hybrid_property
+    def hybrid_prop_time(self) -> datetime.time:
+        return datetime.datetime.now().time()
+
+    @hybrid_property
+    def hybrid_prop_datetime(self) -> datetime.datetime:
+        return datetime.datetime.now()
+
+    # Lists and Nested Lists
+
+    @hybrid_property
+    def hybrid_prop_list_int(self) -> List[int]:
+        return [1, 2, 3]
+
+    @hybrid_property
+    def hybrid_prop_list_date(self) -> List[datetime.date]:
+        return [self.hybrid_prop_date, self.hybrid_prop_date, self.hybrid_prop_date]
+
+    @hybrid_property
+    def hybrid_prop_nested_list_int(self) -> List[List[int]]:
+        return [self.hybrid_prop_list_int, ]
+
+    @hybrid_property
+    def hybrid_prop_deeply_nested_list_int(self) -> List[List[List[int]]]:
+        return [[self.hybrid_prop_list_int, ], ]
+
+    # Other SQLAlchemy Instances
+    @hybrid_property
+    def hybrid_prop_first_shopping_cart_item(self) -> ShoppingCartItem:
+        return ShoppingCartItem(id=1)
+
+    # Other SQLAlchemy Instances
+    @hybrid_property
+    def hybrid_prop_shopping_cart_item_list(self) -> List[ShoppingCartItem]:
+        return [ShoppingCartItem(id=1), ShoppingCartItem(id=2)]
+
+    # Unsupported Type
+    @hybrid_property
+    def hybrid_prop_unsupported_type_tuple(self) -> Tuple[str, str]:
+        return "this will actually", "be a string"
+
+    # Self-references
+
+    @hybrid_property
+    def hybrid_prop_self_referential(self) -> 'ShoppingCart':
+        return ShoppingCart(id=1)
+
+    @hybrid_property
+    def hybrid_prop_self_referential_list(self) -> List['ShoppingCart']:
+        return [ShoppingCart(id=1)]

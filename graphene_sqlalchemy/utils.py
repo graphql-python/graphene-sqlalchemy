@@ -1,10 +1,14 @@
 import re
 import warnings
+from collections import OrderedDict
+from typing import Any, Callable, Dict, Optional
 
 import pkg_resources
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
+
+from graphene_sqlalchemy.registry import get_global_registry
 
 
 def get_session(context):
@@ -87,7 +91,6 @@ _deprecated_object_type_cache = {}
 
 
 def _deprecated_object_type_for_model(cls, name):
-
     try:
         return _deprecated_object_type_cache[cls, name]
     except KeyError:
@@ -152,3 +155,54 @@ def sort_argument_for_model(cls, has_default=True):
 def is_sqlalchemy_version_less_than(version_string):
     """Check the installed SQLAlchemy version"""
     return pkg_resources.get_distribution('SQLAlchemy').parsed_version < pkg_resources.parse_version(version_string)
+
+
+class singledispatchbymatchfunction:
+    """
+    Inspired by @singledispatch, this is a variant that works using a matcher function
+    instead of relying on the type of the first argument.
+    The register method can be used to register a new matcher, which is passed as the first argument:
+    """
+
+    def __init__(self, default: Callable):
+        self.registry: Dict[Callable, Callable] = OrderedDict()
+        self.default = default
+
+    def __call__(self, *args, **kwargs):
+        for matcher_function, final_method in self.registry.items():
+            # Register order is important. First one that matches, runs.
+            if matcher_function(args[0]):
+                return final_method(*args, **kwargs)
+
+        # No match, using default.
+        return self.default(*args, **kwargs)
+
+    def register(self, matcher_function: Callable[[Any], bool]):
+
+        def grab_function_from_outside(f):
+            self.registry[matcher_function] = f
+            return self
+
+        return grab_function_from_outside
+
+
+def value_equals(value):
+    """A simple function that makes the equality based matcher functions for
+     SingleDispatchByMatchFunction prettier"""
+    return lambda x: x == value
+
+
+def safe_isinstance(cls):
+    def safe_isinstance_checker(arg):
+        try:
+            return isinstance(arg, cls)
+        except TypeError:
+            pass
+    return safe_isinstance_checker
+
+
+def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:
+    try:
+        return next(filter(lambda x: x.__name__ == model_name, list(get_global_registry()._registry.keys())))
+    except StopIteration:
+        pass
