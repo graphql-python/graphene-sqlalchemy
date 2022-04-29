@@ -188,13 +188,3 @@ def value_equals(value):
     """A simple function that makes the equality based matcher functions for
      SingleDispatchByMatchFunction prettier"""
     return lambda x: x == value
-
-
-def value_is_subclass(cls):
-    def safe_subclass_checker(o):
-        try:
-            return issubclass(o, cls)
-        except TypeError:
-            return False
-
-    return safe_subclass_checker
