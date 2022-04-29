@@ -74,7 +74,7 @@ def test_sqlalchemy_default_fields():
             model = Article
             interfaces = (Node,)
 
-    assert list(ReporterType._meta.fields.keys()) == [
+    assert sorted(list(ReporterType._meta.fields.keys())) == sorted([
         # Columns
         "column_prop",  # SQLAlchemy retuns column properties first
         "id",
@@ -95,7 +95,7 @@ def test_sqlalchemy_default_fields():
         "pets",
         "articles",
         "favorite_article",
-    ]
+    ])
 
     # column
     first_name_field = ReporterType._meta.fields['first_name']
@@ -201,7 +201,7 @@ def test_sqlalchemy_override_fields():
             interfaces = (Node,)
             use_connection = False
 
-    assert list(ReporterType._meta.fields.keys()) == [
+    assert sorted(list(ReporterType._meta.fields.keys())) == sorted([
         # Fields from ReporterMixin
         "first_name",
         "last_name",
@@ -222,7 +222,7 @@ def test_sqlalchemy_override_fields():
         "hybrid_prop_float",
         "hybrid_prop_bool",
         "hybrid_prop_list",
-    ]
+    ])
 
     first_name_field = ReporterType._meta.fields['first_name']
     assert isinstance(first_name_field.type, NonNull)
@@ -311,7 +311,7 @@ def test_exclude_fields():
         first_name = ORMField()  # Takes precedence
         last_name = ORMField()  # Noop
 
-    assert list(ReporterType._meta.fields.keys()) == [
+    assert sorted(list(ReporterType._meta.fields.keys())) == sorted([
         "first_name",
         "last_name",
         "column_prop",
@@ -327,7 +327,7 @@ def test_exclude_fields():
         "pets",
         "articles",
         "favorite_article",
-    ]
+    ])
 
 
 def test_only_and_exclude_fields():
