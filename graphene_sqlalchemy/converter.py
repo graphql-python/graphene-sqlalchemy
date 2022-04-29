@@ -1,13 +1,13 @@
 import datetime
-import warnings
 from functools import singledispatch
+from typing import Any
 
 from sqlalchemy import types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import interfaces, strategies
 
-from graphene import (ID, Boolean, Dynamic, Enum, Field, Float, Int, List,
-                      String)
+from graphene import (ID, Boolean, Date, DateTime, Dynamic, Enum, Field, Float,
+                      Int, List, String, Time)
 from graphene.types.json import JSONString
 
 from .batching import get_batch_resolver
@@ -16,6 +16,7 @@ from .fields import (BatchSQLAlchemyConnectionField,
                      default_connection_field_factory)
 from .registry import get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
+from .utils import singledispatchbymatchfunction, value_equals
 
 try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
@@ -26,7 +27,6 @@ try:
     from sqlalchemy_utils.types.choice import EnumTypeImpl
 except ImportError:
     EnumTypeImpl = object
-
 
 is_selectin_available = getattr(strategies, 'SelectInLoader', None)
 
@@ -50,6 +50,7 @@ def convert_sqlalchemy_relationship(relationship_prop, obj_type, connection_fiel
     :param dict field_kwargs:
     :rtype: Dynamic
     """
+
     def dynamic_type():
         """:rtype: Field|None"""
         direction = relationship_prop.direction
@@ -117,9 +118,7 @@ def _convert_o2m_or_m2m_relationship(relationship_prop, obj_type, batching, conn
 
 def convert_sqlalchemy_hybrid_method(hybrid_prop, resolver, **field_kwargs):
     if 'type_' not in field_kwargs:
-        field_kwargs['type_'] = convert_hybrid_type(
-            hybrid_prop.fget.__annotations__.get('return', str), hybrid_prop
-        )
+        field_kwargs['type_'] = convert_hybrid_property_return_type(hybrid_prop)
 
     return Field(
         resolver=resolver,
@@ -243,7 +242,7 @@ def convert_scalar_list_to_list(type, column, registry=None):
 
 
 def init_array_list_recursive(inner_type, n):
-    return inner_type if n == 0 else List(init_array_list_recursive(inner_type, n-1))
+    return inner_type if n == 0 else List(init_array_list_recursive(inner_type, n - 1))
 
 
 @convert_sqlalchemy_type.register(types.ARRAY)
@@ -265,38 +264,61 @@ def convert_json_type_to_string(type, column, registry=None):
     return JSONString
 
 
-def _check_type(type_, args):
-    return type_ in (args + [x.__name__ for x in args])
+@singledispatchbymatchfunction
+def convert_hybrid_property_return_type_inner(arg: Any):
+    existing_graphql_type = get_global_registry().get_type_for_model(arg)
+    if existing_graphql_type:
+        return existing_graphql_type
+    raise Exception(f"I don't know how to generate a GraphQL type out of a \"{arg}\" type")
 
 
-def convert_hybrid_type(type_, column):
-    if _check_type(type_, [str, datetime.date, datetime.time]):
-        return String
-    elif _check_type(type_, [datetime.datetime]):
-        from graphene.types.datetime import DateTime
-        return DateTime
-    elif _check_type(type_, [Int]):
-        return Int
-    elif _check_type(type_, [float]):
-        return Float
-    elif _check_type(type_, [bool]):
-        return Boolean
-    elif _check_type(getattr(type_, "__origin__", None), [list]):  # check for typing.List[T]
-        args = getattr(type_, "__args__", [])
-        if len(args) != 1:
-            warnings.warn('seems to typing.List[T] but it has more than one argument', RuntimeWarning, stacklevel=2)
-            return String  # Unknown fallback
-
-        inner_type = convert_hybrid_type(args[0], column)
-        return List(inner_type)
-    elif _check_type(getattr(type_, "__name__", None), [list]):  # check for list[T]
-        args = getattr(type_, "__args__", [])
-        if len(args) != 1:
-            warnings.warn('seems to list[T] but it has more than one argument', RuntimeWarning)
-            return String  # Unknown fallback
-
-        inner_type = convert_hybrid_type(args[0], column)
-        return List(inner_type)
-
-    warnings.warn('Could not convert type %s to graphene type' % type_, RuntimeWarning)
+@convert_hybrid_property_return_type_inner.register(value_equals(str))
+def convert_hybrid_property_return_type_inner_str(arg):
     return String
+
+
+@convert_hybrid_property_return_type_inner.register(value_equals(int))
+def convert_hybrid_property_return_type_inner_int(arg):
+    return Int
+
+
+@convert_hybrid_property_return_type_inner.register(value_equals(float))
+def convert_hybrid_property_return_type_inner_float(arg):
+    return Float
+
+
+@convert_hybrid_property_return_type_inner.register(value_equals(bool))
+def convert_hybrid_property_return_type_inner_bool(arg):
+    return Boolean
+
+
+@convert_hybrid_property_return_type_inner.register(value_equals(datetime.datetime))
+def convert_hybrid_property_return_type_inner_datetime(arg):
+    return DateTime
+
+
+@convert_hybrid_property_return_type_inner.register(value_equals(datetime.date))
+def convert_hybrid_property_return_type_inner_date(arg):
+    return Date
+
+
+@convert_hybrid_property_return_type_inner.register(value_equals(datetime.time))
+def convert_hybrid_property_return_type_inner_time(arg):
+    return Time
+
+
+@convert_hybrid_property_return_type_inner.register(lambda x: getattr(x, '__origin__', None) == list)
+def convert_hybrid_property_return_type_inner_list(arg):
+    # type is either list[T] or List[T], generic argument at __args__[0]
+    internal_type = arg.__args__[0]
+
+    graphql_internal_type = convert_hybrid_property_return_type_inner(internal_type)
+
+    return List(graphql_internal_type)
+
+
+def convert_hybrid_property_return_type(hybrid_prop):
+    # Grab the original method's return type annotations from inside the hybrid property
+    return_type_annotation = hybrid_prop.fget.__annotations__.get('return', str)
+
+    return convert_hybrid_property_return_type_inner(return_type_annotation)
