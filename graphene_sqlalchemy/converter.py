@@ -270,7 +270,7 @@ def convert_json_type_to_string(type, column, registry=None):
 
 
 @singledispatchbymatchfunction
-def convert_hybrid_property_return_type_inner(arg: Any):
+def convert_sqlalchemy_hybrid_property_type(arg: Any):
     existing_graphql_type = get_global_registry().get_type_for_model(arg)
     if existing_graphql_type:
         return existing_graphql_type
@@ -283,60 +283,60 @@ def convert_hybrid_property_return_type_inner(arg: Any):
     return String
 
 
-@convert_hybrid_property_return_type_inner.register(value_equals(str))
-def convert_hybrid_property_return_type_inner_str(arg):
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(str))
+def convert_sqlalchemy_hybrid_property_type_str(arg):
     return String
 
 
-@convert_hybrid_property_return_type_inner.register(value_equals(int))
-def convert_hybrid_property_return_type_inner_int(arg):
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(int))
+def convert_sqlalchemy_hybrid_property_type_int(arg):
     return Int
 
 
-@convert_hybrid_property_return_type_inner.register(value_equals(float))
-def convert_hybrid_property_return_type_inner_float(arg):
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(float))
+def convert_sqlalchemy_hybrid_property_type_float(arg):
     return Float
 
 
-@convert_hybrid_property_return_type_inner.register(value_equals(Decimal))
-def convert_hybrid_property_return_type_inner_decimal(arg):
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(Decimal))
+def convert_sqlalchemy_hybrid_property_type_decimal(arg):
     # The reason Decimal should be serialized as a String is because this is a
     # base10 type used in things like money, and string allows it to not
     # lose precision (which would happen if we downcasted to a Float, for example)
     return String
 
 
-@convert_hybrid_property_return_type_inner.register(value_equals(bool))
-def convert_hybrid_property_return_type_inner_bool(arg):
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(bool))
+def convert_sqlalchemy_hybrid_property_type_bool(arg):
     return Boolean
 
 
-@convert_hybrid_property_return_type_inner.register(value_equals(datetime.datetime))
-def convert_hybrid_property_return_type_inner_datetime(arg):
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.datetime))
+def convert_sqlalchemy_hybrid_property_type_datetime(arg):
     return DateTime
 
 
-@convert_hybrid_property_return_type_inner.register(value_equals(datetime.date))
-def convert_hybrid_property_return_type_inner_date(arg):
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.date))
+def convert_sqlalchemy_hybrid_property_type_date(arg):
     return Date
 
 
-@convert_hybrid_property_return_type_inner.register(value_equals(datetime.time))
-def convert_hybrid_property_return_type_inner_time(arg):
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.time))
+def convert_sqlalchemy_hybrid_property_type_time(arg):
     return Time
 
 
-@convert_hybrid_property_return_type_inner.register(value_is_subclass(enum.Enum))
-def convert_hybrid_property_return_type_inner_enum(arg):
+@convert_sqlalchemy_hybrid_property_type.register(value_is_subclass(enum.Enum))
+def convert_sqlalchemy_hybrid_property_type_enum(arg):
     return Enum.from_enum(arg)
 
 
-@convert_hybrid_property_return_type_inner.register(lambda x: getattr(x, '__origin__', None) in [list, typing.List])
-def convert_hybrid_property_return_type_inner_list(arg):
+@convert_sqlalchemy_hybrid_property_type.register(lambda x: getattr(x, '__origin__', None) in [list, typing.List])
+def convert_sqlalchemy_hybrid_property_type_list_t(arg):
     # type is either list[T] or List[T], generic argument at __args__[0]
     internal_type = arg.__args__[0]
 
-    graphql_internal_type = convert_hybrid_property_return_type_inner(internal_type)
+    graphql_internal_type = convert_sqlalchemy_hybrid_property_type(internal_type)
 
     return List(graphql_internal_type)
 
@@ -345,4 +345,4 @@ def convert_hybrid_property_return_type(hybrid_prop):
     # Grab the original method's return type annotations from inside the hybrid property
     return_type_annotation = hybrid_prop.fget.__annotations__.get('return', str)
 
-    return convert_hybrid_property_return_type_inner(return_type_annotation)
+    return convert_sqlalchemy_hybrid_property_type(return_type_annotation)
