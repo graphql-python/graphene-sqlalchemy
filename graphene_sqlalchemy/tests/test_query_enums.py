@@ -1,8 +1,7 @@
 import graphene
-from graphene import Node
 
 from ..types import SQLAlchemyObjectType
-from .models import Article, HairKind, Pet, Reporter
+from .models import HairKind, Pet, Reporter
 from .test_query import add_test_data, to_std_dicts
 
 
@@ -13,11 +12,6 @@ def test_query_pet_kinds(session):
 
         class Meta:
             model = Pet
-
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
 
     class ReporterType(SQLAlchemyObjectType):
         class Meta:

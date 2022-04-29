@@ -4,9 +4,8 @@ import pytest
 import sqlalchemy.exc
 import sqlalchemy.orm.exc
 
-from graphene import (Boolean, Date, DateTime, Dynamic, Field, Float, GlobalID,
-                      Int, List, Node, NonNull, ObjectType, Schema, String,
-                      Time)
+from graphene import (Boolean, Dynamic, Field, Float, GlobalID, Int, List,
+                      Node, NonNull, ObjectType, Schema, String)
 from graphene.relay import Connection
 
 from .. import utils
@@ -35,11 +34,6 @@ def test_should_raise_if_model_is_invalid():
 
 
 def test_sqlalchemy_node(session):
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
-
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
@@ -57,11 +51,6 @@ def test_sqlalchemy_node(session):
 
 
 def test_connection():
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
-
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
@@ -75,17 +64,17 @@ def test_sqlalchemy_default_fields():
     def convert_composite_class(composite, registry):
         return String()
 
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
-
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
             interfaces = (Node,)
 
-    assert sorted(list(ReporterType._meta.fields.keys())) == sorted([
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
+
+    assert list(ReporterType._meta.fields.keys()) == [
         # Columns
         "column_prop",  # SQLAlchemy retuns column properties first
         "id",
@@ -96,89 +85,70 @@ def test_sqlalchemy_default_fields():
         # Composite
         "composite_prop",
         # Hybrid
-        "hybrid_prop_untyped",
+        "hybrid_prop",
         "hybrid_prop_str",
         "hybrid_prop_int",
         "hybrid_prop_float",
         "hybrid_prop_bool",
-        "hybrid_prop_list_int",
-        "hybrid_prop_list_date",
-        "hybrid_prop_date",
-        "hybrid_prop_time",
-        "hybrid_prop_datetime",
-        "hybrid_prop_decimal",
-        "hybrid_prop_first_article",
+        "hybrid_prop_list",
         # Relationship
         "pets",
         "articles",
         "favorite_article",
-    ])
+    ]
 
-    # Check field types and descriptions
-
+    # column
     first_name_field = ReporterType._meta.fields['first_name']
     assert first_name_field.type == String
     assert first_name_field.description == "First name"
 
-    # Column Property
+    # column_property
     column_prop_field = ReporterType._meta.fields['column_prop']
     assert column_prop_field.type == Int
-    assert column_prop_field.description is None  # "doc" is ignored by column_property
+    # "doc" is ignored by column_property
+    assert column_prop_field.description is None
 
-    # Composite Property
+    # composite
     full_name_field = ReporterType._meta.fields['composite_prop']
     assert full_name_field.type == String
-    assert full_name_field.description is None  # "doc" is ignored by composite
+    # "doc" is ignored by composite
+    assert full_name_field.description is None
 
-    # Hybrid Property: Untyped Return (fallback to String)
-    hybrid_prop_untyped = ReporterType._meta.fields['hybrid_prop_untyped']
-    assert hybrid_prop_untyped.type == String
-    assert hybrid_prop_untyped.description is None  # "doc" is ignored by hybrid_property
+    # hybrid_property
+    hybrid_prop = ReporterType._meta.fields['hybrid_prop']
+    assert hybrid_prop.type == String
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop.description is None
 
-    #################################################
-    # Hybrid Properties with return type annotations
-    #################################################
-
+    # hybrid_property_str
     hybrid_prop_str = ReporterType._meta.fields['hybrid_prop_str']
     assert hybrid_prop_str.type == String
-    assert hybrid_prop_str.description is None  # "doc" is ignored by hybrid_property
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_str.description is None
 
+    # hybrid_property_int
     hybrid_prop_int = ReporterType._meta.fields['hybrid_prop_int']
     assert hybrid_prop_int.type == Int
-    assert hybrid_prop_int.description is None  # "doc" is ignored by hybrid_property
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_int.description is None
 
+    # hybrid_property_float
     hybrid_prop_float = ReporterType._meta.fields['hybrid_prop_float']
     assert hybrid_prop_float.type == Float
-    assert hybrid_prop_float.description is None  # "doc" is ignored by hybrid_property
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_float.description is None
 
+    # hybrid_property_bool
     hybrid_prop_bool = ReporterType._meta.fields['hybrid_prop_bool']
     assert hybrid_prop_bool.type == Boolean
-    assert hybrid_prop_bool.description is None  # "doc" is ignored by hybrid_property
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_bool.description is None
 
-    hybrid_prop_list_int = ReporterType._meta.fields['hybrid_prop_list_int']
-    assert hybrid_prop_list_int.type == List(Int)
-    assert hybrid_prop_list_int.description is None  # "doc" is ignored by hybrid_property
-
-    hybrid_prop_list_date = ReporterType._meta.fields['hybrid_prop_list_date']
-    assert hybrid_prop_list_date.type == List(Date)
-    assert hybrid_prop_list_date.description is None  # "doc" is ignored by hybrid_property
-
-    hybrid_prop_date = ReporterType._meta.fields['hybrid_prop_date']
-    assert hybrid_prop_date.type == Date
-    assert hybrid_prop_date.description is None  # "doc" is ignored by hybrid_property
-
-    hybrid_prop_time = ReporterType._meta.fields['hybrid_prop_time']
-    assert hybrid_prop_time.type == Time
-    assert hybrid_prop_time.description is None  # "doc" is ignored by hybrid_property
-
-    hybrid_prop_datetime = ReporterType._meta.fields['hybrid_prop_datetime']
-    assert hybrid_prop_datetime.type == DateTime
-    assert hybrid_prop_datetime.description is None  # "doc" is ignored by hybrid_property
-
-    hybrid_prop_decimal = ReporterType._meta.fields['hybrid_prop_decimal']
-    # Decimal (base10) should serialize to String for correctness.
-    assert hybrid_prop_decimal.type == String
-    assert hybrid_prop_decimal.description is None  # "doc" is ignored by hybrid_property
+    # hybrid_property_list
+    hybrid_prop_list = ReporterType._meta.fields['hybrid_prop_list']
+    assert hybrid_prop_list.type == List(Int)
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_list.description is None
 
     # relationship
     favorite_article_field = ReporterType._meta.fields['favorite_article']
@@ -197,11 +167,6 @@ def test_sqlalchemy_override_fields():
         first_name = ORMField(required=True)
         last_name = ORMField(description='Overridden')
 
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
-
     class ReporterType(SQLAlchemyObjectType, ReporterMixin):
         class Meta:
             model = Reporter
@@ -218,12 +183,17 @@ def test_sqlalchemy_override_fields():
         composite_prop = ORMField()
 
         # hybrid_property
-        hybrid_prop_untyped = ORMField(description='Overridden')
+        hybrid_prop = ORMField(description='Overridden')
 
         # relationships
         favorite_article = ORMField(description='Overridden')
         articles = ORMField(deprecation_reason='Overridden')
         pets = ORMField(description='Overridden')
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
 
     class PetType(SQLAlchemyObjectType):
         class Meta:
@@ -231,7 +201,7 @@ def test_sqlalchemy_override_fields():
             interfaces = (Node,)
             use_connection = False
 
-    assert sorted(list(ReporterType._meta.fields.keys())) == sorted([
+    assert list(ReporterType._meta.fields.keys()) == [
         # Fields from ReporterMixin
         "first_name",
         "last_name",
@@ -240,26 +210,19 @@ def test_sqlalchemy_override_fields():
         "email_v2",
         "column_prop",
         "composite_prop",
+        "hybrid_prop",
         "favorite_article",
         "articles",
         "pets",
         # Then the automatic SQLAlchemy fields
         "id",
         "favorite_pet_kind",
-        # Hybrid
-        "hybrid_prop_untyped",
         "hybrid_prop_str",
         "hybrid_prop_int",
         "hybrid_prop_float",
         "hybrid_prop_bool",
-        "hybrid_prop_list_int",
-        "hybrid_prop_list_date",
-        "hybrid_prop_date",
-        "hybrid_prop_time",
-        "hybrid_prop_datetime",
-        "hybrid_prop_decimal",
-        "hybrid_prop_first_article",
-    ])
+        "hybrid_prop_list",
+    ]
 
     first_name_field = ReporterType._meta.fields['first_name']
     assert isinstance(first_name_field.type, NonNull)
@@ -282,10 +245,10 @@ def test_sqlalchemy_override_fields():
     assert email_field_v2.description == "Email"
     assert email_field_v2.deprecation_reason is None
 
-    hybrid_prop_untyped_field = ReporterType._meta.fields['hybrid_prop_untyped']
-    assert hybrid_prop_untyped_field.type == String
-    assert hybrid_prop_untyped_field.description == "Overridden"
-    assert hybrid_prop_untyped_field.deprecation_reason is None
+    hybrid_prop_field = ReporterType._meta.fields['hybrid_prop']
+    assert hybrid_prop_field.type == String
+    assert hybrid_prop_field.description == "Overridden"
+    assert hybrid_prop_field.deprecation_reason is None
 
     column_prop_field_v2 = ReporterType._meta.fields['column_prop']
     assert column_prop_field_v2.type == String
@@ -340,11 +303,6 @@ def test_only_fields():
 
 
 def test_exclude_fields():
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
-
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
@@ -353,30 +311,23 @@ def test_exclude_fields():
         first_name = ORMField()  # Takes precedence
         last_name = ORMField()  # Noop
 
-    assert sorted(list(ReporterType._meta.fields.keys())) == sorted([
+    assert list(ReporterType._meta.fields.keys()) == [
         "first_name",
         "last_name",
         "column_prop",
         "email",
         "favorite_pet_kind",
         "composite_prop",
-        "pets",
-        "articles",
-        "favorite_article",
-        # Hybrid
-        "hybrid_prop_untyped",
+        "hybrid_prop",
         "hybrid_prop_str",
         "hybrid_prop_int",
         "hybrid_prop_float",
         "hybrid_prop_bool",
-        "hybrid_prop_list_int",
-        "hybrid_prop_list_date",
-        "hybrid_prop_date",
-        "hybrid_prop_time",
-        "hybrid_prop_datetime",
-        "hybrid_prop_decimal",
-        "hybrid_prop_first_article",
-    ])
+        "hybrid_prop_list",
+        "pets",
+        "articles",
+        "favorite_article",
+    ]
 
 
 def test_only_and_exclude_fields():
@@ -390,11 +341,6 @@ def test_only_and_exclude_fields():
 
 
 def test_sqlalchemy_redefine_field():
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
-
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
@@ -408,11 +354,6 @@ def test_sqlalchemy_redefine_field():
 
 def test_resolvers(session):
     """Test that the correct resolver functions are called"""
-
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
 
     class ReporterMixin(object):
         def resolve_id(root, _info):
@@ -481,11 +422,6 @@ def test_resolvers(session):
 # Test Custom SQLAlchemyObjectType Implementation
 
 def test_custom_objecttype_registered():
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
-
     class CustomSQLAlchemyObjectType(SQLAlchemyObjectType):
         class Meta:
             abstract = True
@@ -496,7 +432,7 @@ def test_custom_objecttype_registered():
 
     assert issubclass(CustomReporterType, ObjectType)
     assert CustomReporterType._meta.model == Reporter
-    assert len(CustomReporterType._meta.fields) == 22
+    assert len(CustomReporterType._meta.fields) == 16
 
 
 # Test Custom SQLAlchemyObjectType with Custom Options
@@ -516,11 +452,6 @@ def test_objecttype_with_custom_options():
                 _meta=_meta, **options
             )
 
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
-
     class ReporterWithCustomOptions(SQLAlchemyObjectTypeWithCustomOptions):
         class Meta:
             model = Reporter
@@ -538,14 +469,14 @@ class _TestSQLAlchemyConnectionField(SQLAlchemyConnectionField):
 
 
 def test_default_connection_field_factory():
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
-
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
+            interfaces = (Node,)
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
             interfaces = (Node,)
 
     assert isinstance(ReporterType._meta.fields['articles'].type(), UnsortedSQLAlchemyConnectionField)
@@ -557,16 +488,16 @@ def test_custom_connection_field_factory():
         _type = registry.get_type_for_model(model)
         return _TestSQLAlchemyConnectionField(_type._meta.connection)
 
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
-
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
             interfaces = (Node,)
             connection_field_factory = test_connection_field_factory
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
 
     assert isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
 
@@ -575,14 +506,14 @@ def test_deprecated_registerConnectionFieldFactory():
     with pytest.warns(DeprecationWarning):
         registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
 
-        class ArticleType(SQLAlchemyObjectType):
-            class Meta:
-                model = Article
-                interfaces = (Node,)
-
         class ReporterType(SQLAlchemyObjectType):
             class Meta:
                 model = Reporter
+                interfaces = (Node,)
+
+        class ArticleType(SQLAlchemyObjectType):
+            class Meta:
+                model = Article
                 interfaces = (Node,)
 
         assert isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)
@@ -593,14 +524,14 @@ def test_deprecated_unregisterConnectionFieldFactory():
         registerConnectionFieldFactory(_TestSQLAlchemyConnectionField)
         unregisterConnectionFieldFactory()
 
-        class ArticleType(SQLAlchemyObjectType):
-            class Meta:
-                model = Article
-                interfaces = (Node,)
-
         class ReporterType(SQLAlchemyObjectType):
             class Meta:
                 model = Reporter
+                interfaces = (Node,)
+
+        class ArticleType(SQLAlchemyObjectType):
+            class Meta:
+                model = Article
                 interfaces = (Node,)
 
         assert not isinstance(ReporterType._meta.fields['articles'].type(), _TestSQLAlchemyConnectionField)

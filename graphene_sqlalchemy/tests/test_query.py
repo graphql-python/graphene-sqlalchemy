@@ -1,5 +1,4 @@
 import graphene
-from graphene import relay
 from graphene.relay import Node
 
 from ..converter import convert_sqlalchemy_composite
@@ -37,11 +36,6 @@ def test_query_fields(session):
     def convert_composite_class(composite, registry):
         return graphene.String()
 
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (relay.Node,)
-
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
@@ -61,7 +55,7 @@ def test_query_fields(session):
           reporter {
             firstName
             columnProp
-            hybridPropUntyped
+            hybridProp
             compositeProp
           }
           reporters {
@@ -72,7 +66,7 @@ def test_query_fields(session):
     expected = {
         "reporter": {
             "firstName": "John",
-            "hybridPropUntyped": "John",
+            "hybridProp": "John",
             "columnProp": 2,
             "compositeProp": "John Doe",
         },
@@ -88,11 +82,6 @@ def test_query_fields(session):
 def test_query_node(session):
     add_test_data(session)
 
-    class ArticleNode(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
-
     class ReporterNode(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
@@ -101,6 +90,11 @@ def test_query_node(session):
         @classmethod
         def get_node(cls, info, id):
             return Reporter(id=2, first_name="Cookie Monster")
+
+    class ArticleNode(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
 
     class Query(graphene.ObjectType):
         node = Node.Field()
@@ -164,22 +158,22 @@ def test_orm_field(session):
     def convert_composite_class(composite, registry):
         return graphene.String()
 
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
-
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
             interfaces = (Node,)
 
         first_name_v2 = ORMField(model_attr='first_name')
-        hybrid_prop_untyped_v2 = ORMField(model_attr='hybrid_prop_untyped')
+        hybrid_prop_v2 = ORMField(model_attr='hybrid_prop')
         column_prop_v2 = ORMField(model_attr='column_prop')
         composite_prop = ORMField()
         favorite_article_v2 = ORMField(model_attr='favorite_article')
         articles_v2 = ORMField(model_attr='articles')
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
 
     class Query(graphene.ObjectType):
         reporter = graphene.Field(ReporterType)
@@ -191,13 +185,13 @@ def test_orm_field(session):
         query {
           reporter {
             firstNameV2
-            hybridPropUntypedV2
+            hybridPropV2
             columnPropV2
             compositeProp
             favoriteArticleV2 {
               headline
             }
-            articlesV2 {
+            articlesV2(first: 1) {
               edges {
                 node {
                   headline
@@ -210,7 +204,7 @@ def test_orm_field(session):
     expected = {
         "reporter": {
             "firstNameV2": "John",
-            "hybridPropUntypedV2": "John",
+            "hybridPropV2": "John",
             "columnPropV2": 2,
             "compositeProp": "John Doe",
             "favoriteArticleV2": {"headline": "Hi!"},
@@ -268,11 +262,6 @@ def test_custom_identifier(session):
 def test_mutation(session):
     add_test_data(session)
 
-    class ArticleNode(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (Node,)
-
     class EditorNode(SQLAlchemyObjectType):
         class Meta:
             model = Editor
@@ -286,6 +275,11 @@ def test_mutation(session):
         @classmethod
         def get_node(cls, id, info):
             return Reporter(id=2, first_name="Cookie Monster")
+
+    class ArticleNode(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
 
     class CreateArticle(graphene.Mutation):
         class Arguments:
