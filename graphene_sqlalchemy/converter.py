@@ -19,7 +19,14 @@ from .fields import (BatchSQLAlchemyConnectionField,
                      default_connection_field_factory)
 from .registry import get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
-from .utils import singledispatchbymatchfunction, value_equals
+from .utils import (registry_sqlalchemy_model_from_str, safe_isinstance,
+                    singledispatchbymatchfunction, value_equals)
+
+try:
+    from typing import ForwardRef
+except ImportError:
+    # python 3.6
+    from typing import _ForwardRef as ForwardRef
 
 try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
@@ -332,6 +339,32 @@ def convert_sqlalchemy_hybrid_property_type_list_t(arg):
     graphql_internal_type = convert_sqlalchemy_hybrid_property_type(internal_type)
 
     return List(graphql_internal_type)
+
+
+@convert_sqlalchemy_hybrid_property_type.register(safe_isinstance(ForwardRef))
+def convert_sqlalchemy_hybrid_property_forwardref(arg):
+    """
+    Generate a lambda that will resolve the type at runtime
+    This takes care of self-references
+    """
+
+    def forward_reference_solver():
+        model = registry_sqlalchemy_model_from_str(arg.__forward_arg__)
+        if not model:
+            return String
+        # Always fall back to string if no ForwardRef type found.
+        return get_global_registry().get_type_for_model(model)
+
+    return forward_reference_solver
+
+
+@convert_sqlalchemy_hybrid_property_type.register(safe_isinstance(str))
+def convert_sqlalchemy_hybrid_property_bare_str(arg):
+    """
+    Convert Bare String into a ForwardRef
+    """
+
+    return convert_sqlalchemy_hybrid_property_type(ForwardRef(arg))
 
 
 def convert_hybrid_property_return_type(hybrid_prop):

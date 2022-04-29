@@ -203,3 +203,13 @@ class ShoppingCart(Base):
     @hybrid_property
     def hybrid_prop_unsupported_type_tuple(self) -> Tuple[str, str]:
         return "this will actually", "be a string"
+
+    # Self-references
+
+    @hybrid_property
+    def hybrid_prop_self_referential(self) -> 'ShoppingCart':
+        return ShoppingCart(id=1)
+
+    @hybrid_property
+    def hybrid_prop_self_referential_list(self) -> List['ShoppingCart']:
+        return [ShoppingCart(id=1)]

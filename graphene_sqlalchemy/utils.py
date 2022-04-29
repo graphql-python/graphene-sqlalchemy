@@ -1,12 +1,14 @@
 import re
 import warnings
 from collections import OrderedDict
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
 import pkg_resources
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
+
+from graphene_sqlalchemy.registry import get_global_registry
 
 
 def get_session(context):
@@ -188,3 +190,19 @@ def value_equals(value):
     """A simple function that makes the equality based matcher functions for
      SingleDispatchByMatchFunction prettier"""
     return lambda x: x == value
+
+
+def safe_isinstance(cls):
+    def safe_isinstance_checker(arg):
+        try:
+            return isinstance(arg, cls)
+        except TypeError:
+            pass
+    return safe_isinstance_checker
+
+
+def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:
+    try:
+        return next(filter(lambda x: x.__name__ == model_name, list(get_global_registry()._registry.keys())))
+    except StopIteration:
+        pass

@@ -419,6 +419,9 @@ def test_sqlalchemy_hybrid_property_type_inference():
         "hybrid_prop_first_shopping_cart_item": ShoppingCartItemType,
         "hybrid_prop_shopping_cart_item_list": List(ShoppingCartItemType),
         "hybrid_prop_unsupported_type_tuple": String,
+        # Self Referential List
+        "hybrid_prop_self_referential": ShoppingCartType,
+        "hybrid_prop_self_referential_list": List(ShoppingCartType),
     }
 
     assert sorted(list(ShoppingCartType._meta.fields.keys())) == sorted([
