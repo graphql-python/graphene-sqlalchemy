@@ -1,4 +1,5 @@
 import datetime
+import typing
 from functools import singledispatch
 from typing import Any
 
@@ -307,7 +308,7 @@ def convert_hybrid_property_return_type_inner_time(arg):
     return Time
 
 
-@convert_hybrid_property_return_type_inner.register(lambda x: getattr(x, '__origin__', None) == list)
+@convert_hybrid_property_return_type_inner.register(lambda x: getattr(x, '__origin__', None) in [list, typing.List])
 def convert_hybrid_property_return_type_inner_list(arg):
     # type is either list[T] or List[T], generic argument at __args__[0]
     internal_type = arg.__args__[0]
