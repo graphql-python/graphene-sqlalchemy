@@ -1,5 +1,7 @@
 import datetime
+import enum
 import typing
+import warnings
 from decimal import Decimal
 from functools import singledispatch
 from typing import Any
@@ -18,7 +20,8 @@ from .fields import (BatchSQLAlchemyConnectionField,
                      default_connection_field_factory)
 from .registry import get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
-from .utils import singledispatchbymatchfunction, value_equals
+from .utils import (singledispatchbymatchfunction, value_equals,
+                    value_is_subclass)
 
 try:
     from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
@@ -271,7 +274,13 @@ def convert_hybrid_property_return_type_inner(arg: Any):
     existing_graphql_type = get_global_registry().get_type_for_model(arg)
     if existing_graphql_type:
         return existing_graphql_type
-    raise Exception(f"I don't know how to generate a GraphQL type out of a \"{arg}\" type")
+
+    # No valid type found, warn and fall back to graphene.String
+    warnings.warn(
+        (f"I don't know how to generate a GraphQL type out of a \"{arg}\" type."
+         "Falling back to \"graphene.String\"")
+    )
+    return String
 
 
 @convert_hybrid_property_return_type_inner.register(value_equals(str))
@@ -315,6 +324,11 @@ def convert_hybrid_property_return_type_inner_date(arg):
 @convert_hybrid_property_return_type_inner.register(value_equals(datetime.time))
 def convert_hybrid_property_return_type_inner_time(arg):
     return Time
+
+
+@convert_hybrid_property_return_type_inner.register(value_is_subclass(enum.Enum))
+def convert_hybrid_property_return_type_inner_enum(arg):
+    return Enum.from_enum(arg)
 
 
 @convert_hybrid_property_return_type_inner.register(lambda x: getattr(x, '__origin__', None) in [list, typing.List])
