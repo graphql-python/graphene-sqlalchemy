@@ -56,14 +56,6 @@ class CompositeFullName(object):
         return "{} {}".format(self.first_name, self.last_name)
 
 
-class Article(Base):
-    __tablename__ = "articles"
-    id = Column(Integer(), primary_key=True)
-    headline = Column(String(100))
-    pub_date = Column(Date())
-    reporter_id = Column(Integer(), ForeignKey("reporters.id"))
-
-
 class Reporter(Base):
     __tablename__ = "reporters"
 
@@ -105,6 +97,14 @@ class Reporter(Base):
     )
 
     composite_prop = composite(CompositeFullName, first_name, last_name, doc="Composite")
+
+
+class Article(Base):
+    __tablename__ = "articles"
+    id = Column(Integer(), primary_key=True)
+    headline = Column(String(100))
+    pub_date = Column(Date())
+    reporter_id = Column(Integer(), ForeignKey("reporters.id"))
 
 
 class ReflectedEditor(type):
@@ -200,7 +200,6 @@ class ShoppingCart(Base):
         return [ShoppingCartItem(id=1), ShoppingCartItem(id=2)]
 
     # Unsupported Type
-
     @hybrid_property
     def hybrid_prop_unsupported_type_tuple(self) -> Tuple[str, str]:
         return "this will actually", "be a string"
