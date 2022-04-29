@@ -131,6 +131,10 @@ class ShoppingCartItem(Base):
 
     id = Column(Integer(), primary_key=True)
 
+    @hybrid_property
+    def hybrid_prop_shopping_cart(self) -> List['ShoppingCart']:
+        return [ShoppingCart(id=1)]
+
 
 class ShoppingCart(Base):
     __tablename__ = "shopping_carts"

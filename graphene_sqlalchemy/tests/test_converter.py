@@ -401,7 +401,37 @@ def test_sqlalchemy_hybrid_property_type_inference():
             model = ShoppingCart
             interfaces = (Node,)
 
-    hybrid_prop_expected_types: Dict[str, Union[Scalar, Structure]] = {
+    #######################################################
+    # Check ShoppingCartItem's Properties and Return Types
+    #######################################################
+
+    shopping_cart_item_expected_types: Dict[str, Union[Scalar, Structure]] = {
+        'hybrid_prop_shopping_cart': List(ShoppingCartType)
+    }
+
+    assert sorted(list(ShoppingCartItemType._meta.fields.keys())) == sorted([
+        # Columns
+        "id",
+        # Append Hybrid Properties from Above
+        *shopping_cart_item_expected_types.keys()
+    ])
+
+    for hybrid_prop_name, hybrid_prop_expected_return_type in shopping_cart_item_expected_types.items():
+        hybrid_prop_field = ShoppingCartItemType._meta.fields[hybrid_prop_name]
+
+        # this is a simple way of showing the failed property name
+        # instead of having to unroll the loop.
+        assert (
+                (hybrid_prop_name, str(hybrid_prop_field.type)) ==
+                (hybrid_prop_name, str(hybrid_prop_expected_return_type))
+        )
+        assert hybrid_prop_field.description is None  # "doc" is ignored by hybrid property
+
+    ###################################################
+    # Check ShoppingCart's Properties and Return Types
+    ###################################################
+
+    shopping_cart_expected_types: Dict[str, Union[Scalar, Structure]] = {
         # Basic types
         "hybrid_prop_str": String,
         "hybrid_prop_int": Int,
@@ -428,16 +458,16 @@ def test_sqlalchemy_hybrid_property_type_inference():
         # Columns
         "id",
         # Append Hybrid Properties from Above
-        *hybrid_prop_expected_types.keys()
+        *shopping_cart_expected_types.keys()
     ])
 
-    for hybrid_prop_name, hybrid_prop_expected_return_type in hybrid_prop_expected_types.items():
+    for hybrid_prop_name, hybrid_prop_expected_return_type in shopping_cart_expected_types.items():
         hybrid_prop_field = ShoppingCartType._meta.fields[hybrid_prop_name]
 
         # this is a simple way of showing the failed property name
         # instead of having to unroll the loop.
         assert (
-            (hybrid_prop_name, str(hybrid_prop_field.type)) ==
-            (hybrid_prop_name, str(hybrid_prop_expected_return_type))
+                (hybrid_prop_name, str(hybrid_prop_field.type)) ==
+                (hybrid_prop_name, str(hybrid_prop_expected_return_type))
         )
         assert hybrid_prop_field.description is None  # "doc" is ignored by hybrid property
