@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import datetime
 import enum
 from decimal import Decimal
-from typing import List
+from typing import List, Tuple
 
 from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, String, Table,
                         func, select)
@@ -198,3 +198,9 @@ class ShoppingCart(Base):
     @hybrid_property
     def hybrid_prop_shopping_cart_item_list(self) -> List[ShoppingCartItem]:
         return [ShoppingCartItem(id=1), ShoppingCartItem(id=2)]
+
+    # Unsupported Type
+
+    @hybrid_property
+    def hybrid_prop_unsupported_type_tuple(self) -> Tuple[str, str]:
+        return "this will actually", "be a string"

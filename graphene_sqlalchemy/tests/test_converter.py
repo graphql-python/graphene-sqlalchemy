@@ -417,7 +417,8 @@ def test_sqlalchemy_hybrid_property_type_inference():
         "hybrid_prop_nested_list_int": List(List(Int)),
         "hybrid_prop_deeply_nested_list_int": List(List(List(Int))),
         "hybrid_prop_first_shopping_cart_item": ShoppingCartItemType,
-        "hybrid_prop_shopping_cart_item_list": List(ShoppingCartItemType)
+        "hybrid_prop_shopping_cart_item_list": List(ShoppingCartItemType),
+        "hybrid_prop_unsupported_type_tuple": String,
     }
 
     assert sorted(list(ShoppingCartType._meta.fields.keys())) == sorted([
