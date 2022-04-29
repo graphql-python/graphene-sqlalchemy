@@ -17,6 +17,7 @@ from .utils import remove_cache_miss_stat, to_std_dicts
 
 class MockLoggingHandler(logging.Handler):
     """Intercept and store log messages in a list."""
+
     def __init__(self, *args, **kwargs):
         self.messages = []
         logging.Handler.__init__(self, *args, **kwargs)
@@ -42,15 +43,15 @@ def mock_sqlalchemy_logging_handler():
 
 
 def get_schema():
-    class ReporterType(SQLAlchemyObjectType):
-        class Meta:
-            model = Reporter
-            interfaces = (relay.Node,)
-            batching = True
-
     class ArticleType(SQLAlchemyObjectType):
         class Meta:
             model = Article
+            interfaces = (relay.Node,)
+            batching = True
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
             interfaces = (relay.Node,)
             batching = True
 
@@ -82,11 +83,11 @@ async def test_many_to_one(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
-      first_name='Reporter_1',
+        first_name='Reporter_1',
     )
     session.add(reporter_1)
     reporter_2 = Reporter(
-      first_name='Reporter_2',
+        first_name='Reporter_2',
     )
     session.add(reporter_2)
 
@@ -138,20 +139,20 @@ async def test_many_to_one(session_factory):
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == {
-      "articles": [
-        {
-          "headline": "Article_1",
-          "reporter": {
-            "firstName": "Reporter_1",
-          },
-        },
-        {
-          "headline": "Article_2",
-          "reporter": {
-            "firstName": "Reporter_2",
-          },
-        },
-      ],
+        "articles": [
+            {
+                "headline": "Article_1",
+                "reporter": {
+                    "firstName": "Reporter_1",
+                },
+            },
+            {
+                "headline": "Article_2",
+                "reporter": {
+                    "firstName": "Reporter_2",
+                },
+            },
+        ],
     }
 
 
@@ -160,11 +161,11 @@ async def test_one_to_one(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
-      first_name='Reporter_1',
+        first_name='Reporter_1',
     )
     session.add(reporter_1)
     reporter_2 = Reporter(
-      first_name='Reporter_2',
+        first_name='Reporter_2',
     )
     session.add(reporter_2)
 
@@ -216,20 +217,20 @@ async def test_one_to_one(session_factory):
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == {
-      "reporters": [
-        {
-          "firstName": "Reporter_1",
-          "favoriteArticle": {
-            "headline": "Article_1",
-          },
-        },
-        {
-          "firstName": "Reporter_2",
-          "favoriteArticle": {
-            "headline": "Article_2",
-          },
-        },
-      ],
+        "reporters": [
+            {
+                "firstName": "Reporter_1",
+                "favoriteArticle": {
+                    "headline": "Article_1",
+                },
+            },
+            {
+                "firstName": "Reporter_2",
+                "favoriteArticle": {
+                    "headline": "Article_2",
+                },
+            },
+        ],
     }
 
 
@@ -238,11 +239,11 @@ async def test_one_to_many(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
-      first_name='Reporter_1',
+        first_name='Reporter_1',
     )
     session.add(reporter_1)
     reporter_2 = Reporter(
-      first_name='Reporter_2',
+        first_name='Reporter_2',
     )
     session.add(reporter_2)
 
@@ -306,42 +307,42 @@ async def test_one_to_many(session_factory):
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == {
-      "reporters": [
-        {
-          "firstName": "Reporter_1",
-          "articles": {
-            "edges": [
-              {
-                "node": {
-                  "headline": "Article_1",
+        "reporters": [
+            {
+                "firstName": "Reporter_1",
+                "articles": {
+                    "edges": [
+                        {
+                            "node": {
+                                "headline": "Article_1",
+                            },
+                        },
+                        {
+                            "node": {
+                                "headline": "Article_2",
+                            },
+                        },
+                    ],
                 },
-              },
-              {
-                "node": {
-                  "headline": "Article_2",
+            },
+            {
+                "firstName": "Reporter_2",
+                "articles": {
+                    "edges": [
+                        {
+                            "node": {
+                                "headline": "Article_3",
+                            },
+                        },
+                        {
+                            "node": {
+                                "headline": "Article_4",
+                            },
+                        },
+                    ],
                 },
-              },
-            ],
-          },
-        },
-        {
-          "firstName": "Reporter_2",
-          "articles": {
-            "edges": [
-              {
-                "node": {
-                  "headline": "Article_3",
-                },
-              },
-              {
-                "node": {
-                  "headline": "Article_4",
-                },
-              },
-            ],
-          },
-        },
-      ],
+            },
+        ],
     }
 
 
@@ -350,11 +351,11 @@ async def test_many_to_many(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
-      first_name='Reporter_1',
+        first_name='Reporter_1',
     )
     session.add(reporter_1)
     reporter_2 = Reporter(
-      first_name='Reporter_2',
+        first_name='Reporter_2',
     )
     session.add(reporter_2)
 
@@ -420,42 +421,42 @@ async def test_many_to_many(session_factory):
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == {
-      "reporters": [
-        {
-          "firstName": "Reporter_1",
-          "pets": {
-            "edges": [
-              {
-                "node": {
-                  "name": "Pet_1",
+        "reporters": [
+            {
+                "firstName": "Reporter_1",
+                "pets": {
+                    "edges": [
+                        {
+                            "node": {
+                                "name": "Pet_1",
+                            },
+                        },
+                        {
+                            "node": {
+                                "name": "Pet_2",
+                            },
+                        },
+                    ],
                 },
-              },
-              {
-                "node": {
-                  "name": "Pet_2",
+            },
+            {
+                "firstName": "Reporter_2",
+                "pets": {
+                    "edges": [
+                        {
+                            "node": {
+                                "name": "Pet_3",
+                            },
+                        },
+                        {
+                            "node": {
+                                "name": "Pet_4",
+                            },
+                        },
+                    ],
                 },
-              },
-            ],
-          },
-        },
-        {
-          "firstName": "Reporter_2",
-          "pets": {
-            "edges": [
-              {
-                "node": {
-                  "name": "Pet_3",
-                },
-              },
-              {
-                "node": {
-                  "name": "Pet_4",
-                },
-              },
-            ],
-          },
-        },
-      ],
+            },
+        ],
     }
 
 
@@ -468,6 +469,11 @@ def test_disable_batching_via_ormfield(session_factory):
     session.commit()
     session.close()
 
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (relay.Node,)
+
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
@@ -476,11 +482,6 @@ def test_disable_batching_via_ormfield(session_factory):
 
         favorite_article = ORMField(batching=False)
         articles = ORMField(batching=False)
-
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (relay.Node,)
 
     class Query(graphene.ObjectType):
         reporters = graphene.Field(graphene.List(ReporterType))
@@ -541,6 +542,11 @@ async def test_connection_factory_field_overrides_batching_is_false(session_fact
     session.commit()
     session.close()
 
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (relay.Node,)
+
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
@@ -549,11 +555,6 @@ async def test_connection_factory_field_overrides_batching_is_false(session_fact
             connection_field_factory = BatchSQLAlchemyConnectionField.from_relationship
 
         articles = ORMField(batching=False)
-
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (relay.Node,)
 
     class Query(graphene.ObjectType):
         reporters = graphene.Field(graphene.List(ReporterType))
@@ -600,6 +601,11 @@ def test_connection_factory_field_overrides_batching_is_true(session_factory):
     session.commit()
     session.close()
 
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (relay.Node,)
+
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
@@ -608,11 +614,6 @@ def test_connection_factory_field_overrides_batching_is_true(session_factory):
             connection_field_factory = default_connection_field_factory
 
         articles = ORMField(batching=True)
-
-    class ArticleType(SQLAlchemyObjectType):
-        class Meta:
-            model = Article
-            interfaces = (relay.Node,)
 
     class Query(graphene.ObjectType):
         reporters = graphene.Field(graphene.List(ReporterType))

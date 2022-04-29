@@ -9,6 +9,7 @@ from sqlalchemy.orm import column_property, composite
 from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
 
 import graphene
+from graphene import relay
 from graphene.relay import Node
 from graphene.types.datetime import DateTime
 from graphene.types.json import JSONString
@@ -243,6 +244,11 @@ def test_should_manytoone_convert_connectionorlist():
 
 
 def test_should_manytoone_convert_connectionorlist_list():
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (relay.Node,)
+
     class A(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
@@ -257,6 +263,11 @@ def test_should_manytoone_convert_connectionorlist_list():
 
 
 def test_should_manytoone_convert_connectionorlist_connection():
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (relay.Node,)
+
     class A(SQLAlchemyObjectType):
         class Meta:
             model = Reporter

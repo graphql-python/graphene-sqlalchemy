@@ -12,14 +12,14 @@ if is_sqlalchemy_version_less_than('1.2'):
 
 
 def get_schema():
-    class ReporterType(SQLAlchemyObjectType):
-        class Meta:
-            model = Reporter
-            interfaces = (relay.Node,)
-
     class ArticleType(SQLAlchemyObjectType):
         class Meta:
             model = Article
+            interfaces = (relay.Node,)
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
             interfaces = (relay.Node,)
 
     class PetType(SQLAlchemyObjectType):
@@ -46,8 +46,8 @@ def benchmark_query(session_factory, benchmark, query):
     @benchmark
     def execute_query():
         result = schema.execute(
-          query,
-          context_value={"session": session_factory()},
+            query,
+            context_value={"session": session_factory()},
         )
         assert not result.errors
 
@@ -56,11 +56,11 @@ def test_one_to_one(session_factory, benchmark):
     session = session_factory()
 
     reporter_1 = Reporter(
-      first_name='Reporter_1',
+        first_name='Reporter_1',
     )
     session.add(reporter_1)
     reporter_2 = Reporter(
-      first_name='Reporter_2',
+        first_name='Reporter_2',
     )
     session.add(reporter_2)
 
@@ -91,11 +91,11 @@ def test_many_to_one(session_factory, benchmark):
     session = session_factory()
 
     reporter_1 = Reporter(
-      first_name='Reporter_1',
+        first_name='Reporter_1',
     )
     session.add(reporter_1)
     reporter_2 = Reporter(
-      first_name='Reporter_2',
+        first_name='Reporter_2',
     )
     session.add(reporter_2)
 
@@ -126,11 +126,11 @@ def test_one_to_many(session_factory, benchmark):
     session = session_factory()
 
     reporter_1 = Reporter(
-      first_name='Reporter_1',
+        first_name='Reporter_1',
     )
     session.add(reporter_1)
     reporter_2 = Reporter(
-      first_name='Reporter_2',
+        first_name='Reporter_2',
     )
     session.add(reporter_2)
 
@@ -173,11 +173,11 @@ def test_many_to_many(session_factory, benchmark):
     session = session_factory()
 
     reporter_1 = Reporter(
-      first_name='Reporter_1',
+        first_name='Reporter_1',
     )
     session.add(reporter_1)
     reporter_2 = Reporter(
-      first_name='Reporter_2',
+        first_name='Reporter_2',
     )
     session.add(reporter_2)
 

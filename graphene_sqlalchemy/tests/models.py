@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 
+import datetime
 import enum
 from typing import List
 
@@ -54,6 +55,14 @@ class CompositeFullName(object):
         return "{} {}".format(self.first_name, self.last_name)
 
 
+class Article(Base):
+    __tablename__ = "articles"
+    id = Column(Integer(), primary_key=True)
+    headline = Column(String(100))
+    pub_date = Column(Date())
+    reporter_id = Column(Integer(), ForeignKey("reporters.id"))
+
+
 class Reporter(Base):
     __tablename__ = "reporters"
 
@@ -67,7 +76,7 @@ class Reporter(Base):
     favorite_article = relationship("Article", uselist=False)
 
     @hybrid_property
-    def hybrid_prop(self):
+    def hybrid_prop_untyped(self):
         return self.first_name
 
     @hybrid_property
@@ -87,22 +96,34 @@ class Reporter(Base):
         return True
 
     @hybrid_property
-    def hybrid_prop_list(self) -> List[int]:
+    def hybrid_prop_list_int(self) -> List[int]:
         return [1, 2, 3]
+
+    @hybrid_property
+    def hybrid_prop_list_date(self) -> List[datetime.date]:
+        return [self.hybrid_prop_date, self.hybrid_prop_date, self.hybrid_prop_date]
+
+    @hybrid_property
+    def hybrid_prop_date(self) -> datetime.date:
+        return datetime.datetime.now().date()
+
+    @hybrid_property
+    def hybrid_prop_time(self) -> datetime.time:
+        return datetime.datetime.now().time()
+
+    @hybrid_property
+    def hybrid_prop_datetime(self) -> datetime.datetime:
+        return datetime.datetime.now()
+
+    @hybrid_property
+    def hybrid_prop_first_article(self) -> Article:
+        return self.articles[0]
 
     column_prop = column_property(
         select([func.cast(func.count(id), Integer)]), doc="Column property"
     )
 
     composite_prop = composite(CompositeFullName, first_name, last_name, doc="Composite")
-
-
-class Article(Base):
-    __tablename__ = "articles"
-    id = Column(Integer(), primary_key=True)
-    headline = Column(String(100))
-    pub_date = Column(Date())
-    reporter_id = Column(Integer(), ForeignKey("reporters.id"))
 
 
 class ReflectedEditor(type):
