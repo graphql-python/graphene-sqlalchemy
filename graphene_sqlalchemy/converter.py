@@ -331,6 +331,18 @@ def convert_sqlalchemy_hybrid_property_type_time(arg):
     return Time
 
 
+@convert_sqlalchemy_hybrid_property_type.register(lambda x: getattr(x, '__origin__', None) == typing.Union)
+def convert_sqlalchemy_hybrid_property_type_option_t(arg):
+    # Option is actually Union[T, <class NoneType>]
+
+    # Just get the T out of the list of arguments by filtering out the NoneType
+    internal_type = next(filter(lambda x: not type(None) == x, arg.__args__))
+
+    graphql_internal_type = convert_sqlalchemy_hybrid_property_type(internal_type)
+
+    return graphql_internal_type
+
+
 @convert_sqlalchemy_hybrid_property_type.register(lambda x: getattr(x, '__origin__', None) in [list, typing.List])
 def convert_sqlalchemy_hybrid_property_type_list_t(arg):
     # type is either list[T] or List[T], generic argument at __args__[0]

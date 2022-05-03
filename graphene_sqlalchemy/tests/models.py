@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import datetime
 import enum
 from decimal import Decimal
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, String, Table,
                         func, select)
@@ -217,3 +217,9 @@ class ShoppingCart(Base):
     @hybrid_property
     def hybrid_prop_self_referential_list(self) -> List['ShoppingCart']:
         return [ShoppingCart(id=1)]
+
+    # Optional[T]
+
+    @hybrid_property
+    def hybrid_prop_optional_self_referential(self) -> Optional['ShoppingCart']:
+        return None
