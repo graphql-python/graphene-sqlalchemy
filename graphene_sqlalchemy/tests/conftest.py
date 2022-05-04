@@ -22,7 +22,7 @@ def reset_registry():
         return graphene.Field(graphene.Int)
 
 
-@pytest.yield_fixture(scope="function")
+@pytest.fixture(scope="function")
 def session_factory():
     engine = create_engine(test_db_url)
     Base.metadata.create_all(engine)

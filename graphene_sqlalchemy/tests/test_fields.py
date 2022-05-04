@@ -1,7 +1,7 @@
 import pytest
 from promise import Promise
 
-from graphene import ObjectType
+from graphene import NonNull, ObjectType
 from graphene.relay import Connection, Node
 
 from ..fields import (SQLAlchemyConnectionField,
@@ -24,6 +24,20 @@ class Editor(SQLAlchemyObjectType):
 ##
 # SQLAlchemyConnectionField
 ##
+
+
+def test_nonnull_sqlalachemy_connection():
+    field = SQLAlchemyConnectionField(NonNull(Pet.connection))
+    assert isinstance(field.type, NonNull)
+    assert issubclass(field.type.of_type, Connection)
+    assert field.type.of_type._meta.node is Pet
+
+
+def test_required_sqlalachemy_connection():
+    field = SQLAlchemyConnectionField(Pet.connection, required=True)
+    assert isinstance(field.type, NonNull)
+    assert issubclass(field.type.of_type, Connection)
+    assert field.type.of_type._meta.node is Pet
 
 
 def test_promise_connection_resolver():

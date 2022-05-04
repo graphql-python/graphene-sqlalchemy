@@ -1,13 +1,11 @@
 import pytest
-from graphql.backend import GraphQLCachedBackend, GraphQLCoreBackend
 
 import graphene
 from graphene import relay
 
-from ..fields import BatchSQLAlchemyConnectionField
 from ..types import SQLAlchemyObjectType
+from ..utils import is_sqlalchemy_version_less_than
 from .models import Article, HairKind, Pet, Reporter
-from .utils import is_sqlalchemy_version_less_than
 
 if is_sqlalchemy_version_less_than('1.2'):
     pytest.skip('SQL batching only works for SQLAlchemy 1.2+', allow_module_level=True)
@@ -18,19 +16,16 @@ def get_schema():
         class Meta:
             model = Reporter
             interfaces = (relay.Node,)
-            connection_field_factory = BatchSQLAlchemyConnectionField.from_relationship
 
     class ArticleType(SQLAlchemyObjectType):
         class Meta:
             model = Article
             interfaces = (relay.Node,)
-            connection_field_factory = BatchSQLAlchemyConnectionField.from_relationship
 
     class PetType(SQLAlchemyObjectType):
         class Meta:
             model = Pet
             interfaces = (relay.Node,)
-            connection_field_factory = BatchSQLAlchemyConnectionField.from_relationship
 
     class Query(graphene.ObjectType):
         articles = graphene.Field(graphene.List(ArticleType))
@@ -47,15 +42,12 @@ def get_schema():
 
 def benchmark_query(session_factory, benchmark, query):
     schema = get_schema()
-    cached_backend = GraphQLCachedBackend(GraphQLCoreBackend())
-    cached_backend.document_from_string(schema, query)  # Prime cache
 
     @benchmark
     def execute_query():
         result = schema.execute(
           query,
           context_value={"session": session_factory()},
-          backend=cached_backend,
         )
         assert not result.errors
 

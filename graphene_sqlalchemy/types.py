@@ -29,7 +29,7 @@ class ORMField(OrderedType):
     def __init__(
         self,
         model_attr=None,
-        type=None,
+        type_=None,
         required=None,
         description=None,
         deprecation_reason=None,
@@ -51,7 +51,7 @@ class ORMField(OrderedType):
                 class Meta:
                     model = MyModel
 
-                id = ORMField(type=graphene.Int)
+                id = ORMField(type_=graphene.Int)
                 name = ORMField(required=True)
 
         -> MyType.id will be of type Int (vs ID).
@@ -60,7 +60,7 @@ class ORMField(OrderedType):
         :param str model_attr:
             Name of the SQLAlchemy model attribute used to resolve this field.
             Default to the name of the attribute referencing the ORMField.
-        :param type:
+        :param type_:
             Default to the type mapping in converter.py.
         :param str description:
             Default to the `doc` attribute of the SQLAlchemy column property.
@@ -79,7 +79,7 @@ class ORMField(OrderedType):
         # The is only useful for documentation and auto-completion
         common_kwargs = {
             'model_attr': model_attr,
-            'type': type,
+            'type_': type_,
             'required': required,
             'description': description,
             'deprecation_reason': deprecation_reason,
@@ -222,9 +222,11 @@ class SQLAlchemyObjectType(ObjectType):
         _meta=None,
         **options
     ):
-        assert is_mapped_class(model), (
-            "You need to pass a valid SQLAlchemy Model in " '{}.Meta, received "{}".'
-        ).format(cls.__name__, model)
+        # Make sure model is a valid SQLAlchemy model
+        if not is_mapped_class(model):
+            raise ValueError(
+                "You need to pass a valid SQLAlchemy Model in " '{}.Meta, received "{}".'.format(cls.__name__, model)
+            )
 
         if not registry:
             registry = get_global_registry()

@@ -1,4 +1,5 @@
 import enum
+from typing import Dict, Union
 
 import pytest
 from sqlalchemy import Column, func, select, types
@@ -9,9 +10,11 @@ from sqlalchemy.orm import column_property, composite
 from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
 
 import graphene
+from graphene import Boolean, Float, Int, Scalar, String
 from graphene.relay import Node
-from graphene.types.datetime import DateTime
+from graphene.types.datetime import Date, DateTime, Time
 from graphene.types.json import JSONString
+from graphene.types.structures import List, Structure
 
 from ..converter import (convert_sqlalchemy_association_proxy,
                          convert_sqlalchemy_column,
@@ -21,7 +24,8 @@ from ..fields import (UnsortedSQLAlchemyConnectionField,
                       default_connection_field_factory)
 from ..registry import Registry, get_global_registry
 from ..types import SQLAlchemyObjectType
-from .models import Article, CompositeFullName, Pet, Reporter
+from .models import (Article, CompositeFullName, Pet, Reporter, ShoppingCart,
+                     ShoppingCartItem)
 
 
 def mock_resolver():
@@ -52,7 +56,7 @@ def test_should_unknown_sqlalchemy_field_raise_exception():
     re_err = "Don't know how to convert the SQLAlchemy field"
     with pytest.raises(Exception, match=re_err):
         # support legacy Binary type and subsequent LargeBinary
-        get_field(getattr(types, 'LargeBinary', types.Binary)())
+        get_field(getattr(types, 'LargeBinary', types.BINARY)())
 
 
 def test_should_date_convert_string():
@@ -360,6 +364,21 @@ def test_should_array_convert():
     assert field.type.of_type == graphene.Int
 
 
+def test_should_2d_array_convert():
+    field = get_field(types.ARRAY(types.Integer, dimensions=2))
+    assert isinstance(field.type, graphene.List)
+    assert isinstance(field.type.of_type, graphene.List)
+    assert field.type.of_type.of_type == graphene.Int
+
+
+def test_should_3d_array_convert():
+    field = get_field(types.ARRAY(types.Integer, dimensions=3))
+    assert isinstance(field.type, graphene.List)
+    assert isinstance(field.type.of_type, graphene.List)
+    assert isinstance(field.type.of_type.of_type, graphene.List)
+    assert field.type.of_type.of_type.of_type == graphene.Int
+
+
 def test_should_postgresql_json_convert():
     assert get_field(postgresql.JSON()).type == graphene.JSONString
 
@@ -405,3 +424,88 @@ def test_should_unknown_sqlalchemy_composite_raise_exception():
             Registry(),
             mock_resolver,
         )
+
+
+def test_sqlalchemy_hybrid_property_type_inference():
+    class ShoppingCartItemType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCartItem
+            interfaces = (Node,)
+
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCart
+            interfaces = (Node,)
+
+    #######################################################
+    # Check ShoppingCartItem's Properties and Return Types
+    #######################################################
+
+    shopping_cart_item_expected_types: Dict[str, Union[Scalar, Structure]] = {
+        'hybrid_prop_shopping_cart': List(ShoppingCartType)
+    }
+
+    assert sorted(list(ShoppingCartItemType._meta.fields.keys())) == sorted([
+        # Columns
+        "id",
+        # Append Hybrid Properties from Above
+        *shopping_cart_item_expected_types.keys()
+    ])
+
+    for hybrid_prop_name, hybrid_prop_expected_return_type in shopping_cart_item_expected_types.items():
+        hybrid_prop_field = ShoppingCartItemType._meta.fields[hybrid_prop_name]
+
+        # this is a simple way of showing the failed property name
+        # instead of having to unroll the loop.
+        assert (
+                (hybrid_prop_name, str(hybrid_prop_field.type)) ==
+                (hybrid_prop_name, str(hybrid_prop_expected_return_type))
+        )
+        assert hybrid_prop_field.description is None  # "doc" is ignored by hybrid property
+
+    ###################################################
+    # Check ShoppingCart's Properties and Return Types
+    ###################################################
+
+    shopping_cart_expected_types: Dict[str, Union[Scalar, Structure]] = {
+        # Basic types
+        "hybrid_prop_str": String,
+        "hybrid_prop_int": Int,
+        "hybrid_prop_float": Float,
+        "hybrid_prop_bool": Boolean,
+        "hybrid_prop_decimal": String,  # Decimals should be serialized Strings
+        "hybrid_prop_date": Date,
+        "hybrid_prop_time": Time,
+        "hybrid_prop_datetime": DateTime,
+        # Lists and Nested Lists
+        "hybrid_prop_list_int": List(Int),
+        "hybrid_prop_list_date": List(Date),
+        "hybrid_prop_nested_list_int": List(List(Int)),
+        "hybrid_prop_deeply_nested_list_int": List(List(List(Int))),
+        "hybrid_prop_first_shopping_cart_item": ShoppingCartItemType,
+        "hybrid_prop_shopping_cart_item_list": List(ShoppingCartItemType),
+        "hybrid_prop_unsupported_type_tuple": String,
+        # Self Referential List
+        "hybrid_prop_self_referential": ShoppingCartType,
+        "hybrid_prop_self_referential_list": List(ShoppingCartType),
+        # Optionals
+        "hybrid_prop_optional_self_referential": ShoppingCartType,
+    }
+
+    assert sorted(list(ShoppingCartType._meta.fields.keys())) == sorted([
+        # Columns
+        "id",
+        # Append Hybrid Properties from Above
+        *shopping_cart_expected_types.keys()
+    ])
+
+    for hybrid_prop_name, hybrid_prop_expected_return_type in shopping_cart_expected_types.items():
+        hybrid_prop_field = ShoppingCartType._meta.fields[hybrid_prop_name]
+
+        # this is a simple way of showing the failed property name
+        # instead of having to unroll the loop.
+        assert (
+                (hybrid_prop_name, str(hybrid_prop_field.type)) ==
+                (hybrid_prop_name, str(hybrid_prop_expected_return_type))
+        )
+        assert hybrid_prop_field.description is None  # "doc" is ignored by hybrid property
