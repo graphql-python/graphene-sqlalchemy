@@ -1,3 +1,4 @@
+import ast
 import contextlib
 import logging
 
@@ -9,8 +10,9 @@ from graphene import relay
 from ..fields import (BatchSQLAlchemyConnectionField,
                       default_connection_field_factory)
 from ..types import ORMField, SQLAlchemyObjectType
+from ..utils import is_sqlalchemy_version_less_than
 from .models import Article, HairKind, Pet, Reporter
-from .utils import is_sqlalchemy_version_less_than, to_std_dicts
+from .utils import remove_cache_miss_stat, to_std_dicts
 
 
 class MockLoggingHandler(logging.Handler):
@@ -75,7 +77,8 @@ if is_sqlalchemy_version_less_than('1.2'):
     pytest.skip('SQL batching only works for SQLAlchemy 1.2+', allow_module_level=True)
 
 
-def test_many_to_one(session_factory):
+@pytest.mark.asyncio
+async def test_many_to_one(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
@@ -103,7 +106,7 @@ def test_many_to_one(session_factory):
     with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
-        result = schema.execute("""
+        result = await schema.execute_async("""
           query {
             articles {
               headline
@@ -125,26 +128,12 @@ def test_many_to_one(session_factory):
         assert len(sql_statements) == 1
         return
 
-    assert messages == [
-      'BEGIN (implicit)',
+    if not is_sqlalchemy_version_less_than('1.4'):
+        messages[2] = remove_cache_miss_stat(messages[2])
+        messages[4] = remove_cache_miss_stat(messages[4])
 
-      'SELECT articles.id AS articles_id, '
-      'articles.headline AS articles_headline, '
-      'articles.pub_date AS articles_pub_date, '
-      'articles.reporter_id AS articles_reporter_id \n'
-      'FROM articles',
-      '()',
-
-      'SELECT reporters.id AS reporters_id, '
-      '(SELECT CAST(count(reporters.id) AS INTEGER) AS anon_2 \nFROM reporters) AS anon_1, '
-      'reporters.first_name AS reporters_first_name, '
-      'reporters.last_name AS reporters_last_name, '
-      'reporters.email AS reporters_email, '
-      'reporters.favorite_pet_kind AS reporters_favorite_pet_kind \n'
-      'FROM reporters \n'
-      'WHERE reporters.id IN (?, ?)',
-      '(1, 2)',
-    ]
+    assert ast.literal_eval(messages[2]) == ()
+    assert sorted(ast.literal_eval(messages[4])) == [1, 2]
 
     assert not result.errors
     result = to_std_dicts(result.data)
@@ -166,7 +155,8 @@ def test_many_to_one(session_factory):
     }
 
 
-def test_one_to_one(session_factory):
+@pytest.mark.asyncio
+async def test_one_to_one(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
@@ -194,7 +184,7 @@ def test_one_to_one(session_factory):
     with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
-        result = schema.execute("""
+        result = await schema.execute_async("""
           query {
             reporters {
               firstName
@@ -216,26 +206,12 @@ def test_one_to_one(session_factory):
         assert len(sql_statements) == 1
         return
 
-    assert messages == [
-      'BEGIN (implicit)',
+    if not is_sqlalchemy_version_less_than('1.4'):
+        messages[2] = remove_cache_miss_stat(messages[2])
+        messages[4] = remove_cache_miss_stat(messages[4])
 
-      'SELECT (SELECT CAST(count(reporters.id) AS INTEGER) AS anon_2 \nFROM reporters) AS anon_1, '
-      'reporters.id AS reporters_id, '
-      'reporters.first_name AS reporters_first_name, '
-      'reporters.last_name AS reporters_last_name, '
-      'reporters.email AS reporters_email, '
-      'reporters.favorite_pet_kind AS reporters_favorite_pet_kind \n'
-      'FROM reporters',
-      '()',
-
-      'SELECT articles.reporter_id AS articles_reporter_id, '
-      'articles.id AS articles_id, '
-      'articles.headline AS articles_headline, '
-      'articles.pub_date AS articles_pub_date \n'
-      'FROM articles \n'
-      'WHERE articles.reporter_id IN (?, ?)',
-      '(1, 2)'
-    ]
+    assert ast.literal_eval(messages[2]) == ()
+    assert sorted(ast.literal_eval(messages[4])) == [1, 2]
 
     assert not result.errors
     result = to_std_dicts(result.data)
@@ -257,7 +233,8 @@ def test_one_to_one(session_factory):
     }
 
 
-def test_one_to_many(session_factory):
+@pytest.mark.asyncio
+async def test_one_to_many(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
@@ -293,7 +270,7 @@ def test_one_to_many(session_factory):
     with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
-        result = schema.execute("""
+        result = await schema.execute_async("""
           query {
             reporters {
               firstName
@@ -319,26 +296,12 @@ def test_one_to_many(session_factory):
         assert len(sql_statements) == 1
         return
 
-    assert messages == [
-      'BEGIN (implicit)',
+    if not is_sqlalchemy_version_less_than('1.4'):
+        messages[2] = remove_cache_miss_stat(messages[2])
+        messages[4] = remove_cache_miss_stat(messages[4])
 
-      'SELECT (SELECT CAST(count(reporters.id) AS INTEGER) AS anon_2 \nFROM reporters) AS anon_1, '
-      'reporters.id AS reporters_id, '
-      'reporters.first_name AS reporters_first_name, '
-      'reporters.last_name AS reporters_last_name, '
-      'reporters.email AS reporters_email, '
-      'reporters.favorite_pet_kind AS reporters_favorite_pet_kind \n'
-      'FROM reporters',
-      '()',
-
-      'SELECT articles.reporter_id AS articles_reporter_id, '
-      'articles.id AS articles_id, '
-      'articles.headline AS articles_headline, '
-      'articles.pub_date AS articles_pub_date \n'
-      'FROM articles \n'
-      'WHERE articles.reporter_id IN (?, ?)',
-      '(1, 2)'
-    ]
+    assert ast.literal_eval(messages[2]) == ()
+    assert sorted(ast.literal_eval(messages[4])) == [1, 2]
 
     assert not result.errors
     result = to_std_dicts(result.data)
@@ -382,7 +345,8 @@ def test_one_to_many(session_factory):
     }
 
 
-def test_many_to_many(session_factory):
+@pytest.mark.asyncio
+async def test_many_to_many(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
@@ -420,7 +384,7 @@ def test_many_to_many(session_factory):
     with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
-        result = schema.execute("""
+        result = await schema.execute_async("""
           query {
             reporters {
               firstName
@@ -446,31 +410,12 @@ def test_many_to_many(session_factory):
         assert len(sql_statements) == 1
         return
 
-    assert messages == [
-      'BEGIN (implicit)',
+    if not is_sqlalchemy_version_less_than('1.4'):
+        messages[2] = remove_cache_miss_stat(messages[2])
+        messages[4] = remove_cache_miss_stat(messages[4])
 
-      'SELECT (SELECT CAST(count(reporters.id) AS INTEGER) AS anon_2 \nFROM reporters) AS anon_1, '
-      'reporters.id AS reporters_id, '
-      'reporters.first_name AS reporters_first_name, '
-      'reporters.last_name AS reporters_last_name, '
-      'reporters.email AS reporters_email, '
-      'reporters.favorite_pet_kind AS reporters_favorite_pet_kind \n'
-      'FROM reporters',
-      '()',
-
-      'SELECT reporters_1.id AS reporters_1_id, '
-      'pets.id AS pets_id, '
-      'pets.name AS pets_name, '
-      'pets.pet_kind AS pets_pet_kind, '
-      'pets.hair_kind AS pets_hair_kind, '
-      'pets.reporter_id AS pets_reporter_id \n'
-      'FROM reporters AS reporters_1 '
-      'JOIN association AS association_1 ON reporters_1.id = association_1.reporter_id '
-      'JOIN pets ON pets.id = association_1.pet_id \n'
-      'WHERE reporters_1.id IN (?, ?) '
-      'ORDER BY pets.id',
-      '(1, 2)'
-    ]
+    assert ast.literal_eval(messages[2]) == ()
+    assert sorted(ast.literal_eval(messages[4])) == [1, 2]
 
     assert not result.errors
     result = to_std_dicts(result.data)
@@ -586,7 +531,8 @@ def test_disable_batching_via_ormfield(session_factory):
     assert len(select_statements) == 2
 
 
-def test_connection_factory_field_overrides_batching_is_false(session_factory):
+@pytest.mark.asyncio
+async def test_connection_factory_field_overrides_batching_is_false(session_factory):
     session = session_factory()
     reporter_1 = Reporter(first_name='Reporter_1')
     session.add(reporter_1)
@@ -620,7 +566,7 @@ def test_connection_factory_field_overrides_batching_is_false(session_factory):
     with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
-        schema.execute("""
+        await schema.execute_async("""
           query {
             reporters {
               articles {

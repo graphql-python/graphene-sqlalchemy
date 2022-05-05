@@ -1,4 +1,4 @@
-import pkg_resources
+import re
 
 
 def to_std_dicts(value):
@@ -11,6 +11,7 @@ def to_std_dicts(value):
         return value
 
 
-def is_sqlalchemy_version_less_than(version_string):
-    """Check the installed SQLAlchemy version"""
-    return pkg_resources.get_distribution('SQLAlchemy').parsed_version < pkg_resources.parse_version(version_string)
+def remove_cache_miss_stat(message):
+    """Remove the stat from the echoed query message when the cache is missed for sqlalchemy version >= 1.4"""
+    # https://github.com/sqlalchemy/sqlalchemy/blob/990eb3d8813369d3b8a7776ae85fb33627443d30/lib/sqlalchemy/engine/default.py#L1177
+    return re.sub(r"\[generated in \d+.?\d*s\]\s", "", message)

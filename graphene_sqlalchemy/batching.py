@@ -1,7 +1,9 @@
+import aiodataloader
 import sqlalchemy
-from promise import dataloader, promise
 from sqlalchemy.orm import Session, strategies
 from sqlalchemy.orm.query import QueryContext
+
+from .utils import is_sqlalchemy_version_less_than
 
 
 def get_batch_resolver(relationship_prop):
@@ -10,10 +12,10 @@ def get_batch_resolver(relationship_prop):
     # This is so SQL string generation is cached under-the-hood via `bakery`
     selectin_loader = strategies.SelectInLoader(relationship_prop, (('lazy', 'selectin'),))
 
-    class RelationshipLoader(dataloader.DataLoader):
+    class RelationshipLoader(aiodataloader.DataLoader):
         cache = False
 
-        def batch_load_fn(self, parents):  # pylint: disable=method-hidden
+        async def batch_load_fn(self, parents):
             """
             Batch loads the relationships of all the parents as one SQL statement.
 
@@ -52,21 +54,36 @@ def get_batch_resolver(relationship_prop):
             states = [(sqlalchemy.inspect(parent), True) for parent in parents]
 
             # For our purposes, the query_context will only used to get the session
-            query_context = QueryContext(session.query(parent_mapper.entity))
+            query_context = None
+            if is_sqlalchemy_version_less_than('1.4'):
+                query_context = QueryContext(session.query(parent_mapper.entity))
+            else:
+                parent_mapper_query = session.query(parent_mapper.entity)
+                query_context = parent_mapper_query._compile_context()
 
-            selectin_loader._load_for_path(
-                query_context,
-                parent_mapper._path_registry,
-                states,
-                None,
-                child_mapper,
-            )
+            if is_sqlalchemy_version_less_than('1.4'):
+                selectin_loader._load_for_path(
+                    query_context,
+                    parent_mapper._path_registry,
+                    states,
+                    None,
+                    child_mapper
+                )
+            else:
+                selectin_loader._load_for_path(
+                    query_context,
+                    parent_mapper._path_registry,
+                    states,
+                    None,
+                    child_mapper,
+                    None
+                )
 
-            return promise.Promise.resolve([getattr(parent, relationship_prop.key) for parent in parents])
+            return [getattr(parent, relationship_prop.key) for parent in parents]
 
     loader = RelationshipLoader()
 
-    def resolve(root, info, **args):
-        return loader.load(root)
+    async def resolve(root, info, **args):
+        return await loader.load(root)
 
     return resolve

@@ -1,11 +1,14 @@
-import mock
-import pytest
-import six  # noqa F401
+from unittest import mock
 
-from graphene import (Dynamic, Field, GlobalID, Int, List, Node, NonNull,
-                      ObjectType, Schema, String)
+import pytest
+import sqlalchemy.exc
+import sqlalchemy.orm.exc
+
+from graphene import (Boolean, Dynamic, Field, Float, GlobalID, Int, List,
+                      Node, NonNull, ObjectType, Schema, String)
 from graphene.relay import Connection
 
+from .. import utils
 from ..converter import convert_sqlalchemy_composite
 from ..fields import (SQLAlchemyConnectionField,
                       UnsortedSQLAlchemyConnectionField, createConnectionField,
@@ -71,7 +74,7 @@ def test_sqlalchemy_default_fields():
             model = Article
             interfaces = (Node,)
 
-    assert list(ReporterType._meta.fields.keys()) == [
+    assert sorted(list(ReporterType._meta.fields.keys())) == sorted([
         # Columns
         "column_prop",  # SQLAlchemy retuns column properties first
         "id",
@@ -82,12 +85,18 @@ def test_sqlalchemy_default_fields():
         # Composite
         "composite_prop",
         # Hybrid
+        "hybrid_prop_with_doc",
         "hybrid_prop",
+        "hybrid_prop_str",
+        "hybrid_prop_int",
+        "hybrid_prop_float",
+        "hybrid_prop_bool",
+        "hybrid_prop_list",
         # Relationship
         "pets",
         "articles",
         "favorite_article",
-    ]
+    ])
 
     # column
     first_name_field = ReporterType._meta.fields['first_name']
@@ -111,6 +120,42 @@ def test_sqlalchemy_default_fields():
     assert hybrid_prop.type == String
     # "doc" is ignored by hybrid_property
     assert hybrid_prop.description is None
+
+    # hybrid_property_str
+    hybrid_prop_str = ReporterType._meta.fields['hybrid_prop_str']
+    assert hybrid_prop_str.type == String
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_str.description is None
+
+    # hybrid_property_int
+    hybrid_prop_int = ReporterType._meta.fields['hybrid_prop_int']
+    assert hybrid_prop_int.type == Int
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_int.description is None
+
+    # hybrid_property_float
+    hybrid_prop_float = ReporterType._meta.fields['hybrid_prop_float']
+    assert hybrid_prop_float.type == Float
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_float.description is None
+
+    # hybrid_property_bool
+    hybrid_prop_bool = ReporterType._meta.fields['hybrid_prop_bool']
+    assert hybrid_prop_bool.type == Boolean
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_bool.description is None
+
+    # hybrid_property_list
+    hybrid_prop_list = ReporterType._meta.fields['hybrid_prop_list']
+    assert hybrid_prop_list.type == List(Int)
+    # "doc" is ignored by hybrid_property
+    assert hybrid_prop_list.description is None
+
+    # hybrid_prop_with_doc
+    hybrid_prop_with_doc = ReporterType._meta.fields['hybrid_prop_with_doc']
+    assert hybrid_prop_with_doc.type == String
+    # docstring is picked up from hybrid_prop_with_doc
+    assert hybrid_prop_with_doc.description == "Docstring test"
 
     # relationship
     favorite_article_field = ReporterType._meta.fields['favorite_article']
@@ -136,15 +181,16 @@ def test_sqlalchemy_override_fields():
 
         # columns
         email = ORMField(deprecation_reason='Overridden')
-        email_v2 = ORMField(model_attr='email', type=Int)
+        email_v2 = ORMField(model_attr='email', type_=Int)
 
         # column_property
-        column_prop = ORMField(type=String)
+        column_prop = ORMField(type_=String)
 
         # composite
         composite_prop = ORMField()
 
         # hybrid_property
+        hybrid_prop_with_doc = ORMField(description='Overridden')
         hybrid_prop = ORMField(description='Overridden')
 
         # relationships
@@ -163,7 +209,7 @@ def test_sqlalchemy_override_fields():
             interfaces = (Node,)
             use_connection = False
 
-    assert list(ReporterType._meta.fields.keys()) == [
+    assert sorted(list(ReporterType._meta.fields.keys())) == sorted([
         # Fields from ReporterMixin
         "first_name",
         "last_name",
@@ -172,6 +218,7 @@ def test_sqlalchemy_override_fields():
         "email_v2",
         "column_prop",
         "composite_prop",
+        "hybrid_prop_with_doc",
         "hybrid_prop",
         "favorite_article",
         "articles",
@@ -179,7 +226,12 @@ def test_sqlalchemy_override_fields():
         # Then the automatic SQLAlchemy fields
         "id",
         "favorite_pet_kind",
-    ]
+        "hybrid_prop_str",
+        "hybrid_prop_int",
+        "hybrid_prop_float",
+        "hybrid_prop_bool",
+        "hybrid_prop_list",
+    ])
 
     first_name_field = ReporterType._meta.fields['first_name']
     assert isinstance(first_name_field.type, NonNull)
@@ -206,6 +258,11 @@ def test_sqlalchemy_override_fields():
     assert hybrid_prop_field.type == String
     assert hybrid_prop_field.description == "Overridden"
     assert hybrid_prop_field.deprecation_reason is None
+
+    hybrid_prop_with_doc_field = ReporterType._meta.fields['hybrid_prop_with_doc']
+    assert hybrid_prop_with_doc_field.type == String
+    assert hybrid_prop_with_doc_field.description == "Overridden"
+    assert hybrid_prop_with_doc_field.deprecation_reason is None
 
     column_prop_field_v2 = ReporterType._meta.fields['column_prop']
     assert column_prop_field_v2.type == String
@@ -268,18 +325,24 @@ def test_exclude_fields():
         first_name = ORMField()  # Takes precedence
         last_name = ORMField()  # Noop
 
-    assert list(ReporterType._meta.fields.keys()) == [
+    assert sorted(list(ReporterType._meta.fields.keys())) == sorted([
         "first_name",
         "last_name",
         "column_prop",
         "email",
         "favorite_pet_kind",
         "composite_prop",
+        "hybrid_prop_with_doc",
         "hybrid_prop",
+        "hybrid_prop_str",
+        "hybrid_prop_int",
+        "hybrid_prop_float",
+        "hybrid_prop_bool",
+        "hybrid_prop_list",
         "pets",
         "articles",
         "favorite_article",
-    ]
+    ])
 
 
 def test_only_and_exclude_fields():
@@ -384,7 +447,7 @@ def test_custom_objecttype_registered():
 
     assert issubclass(CustomReporterType, ObjectType)
     assert CustomReporterType._meta.model == Reporter
-    assert len(CustomReporterType._meta.fields) == 11
+    assert len(CustomReporterType._meta.fields) == 17
 
 
 # Test Custom SQLAlchemyObjectType with Custom Options
@@ -492,3 +555,65 @@ def test_deprecated_unregisterConnectionFieldFactory():
 def test_deprecated_createConnectionField():
     with pytest.warns(DeprecationWarning):
         createConnectionField(None)
+
+
+@mock.patch(utils.__name__ + '.class_mapper')
+def test_unique_errors_propagate(class_mapper_mock):
+    # Define unique error to detect
+    class UniqueError(Exception):
+        pass
+
+    # Mock class_mapper effect
+    class_mapper_mock.side_effect = UniqueError
+
+    # Make sure that errors are propagated from class_mapper when instantiating new classes
+    error = None
+    try:
+        class ArticleOne(SQLAlchemyObjectType):
+            class Meta(object):
+                model = Article
+    except UniqueError as e:
+        error = e
+
+    # Check that an error occured, and that it was the unique error we gave
+    assert error is not None
+    assert isinstance(error, UniqueError)
+
+
+@mock.patch(utils.__name__ + '.class_mapper')
+def test_argument_errors_propagate(class_mapper_mock):
+    # Mock class_mapper effect
+    class_mapper_mock.side_effect = sqlalchemy.exc.ArgumentError
+
+    # Make sure that errors are propagated from class_mapper when instantiating new classes
+    error = None
+    try:
+        class ArticleTwo(SQLAlchemyObjectType):
+            class Meta(object):
+                model = Article
+    except sqlalchemy.exc.ArgumentError as e:
+        error = e
+
+    # Check that an error occured, and that it was the unique error we gave
+    assert error is not None
+    assert isinstance(error, sqlalchemy.exc.ArgumentError)
+
+
+@mock.patch(utils.__name__ + '.class_mapper')
+def test_unmapped_errors_reformat(class_mapper_mock):
+    # Mock class_mapper effect
+    class_mapper_mock.side_effect = sqlalchemy.orm.exc.UnmappedClassError(object)
+
+    # Make sure that errors are propagated from class_mapper when instantiating new classes
+    error = None
+    try:
+        class ArticleThree(SQLAlchemyObjectType):
+            class Meta(object):
+                model = Article
+    except ValueError as e:
+        error = e
+
+    # Check that an error occured, and that it was the unique error we gave
+    assert error is not None
+    assert isinstance(error, ValueError)
+    assert "You need to pass a valid SQLAlchemy Model" in str(error)
