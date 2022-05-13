@@ -466,7 +466,7 @@ def test_custom_objecttype_registered():
 
     assert issubclass(CustomReporterType, ObjectType)
     assert CustomReporterType._meta.model == Reporter
-    assert len(CustomReporterType._meta.fields) == 17
+    assert len(CustomReporterType._meta.fields) == 18
 
 
 # Test Custom SQLAlchemyObjectType with Custom Options
