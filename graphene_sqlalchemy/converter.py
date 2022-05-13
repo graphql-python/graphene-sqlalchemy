@@ -164,6 +164,9 @@ def convert_sqlalchemy_hybrid_method(hybrid_prop, resolver, **field_kwargs):
     if 'type_' not in field_kwargs:
         field_kwargs['type_'] = convert_hybrid_property_return_type(hybrid_prop)
 
+    if 'description' not in field_kwargs:
+        field_kwargs['description'] = getattr(hybrid_prop, "__doc__", None)
+
     return Field(
         resolver=resolver,
         **field_kwargs

@@ -90,6 +90,7 @@ def test_sqlalchemy_default_fields():
         # Composite
         "composite_prop",
         # Hybrid
+        "hybrid_prop_with_doc",
         "hybrid_prop",
         "hybrid_prop_str",
         "hybrid_prop_int",
@@ -157,6 +158,12 @@ def test_sqlalchemy_default_fields():
     # "doc" is ignored by hybrid_property
     assert hybrid_prop_list.description is None
 
+    # hybrid_prop_with_doc
+    hybrid_prop_with_doc = ReporterType._meta.fields['hybrid_prop_with_doc']
+    assert hybrid_prop_with_doc.type == String
+    # docstring is picked up from hybrid_prop_with_doc
+    assert hybrid_prop_with_doc.description == "Docstring test"
+
     # relationship
     favorite_article_field = ReporterType._meta.fields['favorite_article']
     assert isinstance(favorite_article_field, Dynamic)
@@ -200,6 +207,7 @@ def test_sqlalchemy_override_fields():
         composite_prop = ORMField()
 
         # hybrid_property
+        hybrid_prop_with_doc = ORMField(description='Overridden')
         hybrid_prop = ORMField(description='Overridden')
 
         # relationships
@@ -227,6 +235,7 @@ def test_sqlalchemy_override_fields():
         "email_v2",
         "column_prop",
         "composite_prop",
+        "hybrid_prop_with_doc",
         "hybrid_prop",
         "favorite_article",
         "articles",
@@ -267,6 +276,11 @@ def test_sqlalchemy_override_fields():
     assert hybrid_prop_field.type == String
     assert hybrid_prop_field.description == "Overridden"
     assert hybrid_prop_field.deprecation_reason is None
+
+    hybrid_prop_with_doc_field = ReporterType._meta.fields['hybrid_prop_with_doc']
+    assert hybrid_prop_with_doc_field.type == String
+    assert hybrid_prop_with_doc_field.description == "Overridden"
+    assert hybrid_prop_with_doc_field.deprecation_reason is None
 
     column_prop_field_v2 = ReporterType._meta.fields['column_prop']
     assert column_prop_field_v2.type == String
@@ -336,6 +350,7 @@ def test_exclude_fields():
         "email",
         "favorite_pet_kind",
         "composite_prop",
+        "hybrid_prop_with_doc",
         "hybrid_prop",
         "hybrid_prop_str",
         "hybrid_prop_int",
