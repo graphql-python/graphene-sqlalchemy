@@ -124,15 +124,15 @@ async def test_many_to_one(session_factory):
         session = session_factory()
         result = await schema.execute_async(
             """
-          query {
-            articles {
-              headline
-              reporter {
-                firstName
+              query {
+                articles {
+                  headline
+                  reporter {
+                    firstName
+                  }
+                }
               }
-            }
-          }
-        """,
+            """,
             context_value={"session": session},
         )
         messages = sqlalchemy_logging_handler.messages
@@ -199,8 +199,8 @@ async def test_one_to_one(session_factory):
     article_2.reporter = reporter_2
     session.add(article_2)
 
-    session.commit()
-    session.close()
+    await eventually_await_session(session, "commit")
+    await eventually_await_session(session, "close")
 
     schema = get_schema()
 
@@ -291,9 +291,8 @@ async def test_one_to_many(session_factory):
     article_4 = Article(headline="Article_4")
     article_4.reporter = reporter_2
     session.add(article_4)
-
-    session.commit()
-    session.close()
+    await eventually_await_session(session, "commit")
+    await eventually_await_session(session, "close")
 
     schema = get_schema()
 
@@ -412,9 +411,8 @@ async def test_many_to_many(session_factory):
 
     reporter_2.pets.append(pet_3)
     reporter_2.pets.append(pet_4)
-
-    session.commit()
-    session.close()
+    await eventually_await_session(session, "commit")
+    await eventually_await_session(session, "close")
 
     schema = get_schema()
 
@@ -503,14 +501,15 @@ async def test_many_to_many(session_factory):
     }
 
 
-def test_disable_batching_via_ormfield(session_factory):
+@pytest.mark.asyncio
+async def test_disable_batching_via_ormfield(session_factory):
     session = session_factory()
     reporter_1 = Reporter(first_name="Reporter_1")
     session.add(reporter_1)
     reporter_2 = Reporter(first_name="Reporter_2")
     session.add(reporter_2)
-    session.commit()
-    session.close()
+    await eventually_await_session(session, "commit")
+    await eventually_await_session(session, "close")
 
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
@@ -563,7 +562,7 @@ def test_disable_batching_via_ormfield(session_factory):
     with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
-        schema.execute(
+        await schema.execute_async(
             """
           query {
             reporters {
@@ -596,8 +595,8 @@ async def test_connection_factory_field_overrides_batching_is_false(session_fact
     session.add(reporter_1)
     reporter_2 = Reporter(first_name="Reporter_2")
     session.add(reporter_2)
-    session.commit()
-    session.close()
+    await eventually_await_session(session, "commit")
+    await eventually_await_session(session, "close")
 
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
@@ -660,14 +659,15 @@ async def test_connection_factory_field_overrides_batching_is_false(session_fact
     assert len(select_statements) == 1
 
 
-def test_connection_factory_field_overrides_batching_is_true(session_factory):
+@pytest.mark.asyncio
+async def test_connection_factory_field_overrides_batching_is_true(session_factory):
     session = session_factory()
     reporter_1 = Reporter(first_name="Reporter_1")
     session.add(reporter_1)
     reporter_2 = Reporter(first_name="Reporter_2")
     session.add(reporter_2)
-    session.commit()
-    session.close()
+    await eventually_await_session(session, "commit")
+    await eventually_await_session(session, "close")
 
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
@@ -694,7 +694,7 @@ def test_connection_factory_field_overrides_batching_is_true(session_factory):
     with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
-        schema.execute(
+        await schema.execute_async(
             """
           query {
             reporters {
