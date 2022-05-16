@@ -1,6 +1,7 @@
 from collections import OrderedDict
 
 import sqlalchemy
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
                             RelationshipProperty)
@@ -20,7 +21,7 @@ from .enums import (enum_for_field, sort_argument_for_object_type,
                     sort_enum_for_object_type)
 from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
-from .utils import get_query, is_mapped_class, is_mapped_instance
+from .utils import get_query, get_session, is_mapped_class, is_mapped_instance
 
 
 class ORMField(OrderedType):
@@ -76,20 +77,28 @@ class ORMField(OrderedType):
         super(ORMField, self).__init__(_creation_counter=_creation_counter)
         # The is only useful for documentation and auto-completion
         common_kwargs = {
-            'model_attr': model_attr,
-            'type_': type_,
-            'required': required,
-            'description': description,
-            'deprecation_reason': deprecation_reason,
-            'batching': batching,
+            "model_attr": model_attr,
+            "type_": type_,
+            "required": required,
+            "description": description,
+            "deprecation_reason": deprecation_reason,
+            "batching": batching,
         }
-        common_kwargs = {kwarg: value for kwarg, value in common_kwargs.items() if value is not None}
+        common_kwargs = {
+            kwarg: value for kwarg, value in common_kwargs.items() if value is not None
+        }
         self.kwargs = field_kwargs
         self.kwargs.update(common_kwargs)
 
 
 def construct_fields(
-    obj_type, model, registry, only_fields, exclude_fields, batching, connection_field_factory
+    obj_type,
+    model,
+    registry,
+    only_fields,
+    exclude_fields,
+    batching,
+    connection_field_factory,
 ):
     """
     Construct all the fields for a SQLAlchemyObjectType.
@@ -110,17 +119,22 @@ def construct_fields(
     inspected_model = sqlalchemy.inspect(model)
     # Gather all the relevant attributes from the SQLAlchemy model in order
     all_model_attrs = OrderedDict(
-        inspected_model.column_attrs.items() +
-        inspected_model.composites.items() +
-        [(name, item) for name, item in inspected_model.all_orm_descriptors.items()
-            if isinstance(item, hybrid_property)] +
-        inspected_model.relationships.items()
+        inspected_model.column_attrs.items()
+        + inspected_model.composites.items()
+        + [
+            (name, item)
+            for name, item in inspected_model.all_orm_descriptors.items()
+            if isinstance(item, hybrid_property)
+        ]
+        + inspected_model.relationships.items()
     )
 
     # Filter out excluded fields
     auto_orm_field_names = []
     for attr_name, attr in all_model_attrs.items():
-        if (only_fields and attr_name not in only_fields) or (attr_name in exclude_fields):
+        if (only_fields and attr_name not in only_fields) or (
+            attr_name in exclude_fields
+        ):
             continue
         auto_orm_field_names.append(attr_name)
 
@@ -135,13 +149,15 @@ def construct_fields(
 
     # Set the model_attr if not set
     for orm_field_name, orm_field in custom_orm_fields_items:
-        attr_name = orm_field.kwargs.get('model_attr', orm_field_name)
+        attr_name = orm_field.kwargs.get("model_attr", orm_field_name)
         if attr_name not in all_model_attrs:
-            raise ValueError((
-                "Cannot map ORMField to a model attribute.\n"
-                "Field: '{}.{}'"
-            ).format(obj_type.__name__, orm_field_name,))
-        orm_field.kwargs['model_attr'] = attr_name
+            raise ValueError(
+                ("Cannot map ORMField to a model attribute.\n" "Field: '{}.{}'").format(
+                    obj_type.__name__,
+                    orm_field_name,
+                )
+            )
+        orm_field.kwargs["model_attr"] = attr_name
 
     # Merge automatic fields with custom ORM fields
     orm_fields = OrderedDict(custom_orm_fields_items)
@@ -153,27 +169,38 @@ def construct_fields(
     # Build all the field dictionary
     fields = OrderedDict()
     for orm_field_name, orm_field in orm_fields.items():
-        attr_name = orm_field.kwargs.pop('model_attr')
+        attr_name = orm_field.kwargs.pop("model_attr")
         attr = all_model_attrs[attr_name]
-        resolver = get_custom_resolver(obj_type, orm_field_name) or get_attr_resolver(obj_type, attr_name)
+        resolver = get_custom_resolver(obj_type, orm_field_name) or get_attr_resolver(
+            obj_type, attr_name
+        )
 
         if isinstance(attr, ColumnProperty):
-            field = convert_sqlalchemy_column(attr, registry, resolver, **orm_field.kwargs)
+            field = convert_sqlalchemy_column(
+                attr, registry, resolver, **orm_field.kwargs
+            )
         elif isinstance(attr, RelationshipProperty):
-            batching_ = orm_field.kwargs.pop('batching', batching)
+            batching_ = orm_field.kwargs.pop("batching", batching)
             field = convert_sqlalchemy_relationship(
-                attr, obj_type, connection_field_factory, batching_, orm_field_name, **orm_field.kwargs)
+                attr,
+                obj_type,
+                connection_field_factory,
+                batching_,
+                orm_field_name,
+                **orm_field.kwargs
+            )
         elif isinstance(attr, CompositeProperty):
             if attr_name != orm_field_name or orm_field.kwargs:
                 # TODO Add a way to override composite property fields
                 raise ValueError(
                     "ORMField kwargs for composite fields must be empty. "
-                    "Field: {}.{}".format(obj_type.__name__, orm_field_name))
+                    "Field: {}.{}".format(obj_type.__name__, orm_field_name)
+                )
             field = convert_sqlalchemy_composite(attr, registry, resolver)
         elif isinstance(attr, hybrid_property):
             field = convert_sqlalchemy_hybrid_method(attr, resolver, **orm_field.kwargs)
         else:
-            raise Exception('Property type is not supported')  # Should never happen
+            raise Exception("Property type is not supported")  # Should never happen
 
         registry.register_orm_field(obj_type, orm_field_name, attr)
         fields[orm_field_name] = field
@@ -210,7 +237,8 @@ class SQLAlchemyObjectType(ObjectType):
         # Make sure model is a valid SQLAlchemy model
         if not is_mapped_class(model):
             raise ValueError(
-                "You need to pass a valid SQLAlchemy Model in " '{}.Meta, received "{}".'.format(cls.__name__, model)
+                "You need to pass a valid SQLAlchemy Model in "
+                '{}.Meta, received "{}".'.format(cls.__name__, model)
             )
 
         if not registry:
@@ -222,7 +250,9 @@ class SQLAlchemyObjectType(ObjectType):
         ).format(cls.__name__, registry)
 
         if only_fields and exclude_fields:
-            raise ValueError("The options 'only_fields' and 'exclude_fields' cannot be both set on the same type.")
+            raise ValueError(
+                "The options 'only_fields' and 'exclude_fields' cannot be both set on the same type."
+            )
 
         sqla_fields = yank_fields_from_attrs(
             construct_fields(
@@ -294,7 +324,10 @@ class SQLAlchemyObjectType(ObjectType):
         return get_query(model, info.context)
 
     @classmethod
-    def get_node(cls, info, id):
+    async def get_node(cls, info, id):
+        session = get_session(info.context)
+        if isinstance(session, AsyncSession):
+            return await session.get(cls._meta.model, id)
         try:
             return cls.get_query(info).get(id)
         except NoResultFound:

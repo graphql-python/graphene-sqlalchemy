@@ -1,36 +1,40 @@
+import pytest
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 import graphene
 from graphene.relay import Node
 
 from ..converter import convert_sqlalchemy_composite
 from ..fields import SQLAlchemyConnectionField
 from ..types import ORMField, SQLAlchemyObjectType
+from ..utils import get_session
 from .models import Article, CompositeFullName, Editor, HairKind, Pet, Reporter
-from .utils import to_std_dicts
+from .utils import eventually_await_session, to_std_dicts
 
 
-def add_test_data(session):
-    reporter = Reporter(
-        first_name='John', last_name='Doe', favorite_pet_kind='cat')
+async def add_test_data(session):
+    reporter = Reporter(first_name="John", last_name="Doe", favorite_pet_kind="cat")
     session.add(reporter)
-    pet = Pet(name='Garfield', pet_kind='cat', hair_kind=HairKind.SHORT)
+    pet = Pet(name="Garfield", pet_kind="cat", hair_kind=HairKind.SHORT)
     session.add(pet)
     pet.reporters.append(reporter)
-    article = Article(headline='Hi!')
+    article = Article(headline="Hi!")
     article.reporter = reporter
     session.add(article)
-    reporter = Reporter(
-        first_name='Jane', last_name='Roe', favorite_pet_kind='dog')
+    reporter = Reporter(first_name="Jane", last_name="Roe", favorite_pet_kind="dog")
     session.add(reporter)
-    pet = Pet(name='Lassie', pet_kind='dog', hair_kind=HairKind.LONG)
+    pet = Pet(name="Lassie", pet_kind="dog", hair_kind=HairKind.LONG)
     pet.reporters.append(reporter)
     session.add(pet)
     editor = Editor(name="Jack")
     session.add(editor)
-    session.commit()
+    await eventually_await_session(session, "commit")
 
 
-def test_query_fields(session):
-    add_test_data(session)
+@pytest.mark.asyncio
+async def test_query_fields(session):
+    await add_test_data(session)
 
     @convert_sqlalchemy_composite.register(CompositeFullName)
     def convert_composite_class(composite, registry):
@@ -44,10 +48,16 @@ def test_query_fields(session):
         reporter = graphene.Field(ReporterType)
         reporters = graphene.List(ReporterType)
 
-        def resolve_reporter(self, _info):
+        async def resolve_reporter(self, _info):
+            session = get_session(_info.context)
+            if isinstance(session, AsyncSession):
+                return (await session.scalars(select(Reporter))).unique().first()
             return session.query(Reporter).first()
 
-        def resolve_reporters(self, _info):
+        async def resolve_reporters(self, _info):
+            session = get_session(_info.context)
+            if isinstance(session, AsyncSession):
+                return (await session.scalars(select(Reporter))).unique().all()
             return session.query(Reporter)
 
     query = """
@@ -73,14 +83,15 @@ def test_query_fields(session):
         "reporters": [{"firstName": "John"}, {"firstName": "Jane"}],
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query)
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
-def test_query_node(session):
-    add_test_data(session)
+@pytest.mark.asyncio
+async def test_query_node(session):
+    await add_test_data(session)
 
     class ReporterNode(SQLAlchemyObjectType):
         class Meta:
@@ -101,7 +112,10 @@ def test_query_node(session):
         reporter = graphene.Field(ReporterNode)
         all_articles = SQLAlchemyConnectionField(ArticleNode.connection)
 
-        def resolve_reporter(self, _info):
+        async def resolve_reporter(self, _info):
+            session = get_session(_info.context)
+            if isinstance(session, AsyncSession):
+                return (await session.scalars(select(Reporter))).first()
             return session.query(Reporter).first()
 
     query = """
@@ -145,14 +159,15 @@ def test_query_node(session):
         "myArticle": {"id": "QXJ0aWNsZU5vZGU6MQ==", "headline": "Hi!"},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
-def test_orm_field(session):
-    add_test_data(session)
+@pytest.mark.asyncio
+async def test_orm_field(session):
+    await add_test_data(session)
 
     @convert_sqlalchemy_composite.register(CompositeFullName)
     def convert_composite_class(composite, registry):
@@ -163,12 +178,12 @@ def test_orm_field(session):
             model = Reporter
             interfaces = (Node,)
 
-        first_name_v2 = ORMField(model_attr='first_name')
-        hybrid_prop_v2 = ORMField(model_attr='hybrid_prop')
-        column_prop_v2 = ORMField(model_attr='column_prop')
+        first_name_v2 = ORMField(model_attr="first_name")
+        hybrid_prop_v2 = ORMField(model_attr="hybrid_prop")
+        column_prop_v2 = ORMField(model_attr="column_prop")
         composite_prop = ORMField()
-        favorite_article_v2 = ORMField(model_attr='favorite_article')
-        articles_v2 = ORMField(model_attr='articles')
+        favorite_article_v2 = ORMField(model_attr="favorite_article")
+        articles_v2 = ORMField(model_attr="articles")
 
     class ArticleType(SQLAlchemyObjectType):
         class Meta:
@@ -178,7 +193,10 @@ def test_orm_field(session):
     class Query(graphene.ObjectType):
         reporter = graphene.Field(ReporterType)
 
-        def resolve_reporter(self, _info):
+        async def resolve_reporter(self, _info):
+            session = get_session(_info.context)
+            if isinstance(session, AsyncSession):
+                return (await session.scalars(select(Reporter))).first()
             return session.query(Reporter).first()
 
     query = """
@@ -212,14 +230,15 @@ def test_orm_field(session):
         },
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
-def test_custom_identifier(session):
-    add_test_data(session)
+@pytest.mark.asyncio
+async def test_custom_identifier(session):
+    await add_test_data(session)
 
     class EditorNode(SQLAlchemyObjectType):
         class Meta:
@@ -253,14 +272,15 @@ def test_custom_identifier(session):
     }
 
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
-def test_mutation(session):
-    add_test_data(session)
+@pytest.mark.asyncio
+async def test_mutation(session, session_factory):
+    await add_test_data(session)
 
     class EditorNode(SQLAlchemyObjectType):
         class Meta:
@@ -273,8 +293,11 @@ def test_mutation(session):
             interfaces = (Node,)
 
         @classmethod
-        def get_node(cls, id, info):
-            return Reporter(id=2, first_name="Cookie Monster")
+        async def get_node(cls, id, info):
+            session = get_session(info.context)
+            if isinstance(session, AsyncSession):
+                return (await session.scalars(select(Reporter))).unique().first()
+            return session.query(Reporter).first()
 
     class ArticleNode(SQLAlchemyObjectType):
         class Meta:
@@ -289,11 +312,14 @@ def test_mutation(session):
         ok = graphene.Boolean()
         article = graphene.Field(ArticleNode)
 
-        def mutate(self, info, headline, reporter_id):
+        async def mutate(self, info, headline, reporter_id):
+            reporter = await ReporterNode.get_node(reporter_id, info)
             new_article = Article(headline=headline, reporter_id=reporter_id)
+            reporter.articles = [*reporter.articles, new_article]
+            session = get_session(info.context)
+            session.add(reporter)
 
-            session.add(new_article)
-            session.commit()
+            await eventually_await_session(session, "commit")
             ok = True
 
             return CreateArticle(article=new_article, ok=ok)
@@ -332,7 +358,9 @@ def test_mutation(session):
     }
 
     schema = graphene.Schema(query=Query, mutation=Mutation)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(
+        query, context_value={"session": session_factory()}
+    )
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected

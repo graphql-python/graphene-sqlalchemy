@@ -4,7 +4,9 @@ from collections import OrderedDict
 from typing import Any, Callable, Dict, Optional
 
 import pkg_resources
+from sqlalchemy import select
 from sqlalchemy.exc import ArgumentError
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
 
@@ -24,6 +26,8 @@ def get_query(model, context):
                 "A query in the model Base or a session in the schema is required for querying.\n"
                 "Read more http://docs.graphene-python.org/projects/sqlalchemy/en/latest/tips/#querying"
             )
+        if isinstance(session, AsyncSession):
+            return select(model)
         query = session.query(model)
     return query
 
@@ -154,7 +158,9 @@ def sort_argument_for_model(cls, has_default=True):
 
 def is_sqlalchemy_version_less_than(version_string):
     """Check the installed SQLAlchemy version"""
-    return pkg_resources.get_distribution('SQLAlchemy').parsed_version < pkg_resources.parse_version(version_string)
+    return pkg_resources.get_distribution(
+        "SQLAlchemy"
+    ).parsed_version < pkg_resources.parse_version(version_string)
 
 
 class singledispatchbymatchfunction:
@@ -178,7 +184,6 @@ class singledispatchbymatchfunction:
         return self.default(*args, **kwargs)
 
     def register(self, matcher_function: Callable[[Any], bool]):
-
         def grab_function_from_outside(f):
             self.registry[matcher_function] = f
             return self
@@ -188,7 +193,7 @@ class singledispatchbymatchfunction:
 
 def value_equals(value):
     """A simple function that makes the equality based matcher functions for
-     SingleDispatchByMatchFunction prettier"""
+    SingleDispatchByMatchFunction prettier"""
     return lambda x: x == value
 
 
@@ -198,11 +203,17 @@ def safe_isinstance(cls):
             return isinstance(arg, cls)
         except TypeError:
             pass
+
     return safe_isinstance_checker
 
 
 def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:
     try:
-        return next(filter(lambda x: x.__name__ == model_name, list(get_global_registry()._registry.keys())))
+        return next(
+            filter(
+                lambda x: x.__name__ == model_name,
+                list(get_global_registry()._registry.keys()),
+            )
+        )
     except StopIteration:
         pass

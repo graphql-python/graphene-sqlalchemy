@@ -3,6 +3,8 @@ import warnings
 from functools import partial
 
 from promise import Promise, is_thenable
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.query import Query
 
 from graphene import NonNull
@@ -11,7 +13,7 @@ from graphene.relay.connection import connection_adapter, page_info_adapter
 from graphql_relay import connection_from_array_slice
 
 from .batching import get_batch_resolver
-from .utils import EnumValue, get_query
+from .utils import EnumValue, get_query, get_session
 
 
 class UnsortedSQLAlchemyConnectionField(ConnectionField):
@@ -26,9 +28,7 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
         assert issubclass(nullable_type, SQLAlchemyObjectType), (
             "SQLALchemyConnectionField only accepts SQLAlchemyObjectType types, not {}"
         ).format(nullable_type.__name__)
-        assert (
-            nullable_type.connection
-        ), "The type {} doesn't have a connection".format(
+        assert nullable_type.connection, "The type {} doesn't have a connection".format(
             nullable_type.__name__
         )
         assert type_ == nullable_type, (
@@ -46,9 +46,15 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
         return get_query(model, info.context)
 
     @classmethod
-    def resolve_connection(cls, connection_type, model, info, args, resolved):
+    async def resolve_connection(cls, connection_type, model, info, args, resolved):
+        session = get_session(info.context)
         if resolved is None:
-            resolved = cls.get_query(model, info, **args)
+            if isinstance(session, AsyncSession):
+                resolved = (
+                    await session.scalars(cls.get_query(model, info, **args))
+                ).all()
+            else:
+                resolved = cls.get_query(model, info, **args)
         if isinstance(resolved, Query):
             _len = resolved.count()
         else:
@@ -111,7 +117,11 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
 
     @classmethod
     def get_query(cls, model, info, sort=None, **args):
-        query = get_query(model, info.context)
+        session = get_session(info.context)
+        if isinstance(session, AsyncSession):
+            query = select(model)
+        else:
+            query = get_query(model, info.context)
         if sort is not None:
             if not isinstance(sort, list):
                 sort = [sort]
@@ -148,7 +158,11 @@ class BatchSQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
     def from_relationship(cls, relationship, registry, **field_kwargs):
         model = relationship.mapper.entity
         model_type = registry.get_type_for_model(model)
-        return cls(model_type.connection, resolver=get_batch_resolver(relationship), **field_kwargs)
+        return cls(
+            model_type.connection,
+            resolver=get_batch_resolver(relationship),
+            **field_kwargs,
+        )
 
 
 def default_connection_field_factory(relationship, registry, **field_kwargs):
@@ -163,8 +177,8 @@ __connectionFactory = UnsortedSQLAlchemyConnectionField
 
 def createConnectionField(type_, **field_kwargs):
     warnings.warn(
-        'createConnectionField is deprecated and will be removed in the next '
-        'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.',
+        "createConnectionField is deprecated and will be removed in the next "
+        "major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.",
         DeprecationWarning,
     )
     return __connectionFactory(type_, **field_kwargs)
@@ -172,8 +186,8 @@ def createConnectionField(type_, **field_kwargs):
 
 def registerConnectionFieldFactory(factoryMethod):
     warnings.warn(
-        'registerConnectionFieldFactory is deprecated and will be removed in the next '
-        'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.',
+        "registerConnectionFieldFactory is deprecated and will be removed in the next "
+        "major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.",
         DeprecationWarning,
     )
     global __connectionFactory
@@ -182,8 +196,8 @@ def registerConnectionFieldFactory(factoryMethod):
 
 def unregisterConnectionFieldFactory():
     warnings.warn(
-        'registerConnectionFieldFactory is deprecated and will be removed in the next '
-        'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.',
+        "registerConnectionFieldFactory is deprecated and will be removed in the next "
+        "major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.",
         DeprecationWarning,
     )
     global __connectionFactory
