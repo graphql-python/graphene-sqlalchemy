@@ -53,5 +53,15 @@ async def session_factory(async_session: bool, test_db_url: str):
 
 
 @pytest.fixture(scope="function")
+async def sync_session_factory():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    yield sessionmaker(bind=engine, expire_on_commit=False)
+    # SQLite in-memory db is deleted when its connection is closed.
+    # https://www.sqlite.org/inmemorydb.html
+    engine.dispose()
+
+
+@pytest.fixture(scope="function")
 def session(session_factory):
     return session_factory()
