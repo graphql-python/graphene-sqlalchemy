@@ -1,8 +1,8 @@
 default_language_version:
-    python: python3.7
+    python: python3.10
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: c8bad492e1b1d65d9126dba3fe3bd49a5a52b9d6  # v2.1.0
+    rev: v4.2.0
     hooks:
     -   id: check-merge-conflict
     -   id: check-yaml
@@ -12,14 +12,11 @@ repos:
     -   id: trailing-whitespace
         exclude: README.md
 -   repo: https://github.com/PyCQA/flake8
-    rev: 88caf5ac484f5c09aedc02167c59c66ff0af0068  # 3.7.7
+    rev: v4.0.0
     hooks:
     -   id: flake8
--   repo: https://github.com/asottile/seed-isort-config
-    rev: v1.7.0
+  - repo: https://github.com/pycqa/isort
+    rev: 5.10.1
     hooks:
-    -   id: seed-isort-config
--   repo: https://github.com/pre-commit/mirrors-isort
-    rev: v4.3.4
-    hooks:
-    -   id: isort
+      - id: isort
+        name: isort (python)
