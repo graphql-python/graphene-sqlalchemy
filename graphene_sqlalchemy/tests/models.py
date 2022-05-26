@@ -69,6 +69,11 @@ class Reporter(Base):
     favorite_article = relationship("Article", uselist=False)
 
     @hybrid_property
+    def hybrid_prop_with_doc(self):
+        """Docstring test"""
+        return self.first_name
+
+    @hybrid_property
     def hybrid_prop(self):
         return self.first_name
 
