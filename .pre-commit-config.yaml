@@ -1,20 +1,20 @@
 default_language_version:
-    python: python3.10
+  python: python3.10
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.2.0
     hooks:
-    -   id: check-merge-conflict
-    -   id: check-yaml
-    -   id: debug-statements
-    -   id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: debug-statements
+      - id: end-of-file-fixer
         exclude: ^docs/.*$
-    -   id: trailing-whitespace
+      - id: trailing-whitespace
         exclude: README.md
--   repo: https://github.com/PyCQA/flake8
-    rev: v4.0.0
+  - repo: https://github.com/PyCQA/flake8
+    rev: 4.0.0
     hooks:
-    -   id: flake8
+      - id: flake8
   - repo: https://github.com/pycqa/isort
     rev: 5.10.1
     hooks:

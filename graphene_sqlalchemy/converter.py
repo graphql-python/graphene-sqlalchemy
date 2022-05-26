@@ -29,7 +29,8 @@ except ImportError:
     from typing import _ForwardRef as ForwardRef
 
 try:
-    from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, TSVectorType
+    from sqlalchemy_utils import (ChoiceType, JSONType, ScalarListType,
+                                  TSVectorType)
 except ImportError:
     ChoiceType = JSONType = ScalarListType = TSVectorType = object
 

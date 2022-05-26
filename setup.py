@@ -41,7 +41,6 @@ setup(
         "Intended Audience :: Developers",
         "Topic :: Software Development :: Libraries",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
@@ -54,8 +53,8 @@ setup(
     extras_require={
         "dev": [
             "tox==3.7.0",  # Should be kept in sync with tox.ini
-            "pre-commit==1.14.4",
-            "flake8==3.7.9",
+            "pre-commit==2.19",
+            "flake8==4.0.0",
         ],
         "test": tests_require,
     },
