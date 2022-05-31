@@ -3,7 +3,6 @@ import warnings
 from functools import partial
 
 from promise import Promise, is_thenable
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.query import Query
 
@@ -117,11 +116,7 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
 
     @classmethod
     def get_query(cls, model, info, sort=None, **args):
-        session = get_session(info.context)
-        if isinstance(session, AsyncSession):
-            query = select(model)
-        else:
-            query = get_query(model, info.context)
+        query = get_query(model, info.context)
         if sort is not None:
             if not isinstance(sort, list):
                 sort = [sort]
