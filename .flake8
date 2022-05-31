@@ -1,0 +1,4 @@
+[flake8]
+ignore = E203,W503
+exclude = .git,.mypy_cache,.pytest_cache,.tox,.venv,__pycache__,build,dist,docs
+max-line-length = 88
