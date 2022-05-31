@@ -1,14 +1,17 @@
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 import graphene
 from graphene_sqlalchemy.tests.utils import eventually_await_session
-from graphene_sqlalchemy.utils import get_session
+from graphene_sqlalchemy.utils import (get_session,
+                                       is_sqlalchemy_version_less_than)
 
 from ..types import SQLAlchemyObjectType
 from .models import HairKind, Pet, Reporter
 from .test_query import add_test_data, to_std_dicts
+
+if not is_sqlalchemy_version_less_than("1.4"):
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.mark.asyncio
@@ -33,19 +36,19 @@ async def test_query_pet_kinds(session, session_factory):
 
         async def resolve_reporter(self, _info):
             session = get_session(_info.context)
-            if isinstance(session, AsyncSession):
+            if not is_sqlalchemy_version_less_than("1.4") and isinstance(session, AsyncSession):
                 return (await session.scalars(select(Reporter))).unique().first()
             return session.query(Reporter).first()
 
         async def resolve_reporters(self, _info):
             session = get_session(_info.context)
-            if isinstance(session, AsyncSession):
+            if not is_sqlalchemy_version_less_than("1.4") and isinstance(session, AsyncSession):
                 return (await session.scalars(select(Reporter))).unique().all()
             return session.query(Reporter)
 
         async def resolve_pets(self, _info, kind):
             session = get_session(_info.context)
-            if isinstance(session, AsyncSession):
+            if not is_sqlalchemy_version_less_than("1.4") and isinstance(session, AsyncSession):
                 query = select(Pet)
                 if kind:
                     query = query.filter(Pet.pet_kind == kind.value)
@@ -118,7 +121,7 @@ async def test_query_more_enums(session):
 
         async def resolve_pet(self, _info):
             session = get_session(_info.context)
-            if isinstance(session, AsyncSession):
+            if not is_sqlalchemy_version_less_than("1.4") and isinstance(session, AsyncSession):
                 return (await session.scalars(select(Pet))).first()
             return session.query(Pet).first()
 
@@ -154,7 +157,7 @@ async def test_enum_as_argument(session):
 
         async def resolve_pet(self, info, kind=None):
             session = get_session(info.context)
-            if isinstance(session, AsyncSession):
+            if not is_sqlalchemy_version_less_than("1.4") and isinstance(session, AsyncSession):
                 query = select(Pet)
                 if kind:
                     query = query.filter(Pet.pet_kind == kind.value)
@@ -206,7 +209,7 @@ async def test_py_enum_as_argument(session):
 
         async def resolve_pet(self, _info, kind=None):
             session = get_session(_info.context)
-            if isinstance(session, AsyncSession):
+            if not is_sqlalchemy_version_less_than("1.4") and isinstance(session, AsyncSession):
                 return (
                     await session.scalars(
                         select(Pet).filter(Pet.hair_kind == HairKind(kind))

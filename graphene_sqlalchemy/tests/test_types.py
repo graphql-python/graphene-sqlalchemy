@@ -4,7 +4,6 @@ import pytest
 import sqlalchemy.exc
 import sqlalchemy.orm.exc
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from graphene import (Boolean, Dynamic, Field, Float, GlobalID, Int, List,
                       Node, NonNull, ObjectType, Schema, String)
@@ -17,8 +16,12 @@ from ..fields import (SQLAlchemyConnectionField,
                       registerConnectionFieldFactory,
                       unregisterConnectionFieldFactory)
 from ..types import ORMField, SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
+from ..utils import is_sqlalchemy_version_less_than
 from .models import Article, CompositeFullName, Pet, Reporter
 from .utils import eventually_await_session
+
+if not is_sqlalchemy_version_less_than("1.4"):
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def test_should_raise_if_no_model():
@@ -420,7 +423,9 @@ async def test_resolvers(session):
 
         async def resolve_reporter(self, _info):
             session = utils.get_session(_info.context)
-            if isinstance(session, AsyncSession):
+            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
+                session, AsyncSession
+            ):
                 return (await session.scalars(select(Reporter))).unique().first()
             return session.query(Reporter).first()
 
@@ -489,9 +494,9 @@ def test_objecttype_with_custom_options():
         def __init_subclass_with_meta__(cls, custom_option=None, **options):
             _meta = CustomOptions(cls)
             _meta.custom_option = custom_option
-            super(SQLAlchemyObjectTypeWithCustomOptions, cls).__init_subclass_with_meta__(
-                _meta=_meta, **options
-            )
+            super(
+                SQLAlchemyObjectTypeWithCustomOptions, cls
+            ).__init_subclass_with_meta__(_meta=_meta, **options)
 
     class ReporterWithCustomOptions(SQLAlchemyObjectTypeWithCustomOptions):
         class Meta:

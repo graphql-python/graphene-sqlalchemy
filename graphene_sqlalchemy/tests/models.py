@@ -69,10 +69,10 @@ class Reporter(Base):
         secondary=association_table,
         backref="reporters",
         order_by="Pet.id",
-        lazy="joined",
+        lazy="selectin",
     )
-    articles = relationship("Article", backref="reporter", lazy="joined")
-    favorite_article = relationship("Article", uselist=False, lazy="joined")
+    articles = relationship("Article", backref="reporter", lazy="selectin")
+    favorite_article = relationship("Article", uselist=False, lazy="selectin")
 
     @hybrid_property
     def hybrid_prop_with_doc(self):
@@ -107,7 +107,9 @@ class Reporter(Base):
         select([func.cast(func.count(id), Integer)]), doc="Column property"
     )
 
-    composite_prop = composite(CompositeFullName, first_name, last_name, doc="Composite")
+    composite_prop = composite(
+        CompositeFullName, first_name, last_name, doc="Composite"
+    )
 
 
 class Article(Base):

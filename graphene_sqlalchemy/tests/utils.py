@@ -1,6 +1,5 @@
+import inspect
 import re
-
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def to_std_dicts(value):
@@ -20,7 +19,8 @@ def remove_cache_miss_stat(message):
 
 
 async def eventually_await_session(session, func, *args):
-    if isinstance(session, AsyncSession):
+
+    if inspect.iscoroutinefunction(getattr(session, func)):
         await getattr(session, func)(*args)
     else:
         getattr(session, func)(*args)

@@ -1,6 +1,5 @@
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 import graphene
 from graphene import relay
@@ -10,6 +9,8 @@ from ..utils import get_session, is_sqlalchemy_version_less_than
 from .models import Article, HairKind, Pet, Reporter
 from .utils import eventually_await_session
 
+if not is_sqlalchemy_version_less_than("1.4"):
+    from sqlalchemy.ext.asyncio import AsyncSession
 if is_sqlalchemy_version_less_than("1.2"):
     pytest.skip("SQL batching only works for SQLAlchemy 1.2+", allow_module_level=True)
 
@@ -36,13 +37,17 @@ def get_schema():
 
         async def resolve_articles(self, info):
             session = get_session(info.context)
-            if isinstance(session, AsyncSession):
+            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
+                session, AsyncSession
+            ):
                 return (await session.scalars(select(Article))).all()
             return session.query(Article).all()
 
         async def resolve_reporters(self, info):
             session = get_session(info.context)
-            if isinstance(session, AsyncSession):
+            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
+                session, AsyncSession
+            ):
                 return (await session.scalars(select(Reporter))).all()
             return session.query(Reporter).all()
 
@@ -63,7 +68,6 @@ async def benchmark_query(session_factory, benchmark, query):
 
 @pytest.mark.asyncio
 async def test_one_to_one(session_factory, benchmark):
-    print(is_sqlalchemy_version_less_than("1.4"))
     session = session_factory()
 
     reporter_1 = Reporter(

@@ -4,7 +4,6 @@ import logging
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 import graphene
 from graphene import relay
@@ -13,8 +12,11 @@ from ..fields import (BatchSQLAlchemyConnectionField,
                       default_connection_field_factory)
 from ..types import ORMField, SQLAlchemyObjectType
 from ..utils import get_session, is_sqlalchemy_version_less_than
-from .models import Article, HairKind, Pet, Reporter
+from .models_batching import Article, HairKind, Pet, Reporter
 from .utils import remove_cache_miss_stat, to_std_dicts
+
+if not is_sqlalchemy_version_less_than("1.4"):
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class MockLoggingHandler(logging.Handler):
@@ -69,13 +71,17 @@ def get_schema():
 
         async def resolve_articles(self, info):
             session = get_session(info.context)
-            if isinstance(session, AsyncSession):
+            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
+                session, AsyncSession
+            ):
                 return (await session.scalars(select(Article))).all()
             return session.query(Article).all()
 
         async def resolve_reporters(self, info):
             session = get_session(info.context)
-            if isinstance(session, AsyncSession):
+            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
+                session, AsyncSession
+            ):
                 return (await session.scalars(select(Reporter))).all()
             return session.query(Reporter).all()
 
@@ -87,7 +93,7 @@ if is_sqlalchemy_version_less_than("1.2"):
 
 
 async def eventually_await_session(session, func, *args):
-    if isinstance(session, AsyncSession):
+    if not is_sqlalchemy_version_less_than("1.4") and isinstance(session, AsyncSession):
         await getattr(session, func)(*args)
     else:
         getattr(session, func)(*args)
@@ -588,7 +594,9 @@ def test_disable_batching_via_ormfield(sync_session_factory):
 
 
 @pytest.mark.asyncio
-async def test_connection_factory_field_overrides_batching_is_false(sync_session_factory):
+async def test_connection_factory_field_overrides_batching_is_false(
+    sync_session_factory,
+):
     session = sync_session_factory()
     reporter_1 = Reporter(first_name="Reporter_1")
     session.add(reporter_1)

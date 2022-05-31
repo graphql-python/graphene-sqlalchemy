@@ -6,11 +6,21 @@ from typing import Any, Callable, Dict, Optional
 import pkg_resources
 from sqlalchemy import select
 from sqlalchemy.exc import ArgumentError
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
 
 from graphene_sqlalchemy.registry import get_global_registry
+
+
+def is_sqlalchemy_version_less_than(version_string):
+    """Check the installed SQLAlchemy version"""
+    return pkg_resources.get_distribution(
+        "SQLAlchemy"
+    ).parsed_version < pkg_resources.parse_version(version_string)
+
+
+if not is_sqlalchemy_version_less_than("1.4"):
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def get_session(context):
@@ -26,12 +36,9 @@ def get_query(model, context):
                 "A query in the model Base or a session in the schema is required for querying.\n"
                 "Read more http://docs.graphene-python.org/projects/sqlalchemy/en/latest/tips/#querying"
             )
-        if isinstance(session, AsyncSession):
-            if is_sqlalchemy_version_less_than("1.4"):
-                raise Exception(
-                    "You are using an async session with SQLAlchemy < 1.4.\n"
-                    "Please upgrade SQLAlchemy to 1.4.0 or higher."
-                )
+        if not is_sqlalchemy_version_less_than("1.4") and isinstance(
+            session, AsyncSession
+        ):
             return select(model)
         query = session.query(model)
     return query
@@ -160,13 +167,6 @@ def sort_argument_for_model(cls, has_default=True):
         enum.default = None
 
     return Argument(List(enum), default_value=enum.default)
-
-
-def is_sqlalchemy_version_less_than(version_string):
-    """Check the installed SQLAlchemy version"""
-    return pkg_resources.get_distribution(
-        "SQLAlchemy"
-    ).parsed_version < pkg_resources.parse_version(version_string)
 
 
 class singledispatchbymatchfunction:

@@ -1,7 +1,6 @@
 from collections import OrderedDict
 
 import sqlalchemy
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
                             RelationshipProperty)
@@ -23,6 +22,9 @@ from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (get_query, get_session, is_mapped_class,
                     is_mapped_instance, is_sqlalchemy_version_less_than)
+
+if not is_sqlalchemy_version_less_than("1.4"):
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class ORMField(OrderedType):
@@ -327,15 +329,18 @@ class SQLAlchemyObjectType(ObjectType):
     @classmethod
     async def get_node(cls, info, id):
 
-        session = get_session(info.context)
-        if is_sqlalchemy_version_less_than("1.4") or not isinstance(
-            session, AsyncSession
-        ):
+        if is_sqlalchemy_version_less_than("1.4"):
             try:
                 return cls.get_query(info).get(id)
             except NoResultFound:
                 return None
-        return await session.get(cls._meta.model, id)
+        session = get_session(info.context)
+        if isinstance(session, AsyncSession):
+            return await session.get(cls._meta.model, id)
+        try:
+            return cls.get_query(info).get(id)
+        except NoResultFound:
+            return None
 
     def resolve_id(self, info):
         # graphene_type = info.parent_type.graphene_type
