@@ -21,7 +21,8 @@ from .enums import (enum_for_field, sort_argument_for_object_type,
                     sort_enum_for_object_type)
 from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
-from .utils import get_query, get_session, is_mapped_class, is_mapped_instance
+from .utils import (get_query, get_session, is_mapped_class,
+                    is_mapped_instance, is_sqlalchemy_version_less_than)
 
 
 class ORMField(OrderedType):
@@ -325,13 +326,16 @@ class SQLAlchemyObjectType(ObjectType):
 
     @classmethod
     async def get_node(cls, info, id):
+
         session = get_session(info.context)
-        if isinstance(session, AsyncSession):
-            return await session.get(cls._meta.model, id)
-        try:
-            return cls.get_query(info).get(id)
-        except NoResultFound:
-            return None
+        if is_sqlalchemy_version_less_than("1.4") or not isinstance(
+            session, AsyncSession
+        ):
+            try:
+                return cls.get_query(info).get(id)
+            except NoResultFound:
+                return None
+        return await session.get(cls._meta.model, id)
 
     def resolve_id(self, info):
         # graphene_type = info.parent_type.graphene_type

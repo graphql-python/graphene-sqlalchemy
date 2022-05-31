@@ -63,6 +63,7 @@ async def benchmark_query(session_factory, benchmark, query):
 
 @pytest.mark.asyncio
 async def test_one_to_one(session_factory, benchmark):
+    print(is_sqlalchemy_version_less_than("1.4"))
     session = session_factory()
 
     reporter_1 = Reporter(
@@ -101,7 +102,8 @@ async def test_one_to_one(session_factory, benchmark):
     )
 
 
-def test_many_to_one(session_factory, benchmark):
+@pytest.mark.asyncio
+async def test_many_to_one(session_factory, benchmark):
     session = session_factory()
 
     reporter_1 = Reporter(
@@ -121,10 +123,10 @@ def test_many_to_one(session_factory, benchmark):
     article_2.reporter = reporter_2
     session.add(article_2)
 
-    session.commit()
-    session.close()
+    await eventually_await_session(session, "commit")
+    await eventually_await_session(session, "close")
 
-    benchmark_query(
+    await benchmark_query(
         session_factory,
         benchmark,
         """
@@ -140,7 +142,8 @@ def test_many_to_one(session_factory, benchmark):
     )
 
 
-def test_one_to_many(session_factory, benchmark):
+@pytest.mark.asyncio
+async def test_one_to_many(session_factory, benchmark):
     session = session_factory()
 
     reporter_1 = Reporter(
@@ -168,10 +171,10 @@ def test_one_to_many(session_factory, benchmark):
     article_4.reporter = reporter_2
     session.add(article_4)
 
-    session.commit()
-    session.close()
+    await eventually_await_session(session, "commit")
+    await eventually_await_session(session, "close")
 
-    benchmark_query(
+    await benchmark_query(
         session_factory,
         benchmark,
         """
@@ -191,7 +194,8 @@ def test_one_to_many(session_factory, benchmark):
     )
 
 
-def test_many_to_many(session_factory, benchmark):
+@pytest.mark.asyncio
+async def test_many_to_many(session_factory, benchmark):
     session = session_factory()
 
     reporter_1 = Reporter(
@@ -221,10 +225,10 @@ def test_many_to_many(session_factory, benchmark):
     reporter_2.pets.append(pet_3)
     reporter_2.pets.append(pet_4)
 
-    session.commit()
-    session.close()
+    await eventually_await_session(session, "commit")
+    await eventually_await_session(session, "close")
 
-    benchmark_query(
+    await benchmark_query(
         session_factory,
         benchmark,
         """

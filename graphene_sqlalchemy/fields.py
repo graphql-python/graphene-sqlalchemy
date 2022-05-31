@@ -12,7 +12,8 @@ from graphene.relay.connection import connection_adapter, page_info_adapter
 from graphql_relay import connection_from_array_slice
 
 from .batching import get_batch_resolver
-from .utils import EnumValue, get_query, get_session
+from .utils import (EnumValue, get_query, get_session,
+                    is_sqlalchemy_version_less_than)
 
 
 class UnsortedSQLAlchemyConnectionField(ConnectionField):
@@ -49,6 +50,11 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
         session = get_session(info.context)
         if resolved is None:
             if isinstance(session, AsyncSession):
+                if is_sqlalchemy_version_less_than("1.4"):
+                    raise Exception(
+                        "You are using an async session with SQLAlchemy < 1.4.\n"
+                        "Please upgrade SQLAlchemy to 1.4.0 or higher."
+                    )
                 resolved = (
                     await session.scalars(cls.get_query(model, info, **args))
                 ).all()

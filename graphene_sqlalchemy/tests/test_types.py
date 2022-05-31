@@ -38,7 +38,7 @@ def test_should_raise_if_model_is_invalid():
                 model = 1
 
 
-@pytest.mark.asyncioas
+@pytest.mark.asyncio
 async def test_sqlalchemy_node(session):
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
@@ -52,7 +52,7 @@ async def test_sqlalchemy_node(session):
     session.add(reporter)
     await eventually_await_session(session, "commit")
     info = mock.Mock(context={"session": session})
-    reporter_node = ReporterType.get_node(info, reporter.id)
+    reporter_node = await ReporterType.get_node(info, reporter.id)
     assert reporter == reporter_node
 
 

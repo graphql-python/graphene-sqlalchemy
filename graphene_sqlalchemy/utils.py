@@ -27,6 +27,11 @@ def get_query(model, context):
                 "Read more http://docs.graphene-python.org/projects/sqlalchemy/en/latest/tips/#querying"
             )
         if isinstance(session, AsyncSession):
+            if is_sqlalchemy_version_less_than("1.4"):
+                raise Exception(
+                    "You are using an async session with SQLAlchemy < 1.4.\n"
+                    "Please upgrade SQLAlchemy to 1.4.0 or higher."
+                )
             return select(model)
         query = session.query(model)
     return query
@@ -144,6 +149,7 @@ def sort_argument_for_model(cls, has_default=True):
     )
 
     from graphene import Argument, List
+
     from .enums import sort_enum_for_object_type
 
     enum = sort_enum_for_object_type(
