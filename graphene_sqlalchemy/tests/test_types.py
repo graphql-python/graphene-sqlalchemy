@@ -3,6 +3,7 @@ from unittest import mock
 import pytest
 import sqlalchemy.exc
 import sqlalchemy.orm.exc
+from graphql.pyutils import is_awaitable
 from sqlalchemy import select
 
 from graphene import (Boolean, Dynamic, Field, Float, GlobalID, Int, List,
@@ -55,7 +56,9 @@ async def test_sqlalchemy_node(session):
     session.add(reporter)
     await eventually_await_session(session, "commit")
     info = mock.Mock(context={"session": session})
-    reporter_node = await ReporterType.get_node(info, reporter.id)
+    reporter_node = ReporterType.get_node(info, reporter.id)
+    if is_awaitable(reporter_node):
+        reporter_node = await reporter_node
     assert reporter == reporter_node
 
 

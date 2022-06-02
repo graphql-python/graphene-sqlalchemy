@@ -96,7 +96,7 @@ async def test_query_fields(session):
 
 
 @pytest.mark.asyncio
-async def test_query_node(session):
+async def test_query_node_sync(session):
     await add_test_data(session)
 
     class ReporterNode(SQLAlchemyObjectType):
@@ -118,12 +118,104 @@ async def test_query_node(session):
         reporter = graphene.Field(ReporterNode)
         all_articles = SQLAlchemyConnectionField(ArticleNode.connection)
 
-        async def resolve_reporter(self, _info):
+        def resolve_reporter(self, _info):
             session = get_session(_info.context)
             if not is_sqlalchemy_version_less_than("1.4") and isinstance(
                 session, AsyncSession
             ):
-                return (await session.scalars(select(Reporter))).first()
+
+                async def get_result():
+                    return (await session.scalars(select(Reporter))).first()
+
+                return get_result()
+
+            return session.query(Reporter).first()
+
+    query = """
+        query {
+          reporter {
+            id
+            firstName
+            articles {
+              edges {
+                node {
+                  headline
+                }
+              }
+            }
+          }
+          allArticles {
+            edges {
+              node {
+                headline
+              }
+            }
+          }
+          myArticle: node(id:"QXJ0aWNsZU5vZGU6MQ==") {
+            id
+            ... on ReporterNode {
+                firstName
+            }
+            ... on ArticleNode {
+                headline
+            }
+          }
+        }
+    """
+    expected = {
+        "reporter": {
+            "id": "UmVwb3J0ZXJOb2RlOjE=",
+            "firstName": "John",
+            "articles": {"edges": [{"node": {"headline": "Hi!"}}]},
+        },
+        "allArticles": {"edges": [{"node": {"headline": "Hi!"}}]},
+        "myArticle": {"id": "QXJ0aWNsZU5vZGU6MQ==", "headline": "Hi!"},
+    }
+    schema = graphene.Schema(query=Query)
+    if not is_sqlalchemy_version_less_than("1.4") and isinstance(session, AsyncSession):
+        result = schema.execute(query, context_value={"session": session})
+        assert result.errors
+    else:
+        result = schema.execute(query, context_value={"session": session})
+        assert not result.errors
+        result = to_std_dicts(result.data)
+        assert result == expected
+
+
+@pytest.mark.asyncio
+async def test_query_node_async(session):
+    await add_test_data(session)
+
+    class ReporterNode(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (Node,)
+
+        @classmethod
+        def get_node(cls, info, id):
+            return Reporter(id=2, first_name="Cookie Monster")
+
+    class ArticleNode(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (Node,)
+
+    class Query(graphene.ObjectType):
+        node = Node.Field()
+        reporter = graphene.Field(ReporterNode)
+        all_articles = SQLAlchemyConnectionField(ArticleNode.connection)
+
+        def resolve_reporter(self, _info):
+            session = get_session(_info.context)
+            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
+                session, AsyncSession
+            ):
+
+                async def get_result():
+                    return (await session.scalars(select(Reporter))).first()
+
+                return get_result()
+
             return session.query(Reporter).first()
 
     query = """

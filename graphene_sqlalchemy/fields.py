@@ -48,17 +48,50 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
         return get_query(model, info.context)
 
     @classmethod
-    async def resolve_connection(cls, connection_type, model, info, args, resolved):
+    def resolve_connection(cls, connection_type, model, info, args, resolved):
         session = get_session(info.context)
         if resolved is None:
             if is_sqlalchemy_version_less_than("1.4"):
                 resolved = cls.get_query(model, info, **args)
             elif isinstance(session, AsyncSession):
-                resolved = (
-                    await session.scalars(cls.get_query(model, info, **args))
-                ).all()
+
+                async def get_result():
+                    return await cls.resolve_connection_async(
+                        connection_type, model, info, args, resolved
+                    )
+
+                return get_result()
+
             else:
                 resolved = cls.get_query(model, info, **args)
+        if isinstance(resolved, Query):
+            _len = resolved.count()
+        else:
+            _len = len(resolved)
+
+        def adjusted_connection_adapter(edges, pageInfo):
+            return connection_adapter(connection_type, edges, pageInfo)
+
+        connection = connection_from_array_slice(
+            array_slice=resolved,
+            args=args,
+            slice_start=0,
+            array_length=_len,
+            array_slice_length=_len,
+            connection_type=adjusted_connection_adapter,
+            edge_type=connection_type.Edge,
+            page_info_type=page_info_adapter,
+        )
+        connection.iterable = resolved
+        connection.length = _len
+        return connection
+
+    @classmethod
+    async def resolve_connection_async(cls, connection_type, model, info, args, resolved):
+        session = get_session(info.context)
+        if resolved is None:
+            query = cls.get_query(model, info, **args)
+            resolved = (await session.scalars(query)).all()
         if isinstance(resolved, Query):
             _len = resolved.count()
         else:

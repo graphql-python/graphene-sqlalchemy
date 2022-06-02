@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from typing import Any
 
 import sqlalchemy
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -327,16 +328,20 @@ class SQLAlchemyObjectType(ObjectType):
         return get_query(model, info.context)
 
     @classmethod
-    async def get_node(cls, info, id):
-
+    def get_node(cls, info, id):
         if is_sqlalchemy_version_less_than("1.4"):
             try:
                 return cls.get_query(info).get(id)
             except NoResultFound:
                 return None
+
         session = get_session(info.context)
         if isinstance(session, AsyncSession):
-            return await session.get(cls._meta.model, id)
+
+            async def get_result() -> Any:
+                return await session.get(cls._meta.model, id)
+
+            return get_result()
         try:
             return cls.get_query(info).get(id)
         except NoResultFound:
