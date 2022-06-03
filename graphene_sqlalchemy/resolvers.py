@@ -7,7 +7,7 @@ def get_custom_resolver(obj_type, orm_field_name):
     does not have a `resolver`, we need to re-implement that logic here so
     users are able to override the default resolvers that we provide.
     """
-    resolver = getattr(obj_type, "resolve_{}".format(orm_field_name), None)
+    resolver = getattr(obj_type, 'resolve_{}'.format(orm_field_name), None)
     if resolver:
         return get_unbound_function(resolver)
 

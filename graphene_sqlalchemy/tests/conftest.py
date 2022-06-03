@@ -8,7 +8,7 @@ from ..converter import convert_sqlalchemy_composite
 from ..registry import reset_global_registry
 from .models import Base, CompositeFullName
 
-test_db_url = "sqlite://"  # use in-memory database for tests
+test_db_url = 'sqlite://'  # use in-memory database for tests
 
 
 @pytest.fixture(autouse=True)

@@ -5,17 +5,8 @@ import enum
 from decimal import Decimal
 from typing import List, Optional, Tuple
 
-from sqlalchemy import (
-    Column,
-    Date,
-    Enum,
-    ForeignKey,
-    Integer,
-    String,
-    Table,
-    func,
-    select,
-)
+from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, String, Table,
+                        func, select)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import column_property, composite, mapper, relationship
@@ -24,8 +15,8 @@ PetKind = Enum("cat", "dog", name="pet_kind")
 
 
 class HairKind(enum.Enum):
-    LONG = "long"
-    SHORT = "short"
+    LONG = 'long'
+    SHORT = 'short'
 
 
 Base = declarative_base()
@@ -73,9 +64,7 @@ class Reporter(Base):
     last_name = Column(String(30), doc="Last name")
     email = Column(String(), doc="Email")
     favorite_pet_kind = Column(PetKind)
-    pets = relationship(
-        "Pet", secondary=association_table, backref="reporters", order_by="Pet.id"
-    )
+    pets = relationship("Pet", secondary=association_table, backref="reporters", order_by="Pet.id")
     articles = relationship("Article", backref="reporter")
     favorite_article = relationship("Article", uselist=False)
 
@@ -112,9 +101,7 @@ class Reporter(Base):
         select([func.cast(func.count(id), Integer)]), doc="Column property"
     )
 
-    composite_prop = composite(
-        CompositeFullName, first_name, last_name, doc="Composite"
-    )
+    composite_prop = composite(CompositeFullName, first_name, last_name, doc="Composite")
 
 
 class Article(Base):
@@ -150,7 +137,7 @@ class ShoppingCartItem(Base):
     id = Column(Integer(), primary_key=True)
 
     @hybrid_property
-    def hybrid_prop_shopping_cart(self) -> List["ShoppingCart"]:
+    def hybrid_prop_shopping_cart(self) -> List['ShoppingCart']:
         return [ShoppingCart(id=1)]
 
 
@@ -205,17 +192,11 @@ class ShoppingCart(Base):
 
     @hybrid_property
     def hybrid_prop_nested_list_int(self) -> List[List[int]]:
-        return [
-            self.hybrid_prop_list_int,
-        ]
+        return [self.hybrid_prop_list_int, ]
 
     @hybrid_property
     def hybrid_prop_deeply_nested_list_int(self) -> List[List[List[int]]]:
-        return [
-            [
-                self.hybrid_prop_list_int,
-            ],
-        ]
+        return [[self.hybrid_prop_list_int, ], ]
 
     # Other SQLAlchemy Instances
     @hybrid_property
@@ -235,15 +216,15 @@ class ShoppingCart(Base):
     # Self-references
 
     @hybrid_property
-    def hybrid_prop_self_referential(self) -> "ShoppingCart":
+    def hybrid_prop_self_referential(self) -> 'ShoppingCart':
         return ShoppingCart(id=1)
 
     @hybrid_property
-    def hybrid_prop_self_referential_list(self) -> List["ShoppingCart"]:
+    def hybrid_prop_self_referential_list(self) -> List['ShoppingCart']:
         return [ShoppingCart(id=1)]
 
     # Optional[T]
 
     @hybrid_property
-    def hybrid_prop_optional_self_referential(self) -> Optional["ShoppingCart"]:
+    def hybrid_prop_optional_self_referential(self) -> Optional['ShoppingCart']:
         return None

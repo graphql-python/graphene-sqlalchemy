@@ -4,7 +4,8 @@ from promise import Promise
 from graphene import NonNull, ObjectType
 from graphene.relay import Connection, Node
 
-from ..fields import SQLAlchemyConnectionField, UnsortedSQLAlchemyConnectionField
+from ..fields import (SQLAlchemyConnectionField,
+                      UnsortedSQLAlchemyConnectionField)
 from ..types import SQLAlchemyObjectType
 from .models import Editor as EditorModel
 from .models import Pet as PetModel
@@ -19,7 +20,6 @@ class Pet(SQLAlchemyObjectType):
 class Editor(SQLAlchemyObjectType):
     class Meta:
         model = EditorModel
-
 
 ##
 # SQLAlchemyConnectionField
@@ -58,7 +58,6 @@ def test_type_assert_sqlalchemy_object_type():
 def test_type_assert_object_has_connection():
     with pytest.raises(AssertionError, match="doesn't have a connection"):
         SQLAlchemyConnectionField(Editor).type
-
 
 ##
 # UnsortedSQLAlchemyConnectionField
