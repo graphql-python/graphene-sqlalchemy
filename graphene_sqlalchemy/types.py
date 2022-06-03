@@ -110,7 +110,7 @@ def construct_fields(
     inspected_model = sqlalchemy.inspect(model)
     # Gather all the relevant attributes from the SQLAlchemy model in order
     all_model_attrs = OrderedDict(
-        inspected_model.column_attrs.items() +
+        inspected_model.column_attrs.items()
         + inspected_model.composites.items()
         + [(name, item) for name, item in inspected_model.all_orm_descriptors.items()
            if isinstance(item, hybrid_property)]
