@@ -11,12 +11,12 @@ repos:
         exclude: ^docs/.*$
       - id: trailing-whitespace
         exclude: README.md
-  - repo: https://github.com/PyCQA/flake8
-    rev: 4.0.0
-    hooks:
-      - id: flake8
   - repo: https://github.com/pycqa/isort
     rev: 5.10.1
     hooks:
       - id: isort
         name: isort (python)
+  - repo: https://github.com/PyCQA/flake8
+    rev: 4.0.0
+    hooks:
+      - id: flake8
