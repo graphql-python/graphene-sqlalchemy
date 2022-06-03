@@ -140,6 +140,7 @@ def sort_argument_for_model(cls, has_default=True):
     )
 
     from graphene import Argument, List
+
     from .enums import sort_enum_for_object_type
 
     enum = sort_enum_for_object_type(
