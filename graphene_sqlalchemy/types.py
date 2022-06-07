@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from inspect import isawaitable
 from typing import Any
 
 import sqlalchemy
@@ -318,6 +319,11 @@ class SQLAlchemyObjectType(ObjectType):
     def is_type_of(cls, root, info):
         if isinstance(root, cls):
             return True
+        if isawaitable(root):
+            raise Exception(
+                "Received coroutine instead of sql alchemy model. "
+                "You seem to use an async engine with synchronous schema execution"
+            )
         if not is_mapped_instance(root):
             raise Exception(('Received incompatible instance "{}".').format(root))
         return isinstance(root, cls._meta.model)
