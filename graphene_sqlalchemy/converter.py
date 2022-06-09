@@ -9,8 +9,8 @@ from sqlalchemy import types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import interfaces, strategies
 
-from graphene import (ID, Boolean, Date, DateTime, Dynamic, Enum, Field, Float,
-                      Int, List, String, Time)
+from graphene import (ID, Boolean, Date, Time, DateTime, Dynamic, Enum, Field, Float,
+                      Int, List, String, Time, UUID)
 from graphene.types.json import JSONString
 
 from .batching import get_batch_resolver
@@ -30,9 +30,9 @@ except ImportError:
 
 try:
     from sqlalchemy_utils import (ChoiceType, JSONType, ScalarListType,
-                                  TSVectorType)
+                                  TSVectorType, UUIDType)
 except ImportError:
-    ChoiceType = JSONType = ScalarListType = TSVectorType = object
+    ChoiceType = JSONType = ScalarListType = TSVectorType = UUIDType = object
 
 try:
     from sqlalchemy_utils.types.choice import EnumTypeImpl
@@ -199,7 +199,6 @@ def convert_sqlalchemy_type(type, column, registry=None):
 @convert_sqlalchemy_type.register(types.Text)
 @convert_sqlalchemy_type.register(types.Unicode)
 @convert_sqlalchemy_type.register(types.UnicodeText)
-@convert_sqlalchemy_type.register(postgresql.UUID)
 @convert_sqlalchemy_type.register(postgresql.INET)
 @convert_sqlalchemy_type.register(postgresql.CIDR)
 @convert_sqlalchemy_type.register(TSVectorType)
@@ -207,21 +206,24 @@ def convert_column_to_string(type, column, registry=None):
     return String
 
 
+@convert_sqlalchemy_type.register(postgresql.UUID)
+@convert_sqlalchemy_type.register(UUIDType)
+def convert_column_to_uuid(type, column, registry=None):
+    return UUID
+
+
 @convert_sqlalchemy_type.register(types.DateTime)
 def convert_column_to_datetime(type, column, registry=None):
-    from graphene.types.datetime import DateTime
     return DateTime
 
 
 @convert_sqlalchemy_type.register(types.Time)
 def convert_column_to_time(type, column, registry=None):
-    from graphene.types.datetime import Time
     return Time
 
 
 @convert_sqlalchemy_type.register(types.Date)
 def convert_column_to_date(type, column, registry=None):
-    from graphene.types.datetime import Date
     return Date
 
 

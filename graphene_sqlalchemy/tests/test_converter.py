@@ -7,7 +7,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import column_property, composite
-from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
+from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, UUIDType
 
 import graphene
 from graphene import Boolean, Float, Int, Scalar, String
@@ -300,7 +300,11 @@ def test_should_onetoone_convert_field():
 
 
 def test_should_postgresql_uuid_convert():
-    assert get_field(postgresql.UUID()).type == graphene.String
+    assert get_field(postgresql.UUID()).type == graphene.UUID
+
+
+def test_should_sqlalchemy_utils_uuid_convert():
+    assert get_field(UUIDType()).type == graphene.UUID
 
 
 def test_should_postgresql_enum_convert():
