@@ -214,13 +214,13 @@ def convert_column_to_datetime(type, column, registry=None):
 
 
 @convert_sqlalchemy_type.register(types.Time)
-def convert_column_to_datetime(type, column, registry=None):
+def convert_column_to_time(type, column, registry=None):
     from graphene.types.datetime import Time
     return Time
 
 
 @convert_sqlalchemy_type.register(types.Date)
-def convert_column_to_datetime(type, column, registry=None):
+def convert_column_to_date(type, column, registry=None):
     from graphene.types.datetime import Date
     return Date
 
