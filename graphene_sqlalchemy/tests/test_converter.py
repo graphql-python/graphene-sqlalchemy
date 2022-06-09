@@ -58,16 +58,16 @@ def test_should_unknown_sqlalchemy_field_raise_exception():
         get_field(getattr(types, 'LargeBinary', types.BINARY)())
 
 
-def test_should_date_convert_string():
-    assert get_field(types.Date()).type == graphene.String
-
-
 def test_should_datetime_convert_datetime():
-    assert get_field(types.DateTime()).type == DateTime
+    assert get_field(types.DateTime()).type == graphene.DateTime
 
 
-def test_should_time_convert_string():
-    assert get_field(types.Time()).type == graphene.String
+def test_should_time_convert_time():
+    assert get_field(types.Time()).type == graphene.Time
+
+
+def test_should_date_convert_date():
+    assert get_field(types.Date()).type == graphene.Date
 
 
 def test_should_string_convert_string():
@@ -201,7 +201,6 @@ def test_should_variant_int_convert_int():
 
 def test_should_variant_string_convert_string():
     assert get_field(types.Variant(types.String(), {})).type == graphene.String
-
 
 
 def test_should_manytomany_convert_connectionorlist():

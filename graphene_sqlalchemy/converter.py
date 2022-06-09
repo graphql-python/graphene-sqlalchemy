@@ -195,8 +195,6 @@ def convert_sqlalchemy_type(type, column, registry=None):
     )
 
 
-@convert_sqlalchemy_type.register(types.Date)
-@convert_sqlalchemy_type.register(types.Time)
 @convert_sqlalchemy_type.register(types.String)
 @convert_sqlalchemy_type.register(types.Text)
 @convert_sqlalchemy_type.register(types.Unicode)
@@ -213,6 +211,18 @@ def convert_column_to_string(type, column, registry=None):
 def convert_column_to_datetime(type, column, registry=None):
     from graphene.types.datetime import DateTime
     return DateTime
+
+
+@convert_sqlalchemy_type.register(types.Time)
+def convert_column_to_datetime(type, column, registry=None):
+    from graphene.types.datetime import Time
+    return Time
+
+
+@convert_sqlalchemy_type.register(types.Date)
+def convert_column_to_datetime(type, column, registry=None):
+    from graphene.types.datetime import Date
+    return Date
 
 
 @convert_sqlalchemy_type.register(types.SmallInteger)
@@ -282,6 +292,7 @@ def convert_json_type_to_string(type, column, registry=None):
 @convert_sqlalchemy_type.register(types.Variant)
 def convert_variant_to_impl_type(type, column, registry=None):
     return convert_sqlalchemy_type(type.impl, column, registry=registry)
+
 
 @singledispatchbymatchfunction
 def convert_sqlalchemy_hybrid_property_type(arg: Any):
