@@ -164,7 +164,10 @@ def test_should_enum_choice_convert_enum():
 
 
 def test_choice_enum_column_key_name_issue_301():
-    'Support column.key instead of column.name for enum naming'
+    """
+    Verifies that the sort enum name is generated from the column key instead of the name,
+    in case the column has an invalid enum name. See #330
+    """
     class TestEnum(enum.Enum):
         es = u"Spanish"
         en = u"English"

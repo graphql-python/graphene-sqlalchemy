@@ -386,6 +386,11 @@ def test_sort_query(session):
 
 
 def test_sort_enum_from_key_issue_330():
+    """
+    Verifies that the sort enum name is generated from the column key instead of the name,
+    in case the column has an invalid enum name. See #330
+    """
+
     class KeyedType(SQLAlchemyObjectType):
         class Meta:
             model = KeyedModel
