@@ -5,8 +5,8 @@ import enum
 from decimal import Decimal
 from typing import List, Optional, Tuple
 
-from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, String, Table,
-                        func, select)
+from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, Numeric,
+                        String, Table, func, select)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import column_property, composite, mapper, relationship
@@ -228,3 +228,8 @@ class ShoppingCart(Base):
     @hybrid_property
     def hybrid_prop_optional_self_referential(self) -> Optional['ShoppingCart']:
         return None
+
+class KeyedModel(Base):
+    __tablename__ = "test330"
+    id = Column(Integer(), primary_key=True)
+    reporter_number = Column("% reporter_number", Numeric, key="reporter_number")

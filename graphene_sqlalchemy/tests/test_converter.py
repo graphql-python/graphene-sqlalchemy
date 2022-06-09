@@ -163,6 +163,22 @@ def test_should_enum_choice_convert_enum():
     assert graphene_type._meta.enum.__members__["en"].value == "English"
 
 
+def test_choice_enum_column_key_name_issue_301():
+    'Support column.key instead of column.name for enum naming'
+    class TestEnum(enum.Enum):
+        es = u"Spanish"
+        en = u"English"
+
+    testChoice = Column("% descuento1", ChoiceType(TestEnum, impl=types.String()), key="descuento1")
+    field = get_field_from_column(testChoice)
+
+    graphene_type = field.type
+    assert issubclass(graphene_type, graphene.Enum)
+    assert graphene_type._meta.name == "MODEL_DESCUENTO1"
+    assert graphene_type._meta.enum.__members__["es"].value == "Spanish"
+    assert graphene_type._meta.enum.__members__["en"].value == "English"
+
+
 def test_should_intenum_choice_convert_enum():
     class TestEnum(enum.IntEnum):
         one = 1

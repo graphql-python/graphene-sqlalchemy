@@ -9,8 +9,8 @@ from sqlalchemy import types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import interfaces, strategies
 
-from graphene import (ID, Boolean, Date, Time, DateTime, Dynamic, Enum, Field, Float,
-                      Int, List, String, Time, UUID)
+from graphene import (ID, UUID, Boolean, Date, DateTime, Dynamic, Enum, Field,
+                      Float, Int, List, String, Time)
 from graphene.types.json import JSONString
 
 from .batching import get_batch_resolver
@@ -253,7 +253,7 @@ def convert_enum_to_enum(type, column, registry=None):
 # TODO Make ChoiceType conversion consistent with other enums
 @convert_sqlalchemy_type.register(ChoiceType)
 def convert_choice_to_enum(type, column, registry=None):
-    name = "{}_{}".format(column.table.name, column.name).upper()
+    name = "{}_{}".format(column.table.name, column.key).upper()
     if isinstance(type.type_impl, EnumTypeImpl):
         # type.choices may be Enum/IntEnum, in ChoiceType both presented as EnumMeta
         # do not use from_enum here because we can have more than one enum column in table
