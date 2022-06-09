@@ -274,9 +274,14 @@ def convert_json_to_string(type, column, registry=None):
 
 
 @convert_sqlalchemy_type.register(JSONType)
+@convert_sqlalchemy_type.register(types.JSON)
 def convert_json_type_to_string(type, column, registry=None):
     return JSONString
 
+
+@convert_sqlalchemy_type.register(types.Variant)
+def convert_variant_to_impl_type(type, column, registry=None):
+    return convert_sqlalchemy_type(type.impl, column, registry=registry)
 
 @singledispatchbymatchfunction
 def convert_sqlalchemy_hybrid_property_type(arg: Any):

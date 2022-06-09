@@ -192,6 +192,16 @@ def test_should_scalar_list_convert_list():
 
 def test_should_jsontype_convert_jsonstring():
     assert get_field(JSONType()).type == JSONString
+    assert get_field(types.JSON).type == JSONString
+
+
+def test_should_variant_int_convert_int():
+    assert get_field(types.Variant(types.Integer(), {})).type == graphene.Int
+
+
+def test_should_variant_string_convert_string():
+    assert get_field(types.Variant(types.String(), {})).type == graphene.String
+
 
 
 def test_should_manytomany_convert_connectionorlist():
