@@ -1,14 +1,16 @@
 import datetime
+import sys
 import typing
 import warnings
 from decimal import Decimal
 from functools import singledispatch
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import interfaces, strategies
 
+import graphene
 from graphene import (ID, UUID, Boolean, Date, DateTime, Dynamic, Enum, Field,
                       Float, Int, List, String, Time)
 from graphene.types.json import JSONString
@@ -17,7 +19,7 @@ from .batching import get_batch_resolver
 from .enums import enum_for_sa_enum
 from .fields import (BatchSQLAlchemyConnectionField,
                      default_connection_field_factory)
-from .registry import get_global_registry
+from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (registry_sqlalchemy_model_from_str, safe_isinstance,
                     singledispatchbymatchfunction, value_equals)
@@ -353,16 +355,60 @@ def convert_sqlalchemy_hybrid_property_type_time(arg):
     return Time
 
 
-@convert_sqlalchemy_hybrid_property_type.register(lambda x: getattr(x, '__origin__', None) == typing.Union)
-def convert_sqlalchemy_hybrid_property_type_option_t(arg):
+def is_union(arg) -> bool:
+    if sys.version_info >= (3, 10):
+        from types import UnionType
+
+        if isinstance(arg, UnionType):
+            return True
+    return getattr(arg, '__origin__', None) == typing.Union
+
+
+def graphene_union_for_py_enum(types: tuple[graphene.ObjectType], registry: Registry):
+    union_type = registry.get_union_for_object_types(tuple(types))
+
+    if union_type is None:
+        pass
+    # pass
+    # TODO
+
+
+@convert_sqlalchemy_hybrid_property_type.register(is_union)
+def convert_sqlalchemy_hybrid_property_union(arg):
+    """
+    Converts Unions (Union[X,Y], or X | Y for python > 3.10) to the corresponding graphene schema object.
+    Since Optionals are internally represented as Union[T, <class NoneType>], they are handled here as well.
+
+    The GQL Spec currently only allows for ObjectType unions:
+    GraphQL Unions represent an object that could be one of a list of GraphQL Object types, but provides for no
+    guaranteed fields between those types.
+    That's why we have to check for the nested types to be instances of graphene.ObjectType, except for the union case.
+
+    type(x) == _types.UnionType is necessary to support X | Y notation, but might break in future python releases.
+    """
     # Option is actually Union[T, <class NoneType>]
-
+    isinstance()
     # Just get the T out of the list of arguments by filtering out the NoneType
-    internal_type = next(filter(lambda x: not type(None) == x, arg.__args__))
+    nested_types = list(filter(lambda x: not type(None) == x, arg.__args__))
 
-    graphql_internal_type = convert_sqlalchemy_hybrid_property_type(internal_type)
+    # If only one type is left after filtering out NoneType, the Union was an Optional
+    if len(nested_types) == 1:
+        graphql_internal_type = convert_sqlalchemy_hybrid_property_type(nested_types[0])
+        return graphql_internal_type
 
-    return graphql_internal_type
+    # Map the graphene types to the nested types.
+    # We use convert_sqlalchemy_hybrid_property_type instead of the registry to account for ForwardRefs, Lists,...
+    graphene_types = map(convert_sqlalchemy_hybrid_property_type, nested_types)
+
+    # Now check, if every type is instance of an ObjectType
+    object_type_check = [isinstance(graphene_type, graphene.ObjectType) for graphene_type in graphene_types]
+
+    if object_type_check.count(False) != 0:
+        raise ValueError("Cannot convert hybrid_property Union to graphene.Union: the Union contains scalars. "
+                         "Please add the corresponding hybrid_property to the excluded fields in the ObjectType, "
+                         "or use an ORMField to override this behaviour.")
+
+    return graphene_union_for_py_enum(cast(tuple[graphene.ObjectType], tuple(graphene_types)), get_global_registry())
 
 
 @convert_sqlalchemy_hybrid_property_type.register(lambda x: getattr(x, '__origin__', None) in [list, typing.List])

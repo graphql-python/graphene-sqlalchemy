@@ -2,7 +2,10 @@ from collections import defaultdict
 
 from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
+import graphene
 from graphene import Enum
+
+from .types import SQLAlchemyObjectType
 
 
 class Registry(object):
@@ -13,12 +16,13 @@ class Registry(object):
         self._registry_composites = {}
         self._registry_enums = {}
         self._registry_sort_enums = {}
+        self._registry_unions = {}
 
     def register(self, obj_type):
         from .types import SQLAlchemyObjectType
 
         if not isinstance(obj_type, type) or not issubclass(
-            obj_type, SQLAlchemyObjectType
+                obj_type, SQLAlchemyObjectType
         ):
             raise TypeError(
                 "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
@@ -37,7 +41,7 @@ class Registry(object):
         from .types import SQLAlchemyObjectType
 
         if not isinstance(obj_type, type) or not issubclass(
-            obj_type, SQLAlchemyObjectType
+                obj_type, SQLAlchemyObjectType
         ):
             raise TypeError(
                 "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
@@ -55,7 +59,7 @@ class Registry(object):
     def get_converter_for_composite(self, composite):
         return self._registry_composites.get(composite)
 
-    def register_enum(self, sa_enum, graphene_enum):
+    def register_enum(self, sa_enum: SQLAlchemyEnumType, graphene_enum: Enum):
         if not isinstance(sa_enum, SQLAlchemyEnumType):
             raise TypeError(
                 "Expected SQLAlchemyEnumType, but got: {!r}".format(sa_enum)
@@ -67,14 +71,13 @@ class Registry(object):
 
         self._registry_enums[sa_enum] = graphene_enum
 
-    def get_graphene_enum_for_sa_enum(self, sa_enum):
+    def get_graphene_enum_for_sa_enum(self, sa_enum : SQLAlchemyEnumType):
         return self._registry_enums.get(sa_enum)
 
-    def register_sort_enum(self, obj_type, sort_enum):
-        from .types import SQLAlchemyObjectType
+    def register_sort_enum(self, obj_type: SQLAlchemyObjectType, sort_enum: Enum):
 
         if not isinstance(obj_type, type) or not issubclass(
-            obj_type, SQLAlchemyObjectType
+                obj_type, SQLAlchemyObjectType
         ):
             raise TypeError(
                 "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
@@ -83,8 +86,25 @@ class Registry(object):
             raise TypeError("Expected Graphene Enum, but got: {!r}".format(sort_enum))
         self._registry_sort_enums[obj_type] = sort_enum
 
-    def get_sort_enum_for_object_type(self, obj_type):
+    def get_sort_enum_for_object_type(self, obj_type: graphene.ObjectType):
         return self._registry_sort_enums.get(obj_type)
+
+    def register_union_type(self, union: graphene.Union, types: tuple[graphene.ObjectType]):
+        if not isinstance(union, graphene.Union):
+            raise TypeError(
+                "Expected graphene.Union, but got: {!r}".format(union)
+            )
+
+        for object_type in types:
+            if not isinstance(object_type, graphene.ObjectType):
+                raise TypeError(
+                    "Expected Graphene ObjectType, but got: {!r}".format(object_type)
+                )
+
+        self._registry_enums[tuple(types)] = union
+
+    def get_union_for_object_types(self, types: tuple[graphene.ObjectType]):
+        self._registry_unions.get(tuple(types))
 
 
 registry = None
