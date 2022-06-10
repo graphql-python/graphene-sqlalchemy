@@ -229,6 +229,7 @@ class ShoppingCart(Base):
     def hybrid_prop_optional_self_referential(self) -> Optional['ShoppingCart']:
         return None
 
+
 class KeyedModel(Base):
     __tablename__ = "test330"
     id = Column(Integer(), primary_key=True)

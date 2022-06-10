@@ -19,7 +19,7 @@ from .batching import get_batch_resolver
 from .enums import enum_for_sa_enum
 from .fields import (BatchSQLAlchemyConnectionField,
                      default_connection_field_factory)
-from .registry import Registry, get_global_registry
+
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (registry_sqlalchemy_model_from_str, safe_isinstance,
                     singledispatchbymatchfunction, value_equals)
@@ -249,6 +249,7 @@ def convert_column_to_float(type, column, registry=None):
 
 @convert_sqlalchemy_type.register(types.Enum)
 def convert_enum_to_enum(type, column, registry=None):
+    from .registry import get_global_registry
     return lambda: enum_for_sa_enum(type, registry or get_global_registry())
 
 
@@ -300,6 +301,7 @@ def convert_variant_to_impl_type(type, column, registry=None):
 
 @singledispatchbymatchfunction
 def convert_sqlalchemy_hybrid_property_type(arg: Any):
+    from .registry import get_global_registry
     existing_graphql_type = get_global_registry().get_type_for_model(arg)
     if existing_graphql_type:
         return existing_graphql_type
@@ -364,13 +366,16 @@ def is_union(arg) -> bool:
     return getattr(arg, '__origin__', None) == typing.Union
 
 
-def graphene_union_for_py_enum(types: tuple[graphene.ObjectType], registry: Registry):
-    union_type = registry.get_union_for_object_types(tuple(types))
+def graphene_union_for_py_enum(obj_types: list[graphene.ObjectType], registry) -> graphene.Union:
+    union_type = registry.get_union_for_object_types(obj_types)
 
     if union_type is None:
-        pass
-    # pass
-    # TODO
+        # Union Name is name of the three
+        union_name = ''.join(sorted([obj_type._meta.name for obj_type in obj_types]))
+        union_type = graphene.Union(union_name, obj_types)
+        registry.register_union_type(union_type, obj_types)
+
+    return union_type
 
 
 @convert_sqlalchemy_hybrid_property_type.register(is_union)
@@ -386,29 +391,26 @@ def convert_sqlalchemy_hybrid_property_union(arg):
 
     type(x) == _types.UnionType is necessary to support X | Y notation, but might break in future python releases.
     """
+    from .registry import get_global_registry
     # Option is actually Union[T, <class NoneType>]
-    isinstance()
     # Just get the T out of the list of arguments by filtering out the NoneType
     nested_types = list(filter(lambda x: not type(None) == x, arg.__args__))
 
-    # If only one type is left after filtering out NoneType, the Union was an Optional
-    if len(nested_types) == 1:
-        graphql_internal_type = convert_sqlalchemy_hybrid_property_type(nested_types[0])
-        return graphql_internal_type
-
     # Map the graphene types to the nested types.
     # We use convert_sqlalchemy_hybrid_property_type instead of the registry to account for ForwardRefs, Lists,...
-    graphene_types = map(convert_sqlalchemy_hybrid_property_type, nested_types)
+    graphene_types = list(map(convert_sqlalchemy_hybrid_property_type, nested_types))
 
-    # Now check, if every type is instance of an ObjectType
-    object_type_check = [isinstance(graphene_type, graphene.ObjectType) for graphene_type in graphene_types]
+    # If only one type is left after filtering out NoneType, the Union was an Optional
+    if len(graphene_types) == 1:
+        return graphene_types[0]
 
-    if object_type_check.count(False) != 0:
+    # Now check if every type is instance of an ObjectType
+    if not all(isinstance(graphene_type, graphene.ObjectType) for graphene_type in graphene_types):
         raise ValueError("Cannot convert hybrid_property Union to graphene.Union: the Union contains scalars. "
                          "Please add the corresponding hybrid_property to the excluded fields in the ObjectType, "
                          "or use an ORMField to override this behaviour.")
 
-    return graphene_union_for_py_enum(cast(tuple[graphene.ObjectType], tuple(graphene_types)), get_global_registry())
+    return graphene_union_for_py_enum(cast(list[graphene.ObjectType], list(graphene_types)), get_global_registry())
 
 
 @convert_sqlalchemy_hybrid_property_type.register(lambda x: getattr(x, '__origin__', None) in [list, typing.List])
@@ -427,6 +429,7 @@ def convert_sqlalchemy_hybrid_property_forwardref(arg):
     Generate a lambda that will resolve the type at runtime
     This takes care of self-references
     """
+    from .registry import get_global_registry
 
     def forward_reference_solver():
         model = registry_sqlalchemy_model_from_str(arg.__forward_arg__)

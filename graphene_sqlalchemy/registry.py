@@ -1,11 +1,10 @@
 from collections import defaultdict
+from typing import List
 
 from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
 import graphene
 from graphene import Enum
-
-from .types import SQLAlchemyObjectType
 
 
 class Registry(object):
@@ -19,8 +18,8 @@ class Registry(object):
         self._registry_unions = {}
 
     def register(self, obj_type):
-        from .types import SQLAlchemyObjectType
 
+        from .types import SQLAlchemyObjectType
         if not isinstance(obj_type, type) or not issubclass(
                 obj_type, SQLAlchemyObjectType
         ):
@@ -71,11 +70,12 @@ class Registry(object):
 
         self._registry_enums[sa_enum] = graphene_enum
 
-    def get_graphene_enum_for_sa_enum(self, sa_enum : SQLAlchemyEnumType):
+    def get_graphene_enum_for_sa_enum(self, sa_enum: SQLAlchemyEnumType):
         return self._registry_enums.get(sa_enum)
 
-    def register_sort_enum(self, obj_type: SQLAlchemyObjectType, sort_enum: Enum):
+    def register_sort_enum(self, obj_type, sort_enum: Enum):
 
+        from .types import SQLAlchemyObjectType
         if not isinstance(obj_type, type) or not issubclass(
                 obj_type, SQLAlchemyObjectType
         ):
@@ -89,22 +89,22 @@ class Registry(object):
     def get_sort_enum_for_object_type(self, obj_type: graphene.ObjectType):
         return self._registry_sort_enums.get(obj_type)
 
-    def register_union_type(self, union: graphene.Union, types: tuple[graphene.ObjectType]):
+    def register_union_type(self, union: graphene.Union, obj_types: list[graphene.ObjectType]):
         if not isinstance(union, graphene.Union):
             raise TypeError(
                 "Expected graphene.Union, but got: {!r}".format(union)
             )
 
-        for object_type in types:
-            if not isinstance(object_type, graphene.ObjectType):
+        for obj_type in obj_types:
+            if not isinstance(obj_type, graphene.ObjectType):
                 raise TypeError(
-                    "Expected Graphene ObjectType, but got: {!r}".format(object_type)
+                    "Expected Graphene ObjectType, but got: {!r}".format(obj_type)
                 )
 
-        self._registry_enums[tuple(types)] = union
+        self._registry_enums[tuple(sorted(obj_types))] = union
 
-    def get_union_for_object_types(self, types: tuple[graphene.ObjectType]):
-        self._registry_unions.get(tuple(types))
+    def get_union_for_object_types(self, obj_types: List[graphene.ObjectType]):
+        self._registry_unions.get(tuple(sorted(obj_types)))
 
 
 registry = None
