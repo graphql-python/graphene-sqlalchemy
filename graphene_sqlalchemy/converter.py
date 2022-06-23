@@ -363,7 +363,7 @@ def is_union(arg) -> bool:
     return getattr(arg, '__origin__', None) == typing.Union
 
 
-def graphene_union_for_py_enum(obj_types: list[graphene.ObjectType], registry) -> graphene.Union:
+def graphene_union_for_py_union(obj_types: typing.List[graphene.ObjectType], registry) -> graphene.Union:
     union_type = registry.get_union_for_object_types(obj_types)
 
     if union_type is None:
@@ -408,7 +408,7 @@ def convert_sqlalchemy_hybrid_property_union(arg):
                          "Please add the corresponding hybrid_property to the excluded fields in the ObjectType, "
                          "or use an ORMField to override this behaviour.")
 
-    return graphene_union_for_py_enum(cast(list[graphene.ObjectType], list(graphene_types)), get_global_registry())
+    return graphene_union_for_py_union(cast(typing.List[graphene.ObjectType], list(graphene_types)), get_global_registry())
 
 
 @convert_sqlalchemy_hybrid_property_type.register(lambda x: getattr(x, '__origin__', None) in [list, typing.List])

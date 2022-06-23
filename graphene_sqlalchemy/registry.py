@@ -89,7 +89,7 @@ class Registry(object):
     def get_sort_enum_for_object_type(self, obj_type: graphene.ObjectType):
         return self._registry_sort_enums.get(obj_type)
 
-    def register_union_type(self, union: graphene.Union, obj_types: list[graphene.ObjectType]):
+    def register_union_type(self, union: graphene.Union, obj_types: List[graphene.ObjectType]):
         if not isinstance(union, graphene.Union):
             raise TypeError(
                 "Expected graphene.Union, but got: {!r}".format(union)
