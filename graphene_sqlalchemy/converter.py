@@ -19,7 +19,7 @@ from .fields import (BatchSQLAlchemyConnectionField,
                      default_connection_field_factory)
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (registry_sqlalchemy_model_from_str, safe_isinstance,
-                    singledispatchbymatchfunction, value_equals)
+                    singledispatchbymatchfunction, value_equals, DummyImport)
 
 try:
     from typing import ForwardRef
@@ -28,13 +28,12 @@ except ImportError:
     from typing import _ForwardRef as ForwardRef
 
 try:
-    from sqlalchemy_utils import (ChoiceType, JSONType, ScalarListType,
-                                  TSVectorType, UUIDType)
+    import sqlalchemy_utils as sqa_utils
 except ImportError:
-    ChoiceType = JSONType = ScalarListType = TSVectorType = UUIDType = object
+    sqlalchemy_utils = DummyImport()
 
 try:
-    from sqlalchemy_utils.types.choice import EnumTypeImpl
+    from sqa_utils.types.choice import EnumTypeImpl
 except ImportError:
     EnumTypeImpl = object
 
@@ -200,13 +199,16 @@ def convert_sqlalchemy_type(type, column, registry=None):
 @convert_sqlalchemy_type.register(sqa_types.UnicodeText)
 @convert_sqlalchemy_type.register(postgresql.INET)
 @convert_sqlalchemy_type.register(postgresql.CIDR)
-@convert_sqlalchemy_type.register(TSVectorType)
+@convert_sqlalchemy_type.register(sqa_utils.TSVectorType)
+@convert_sqlalchemy_type.register(sqa_utils.EmailType)
+@convert_sqlalchemy_type.register(sqa_utils.URLType)
+@convert_sqlalchemy_type.register(sqa_utils.IPAddressType)
 def convert_column_to_string(type, column, registry=None):
     return graphene.String
 
 
 @convert_sqlalchemy_type.register(postgresql.UUID)
-@convert_sqlalchemy_type.register(UUIDType)
+@convert_sqlalchemy_type.register(sqa_utils.UUIDType)
 def convert_column_to_uuid(type, column, registry=None):
     return graphene.UUID
 
@@ -251,7 +253,7 @@ def convert_enum_to_enum(type, column, registry=None):
 
 
 # TODO Make ChoiceType conversion consistent with other enums
-@convert_sqlalchemy_type.register(ChoiceType)
+@convert_sqlalchemy_type.register(sqa_utils.ChoiceType)
 def convert_choice_to_enum(type, column, registry=None):
     name = "{}_{}".format(column.table.name, column.key).upper()
     if isinstance(type.type_impl, EnumTypeImpl):
@@ -262,7 +264,7 @@ def convert_choice_to_enum(type, column, registry=None):
         return graphene.Enum(name, type.choices)
 
 
-@convert_sqlalchemy_type.register(ScalarListType)
+@convert_sqlalchemy_type.register(sqa_utils.ScalarListType)
 def convert_scalar_list_to_list(type, column, registry=None):
     return graphene.List(graphene.String)
 
@@ -285,7 +287,7 @@ def convert_json_to_string(type, column, registry=None):
     return JSONString
 
 
-@convert_sqlalchemy_type.register(JSONType)
+@convert_sqlalchemy_type.register(sqa_utils.JSONType)
 @convert_sqlalchemy_type.register(sqa_types.JSON)
 def convert_json_type_to_string(type, column, registry=None):
     return JSONString

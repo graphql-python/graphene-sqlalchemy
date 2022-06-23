@@ -9,14 +9,12 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import column_property, composite
-from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, UUIDType
+import sqlalchemy_utils as sqa_utils
 
-import graphene
-from graphene import Boolean, Float, Int, Scalar, String
 from graphene.relay import Node
-from graphene.types.datetime import Date, DateTime, Time
-from graphene.types.json import JSONString
-from graphene.types.structures import List, Structure
+import graphene
+from graphene.types.structures import Structure
+
 
 from ..converter import (convert_sqlalchemy_column,
                          convert_sqlalchemy_composite,
@@ -187,7 +185,7 @@ def test_should_numeric_convert_float():
 
 
 def test_should_choice_convert_enum():
-    field = get_field(ChoiceType([(u"es", u"Spanish"), (u"en", u"English")]))
+    field = get_field(sqa_utils.ChoiceType([(u"es", u"Spanish"), (u"en", u"English")]))
     graphene_type = field.type
     assert issubclass(graphene_type, graphene.Enum)
     assert graphene_type._meta.name == "MODEL_COLUMN"
@@ -200,7 +198,7 @@ def test_should_enum_choice_convert_enum():
         es = u"Spanish"
         en = u"English"
 
-    field = get_field(ChoiceType(TestEnum, impl=types.String()))
+    field = get_field(sqa_utils.ChoiceType(TestEnum, impl=types.String()))
     graphene_type = field.type
     assert issubclass(graphene_type, graphene.Enum)
     assert graphene_type._meta.name == "MODEL_COLUMN"
@@ -218,7 +216,7 @@ def test_choice_enum_column_key_name_issue_301():
         es = u"Spanish"
         en = u"English"
 
-    testChoice = Column("% descuento1", ChoiceType(TestEnum, impl=types.String()), key="descuento1")
+    testChoice = Column("% descuento1", sqa_utils.ChoiceType(TestEnum, impl=types.String()), key="descuento1")
     field = get_field_from_column(testChoice)
 
     graphene_type = field.type
@@ -233,7 +231,7 @@ def test_should_intenum_choice_convert_enum():
         one = 1
         two = 2
 
-    field = get_field(ChoiceType(TestEnum, impl=types.String()))
+    field = get_field(sqa_utils.ChoiceType(TestEnum, impl=types.String()))
     graphene_type = field.type
     assert issubclass(graphene_type, graphene.Enum)
     assert graphene_type._meta.name == "MODEL_COLUMN"
@@ -250,14 +248,14 @@ def test_should_columproperty_convert():
 
 
 def test_should_scalar_list_convert_list():
-    field = get_field(ScalarListType())
+    field = get_field(sqa_utils.ScalarListType())
     assert isinstance(field.type, graphene.List)
     assert field.type.of_type == graphene.String
 
 
 def test_should_jsontype_convert_jsonstring():
-    assert get_field(JSONType()).type == JSONString
-    assert get_field(types.JSON).type == JSONString
+    assert get_field(sqa_utils.JSONType()).type == graphene.JSONString
+    assert get_field(types.JSON).type == graphene.JSONString
 
 
 def test_should_variant_int_convert_int():
@@ -369,7 +367,7 @@ def test_should_postgresql_uuid_convert():
 
 
 def test_should_sqlalchemy_utils_uuid_convert():
-    assert get_field(UUIDType()).type == graphene.UUID
+    assert get_field(sqa_utils.UUIDType()).type == graphene.UUID
 
 
 def test_should_postgresql_enum_convert():
@@ -483,8 +481,8 @@ def test_sqlalchemy_hybrid_property_type_inference():
     # Check ShoppingCartItem's Properties and Return Types
     #######################################################
 
-    shopping_cart_item_expected_types: Dict[str, Union[Scalar, Structure]] = {
-        'hybrid_prop_shopping_cart': List(ShoppingCartType)
+    shopping_cart_item_expected_types: Dict[str, Union[graphene.Scalar, Structure]] = {
+        'hybrid_prop_shopping_cart': graphene.List(ShoppingCartType)
     }
 
     assert sorted(list(ShoppingCartItemType._meta.fields.keys())) == sorted([
@@ -509,27 +507,27 @@ def test_sqlalchemy_hybrid_property_type_inference():
     # Check ShoppingCart's Properties and Return Types
     ###################################################
 
-    shopping_cart_expected_types: Dict[str, Union[Scalar, Structure]] = {
+    shopping_cart_expected_types: Dict[str, Union[graphene.Scalar, Structure]] = {
         # Basic types
-        "hybrid_prop_str": String,
-        "hybrid_prop_int": Int,
-        "hybrid_prop_float": Float,
-        "hybrid_prop_bool": Boolean,
-        "hybrid_prop_decimal": String,  # Decimals should be serialized Strings
-        "hybrid_prop_date": Date,
-        "hybrid_prop_time": Time,
-        "hybrid_prop_datetime": DateTime,
+        "hybrid_prop_str": graphene.String,
+        "hybrid_prop_int": graphene.Int,
+        "hybrid_prop_float": graphene.Float,
+        "hybrid_prop_bool": graphene.Boolean,
+        "hybrid_prop_decimal": graphene.String,  # Decimals should be serialized Strings
+        "hybrid_prop_date": graphene.Date,
+        "hybrid_prop_time": graphene.Time,
+        "hybrid_prop_datetime": graphene.DateTime,
         # Lists and Nested Lists
-        "hybrid_prop_list_int": List(Int),
-        "hybrid_prop_list_date": List(Date),
-        "hybrid_prop_nested_list_int": List(List(Int)),
-        "hybrid_prop_deeply_nested_list_int": List(List(List(Int))),
+        "hybrid_prop_list_int": graphene.List(graphene.Int),
+        "hybrid_prop_list_date": graphene.List(graphene.Date),
+        "hybrid_prop_nested_list_int": graphene.List(graphene.List(graphene.Int)),
+        "hybrid_prop_deeply_nested_list_int": graphene.List(graphene.List(graphene.List(graphene.Int))),
         "hybrid_prop_first_shopping_cart_item": ShoppingCartItemType,
-        "hybrid_prop_shopping_cart_item_list": List(ShoppingCartItemType),
-        "hybrid_prop_unsupported_type_tuple": String,
+        "hybrid_prop_shopping_cart_item_list": graphene.List(ShoppingCartItemType),
+        "hybrid_prop_unsupported_type_tuple": graphene.String,
         # Self Referential List
         "hybrid_prop_self_referential": ShoppingCartType,
-        "hybrid_prop_self_referential_list": List(ShoppingCartType),
+        "hybrid_prop_self_referential_list": graphene.List(ShoppingCartType),
         # Optionals
         "hybrid_prop_optional_self_referential": ShoppingCartType,
     }
