@@ -206,3 +206,9 @@ def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:
         return next(filter(lambda x: x.__name__ == model_name, list(get_global_registry()._registry.keys())))
     except StopIteration:
         pass
+
+
+class DummyImport:
+    """The dummy module returns 'object' for a query for any member"""
+    def __getattr__(self, name):
+        return object

@@ -4,7 +4,7 @@ import sqlalchemy as sa
 from graphene import Enum, List, ObjectType, Schema, String
 
 from ..utils import (get_session, sort_argument_for_model, sort_enum_for_model,
-                     to_enum_value_name, to_type_name)
+                     to_enum_value_name, to_type_name, DummyImport)
 from .models import Base, Editor, Pet
 
 
@@ -99,3 +99,7 @@ def test_sort_argument_for_model_multiple_pk():
     assert set(arg.default_value) == set(
         (MultiplePK.foo.name + "_asc", MultiplePK.bar.name + "_asc")
     )
+
+def test_dummy_import():
+    dummy_module = DummyImport()
+    assert dummy_module.foo == object
