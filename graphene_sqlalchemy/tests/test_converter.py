@@ -1,10 +1,12 @@
 import enum
+import sys
 from typing import Dict, Union
 
 import pytest
 from sqlalchemy import Column, func, select, types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import column_property, composite
 from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType, UUIDType
@@ -18,11 +20,12 @@ from graphene.types.structures import List, Structure
 
 from ..converter import (convert_sqlalchemy_column,
                          convert_sqlalchemy_composite,
+                         convert_sqlalchemy_hybrid_method,
                          convert_sqlalchemy_relationship)
 from ..fields import (UnsortedSQLAlchemyConnectionField,
                       default_connection_field_factory)
 from ..registry import Registry, get_global_registry
-from ..types import SQLAlchemyObjectType
+from ..types import ORMField, SQLAlchemyObjectType
 from .models import (Article, CompositeFullName, Pet, Reporter, ShoppingCart,
                      ShoppingCartItem)
 
@@ -51,7 +54,49 @@ def get_field_from_column(column_):
     return convert_sqlalchemy_column(column_prop, get_global_registry(), mock_resolver)
 
 
-def test_should_unknown_sqlalchemy_field_raise_exception():
+def get_hybrid_property_type(prop_method):
+    class Model(declarative_base()):
+        __tablename__ = 'model'
+        id_ = Column(types.Integer, primary_key=True)
+        prop = prop_method
+
+    column_prop = inspect(Model).all_orm_descriptors['prop']
+    return convert_sqlalchemy_hybrid_method(column_prop, mock_resolver(), **ORMField().kwargs)
+
+
+def test_hybrid_prop_int():
+    @hybrid_property
+    def prop_method() -> int:
+        return 42
+
+    assert get_hybrid_property_type(prop_method).type == graphene.Int
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="|-Style Unions are unsupported in python < 3.10")
+def test_hybrid_prop_scalar_union_310():
+    @hybrid_property
+    def prop_method() -> int | str:
+        return "not allowed in gql schema"
+
+    with pytest.raises(ValueError,
+                       match=r"Cannot convert hybrid_property Union to "
+                             r"graphene.Union: the Union contains scalars. \.*"):
+        get_hybrid_property_type(prop_method)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="|-Style Unions are unsupported in python < 3.10")
+def test_hybrid_prop_scalar_union_and_optional_310():
+    """Checks if the use of Optionals does not interfere with non-conform scalar return types"""
+
+    @hybrid_property
+    def prop_method() -> int | None:
+        return 42
+
+    assert get_hybrid_property_type(prop_method).type == graphene.Int
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="|-Style Unions are unsupported in python < 3.10")
+def test_should_unknown_sqlalchemy_field_raise_exception_310():
     re_err = "Don't know how to convert the SQLAlchemy field"
     with pytest.raises(Exception, match=re_err):
         # support legacy Binary type and subsequent LargeBinary
@@ -168,6 +213,7 @@ def test_choice_enum_column_key_name_issue_301():
     Verifies that the sort enum name is generated from the column key instead of the name,
     in case the column has an invalid enum name. See #330
     """
+
     class TestEnum(enum.Enum):
         es = u"Spanish"
         en = u"English"
@@ -453,9 +499,9 @@ def test_sqlalchemy_hybrid_property_type_inference():
 
         # this is a simple way of showing the failed property name
         # instead of having to unroll the loop.
-        assert (
-                (hybrid_prop_name, str(hybrid_prop_field.type)) ==
-                (hybrid_prop_name, str(hybrid_prop_expected_return_type))
+        assert (hybrid_prop_name, str(hybrid_prop_field.type)) == (
+            hybrid_prop_name,
+            str(hybrid_prop_expected_return_type),
         )
         assert hybrid_prop_field.description is None  # "doc" is ignored by hybrid property
 
@@ -500,8 +546,8 @@ def test_sqlalchemy_hybrid_property_type_inference():
 
         # this is a simple way of showing the failed property name
         # instead of having to unroll the loop.
-        assert (
-                (hybrid_prop_name, str(hybrid_prop_field.type)) ==
-                (hybrid_prop_name, str(hybrid_prop_expected_return_type))
+        assert (hybrid_prop_name, str(hybrid_prop_field.type)) == (
+            hybrid_prop_name,
+            str(hybrid_prop_expected_return_type),
         )
         assert hybrid_prop_field.description is None  # "doc" is ignored by hybrid property
