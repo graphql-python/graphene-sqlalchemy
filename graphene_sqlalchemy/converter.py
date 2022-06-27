@@ -28,14 +28,14 @@ except ImportError:
     from typing import _ForwardRef as ForwardRef
 
 try:
-    import sqlalchemy_utils as sqa_utils
-except ImportError:
-    sqlalchemy_utils = DummyImport()
-
-try:
-    from sqa_utils.types.choice import EnumTypeImpl
+    from sqlalchemy_utils.types.choice import EnumTypeImpl
 except ImportError:
     EnumTypeImpl = object
+
+try:
+    import sqlalchemy_utils as sqa_utils
+except ImportError:
+    sqa_utils = DummyImport()
 
 is_selectin_available = getattr(strategies, 'SelectInLoader', None)
 
@@ -257,6 +257,8 @@ def convert_enum_to_enum(type, column, registry=None):
 def convert_choice_to_enum(type, column, registry=None):
     name = "{}_{}".format(column.table.name, column.key).upper()
     if isinstance(type.type_impl, EnumTypeImpl):
+        print("AAAA")
+        print(EnumTypeImpl)
         # type.choices may be Enum/IntEnum, in ChoiceType both presented as EnumMeta
         # do not use from_enum here because we can have more than one enum column in table
         return graphene.Enum(name, list((v.name, v.value) for v in type.choices))
@@ -410,7 +412,8 @@ def convert_sqlalchemy_hybrid_property_union(arg):
                          "Please add the corresponding hybrid_property to the excluded fields in the ObjectType, "
                          "or use an ORMField to override this behaviour.")
 
-    return graphene_union_for_py_union(cast(typing.List[graphene.ObjectType], list(graphene_types)), get_global_registry())
+    return graphene_union_for_py_union(cast(typing.List[graphene.ObjectType], list(graphene_types)),
+                                       get_global_registry())
 
 
 @convert_sqlalchemy_hybrid_property_type.register(lambda x: getattr(x, '__origin__', None) in [list, typing.List])
