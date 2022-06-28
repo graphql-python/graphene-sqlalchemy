@@ -15,7 +15,6 @@ from graphene.relay import Node
 import graphene
 from graphene.types.structures import Structure
 
-
 from ..converter import (convert_sqlalchemy_column,
                          convert_sqlalchemy_composite,
                          convert_sqlalchemy_hybrid_method,
@@ -94,11 +93,63 @@ def test_hybrid_prop_scalar_union_and_optional_310():
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="|-Style Unions are unsupported in python < 3.10")
-def test_should_unknown_sqlalchemy_field_raise_exception_310():
-    re_err = "Don't know how to convert the SQLAlchemy field"
-    with pytest.raises(Exception, match=re_err):
-        # support legacy Binary type and subsequent LargeBinary
-        get_field(getattr(types, 'LargeBinary', types.BINARY)())
+def test_should_union_work_310():
+    reg = Registry()
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            registry = reg
+
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCartItem
+            registry = reg
+
+    @hybrid_property
+    def prop_method() -> Union[PetType, ShoppingCartType]:
+        return None
+
+    @hybrid_property
+    def prop_method_2() -> Union[ShoppingCartType, PetType]:
+        return None
+
+    field_type_1 = get_hybrid_property_type(prop_method).type
+    field_type_2 = get_hybrid_property_type(prop_method_2).type
+
+    assert isinstance(field_type_1, graphene.Union)
+    assert field_type_1 is field_type_2
+
+    # TODO verify types of the union
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="|-Style Unions are unsupported in python < 3.10")
+def test_should_union_work_310():
+    reg = Registry()
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            registry = reg
+
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCartItem
+            registry = reg
+
+    @hybrid_property
+    def prop_method() -> PetType | ShoppingCartType:
+        return None
+
+    @hybrid_property
+    def prop_method_2() -> ShoppingCartType | PetType:
+        return None
+
+    field_type_1 = get_hybrid_property_type(prop_method).type
+    field_type_2 = get_hybrid_property_type(prop_method_2).type
+
+    assert isinstance(field_type_1, graphene.Union)
+    assert field_type_1 is field_type_2
 
 
 def test_should_datetime_convert_datetime():
@@ -127,6 +178,30 @@ def test_should_unicode_convert_string():
 
 def test_should_unicodetext_convert_string():
     assert get_field(types.UnicodeText()).type == graphene.String
+
+
+def test_should_tsvector_convert_string():
+    assert get_field(sqa_utils.TSVectorType()).type == graphene.String
+
+
+def test_should_email_convert_string():
+    assert get_field(sqa_utils.EmailType()).type == graphene.String
+
+
+def test_should_URL_convert_string():
+    assert get_field(sqa_utils.URLType()).type == graphene.String
+
+
+def test_should_IPaddress_convert_string():
+    assert get_field(sqa_utils.IPAddressType()).type == graphene.String
+
+
+def test_should_inet_convert_string():
+    assert get_field(postgresql.INET()).type == graphene.String
+
+
+def test_should_cidr_convert_string():
+    assert get_field(postgresql.CIDR()).type == graphene.String
 
 
 def test_should_enum_convert_enum():

@@ -2,11 +2,12 @@ import pytest
 from sqlalchemy.types import Enum as SQLAlchemyEnum
 
 from graphene import Enum as GrapheneEnum
+import graphene
 
 from ..registry import Registry
 from ..types import SQLAlchemyObjectType
 from ..utils import EnumValue
-from .models import Pet
+from .models import Pet, Reporter
 
 
 def test_register_object_type():
@@ -126,3 +127,56 @@ def test_register_sort_enum_incorrect_types():
     re_err = r"Expected Graphene Enum, but got: .*PetType.*"
     with pytest.raises(TypeError, match=re_err):
         reg.register_sort_enum(PetType, PetType)
+
+
+def test_register_union():
+    reg = Registry()
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            registry = reg
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+
+    union_types = [PetType, ReporterType]
+    union = graphene.Union('ReporterPet', tuple(union_types))
+
+    reg.register_union_type(union, union_types)
+
+    assert reg.get_union_for_object_types(union_types) == union
+    # Order should no matter
+    assert reg.get_union_for_object_types([ReporterType, PetType]) == union
+
+
+def test_register_union_scalar():
+    reg = Registry()
+
+    union_types = [graphene.String, graphene.Int]
+    union = graphene.Union('StringInt', tuple(union_types))
+
+    re_err = r"Expected Graphene ObjectType, but got: .*String.*"
+    with pytest.raises(TypeError, match=re_err):
+        reg.register_union_type(union, union_types)
+
+
+def test_register_union_incorrect_types():
+    reg = Registry()
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            registry = reg
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+
+    union_types = [PetType, ReporterType]
+    union = PetType
+
+    re_err = r"Expected graphene.Union, but got: .*PetType.*"
+    with pytest.raises(TypeError, match=re_err):
+        reg.register_union_type(union, union_types)

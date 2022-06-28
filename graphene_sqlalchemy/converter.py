@@ -307,6 +307,12 @@ def convert_sqlalchemy_hybrid_property_type(arg: Any):
     if existing_graphql_type:
         return existing_graphql_type
 
+    if isinstance(arg, type(graphene.ObjectType)):
+        return arg
+
+    if isinstance(arg, type(graphene.Scalar)):
+        return arg
+
     # No valid type found, warn and fall back to graphene.String
     warnings.warn(
         (f"I don't know how to generate a GraphQL type out of a \"{arg}\" type."
@@ -407,7 +413,7 @@ def convert_sqlalchemy_hybrid_property_union(arg):
         return graphene_types[0]
 
     # Now check if every type is instance of an ObjectType
-    if not all(isinstance(graphene_type, graphene.ObjectType) for graphene_type in graphene_types):
+    if not all(isinstance(graphene_type, type(graphene.ObjectType)) for graphene_type in graphene_types):
         raise ValueError("Cannot convert hybrid_property Union to graphene.Union: the Union contains scalars. "
                          "Please add the corresponding hybrid_property to the excluded fields in the ObjectType, "
                          "or use an ORMField to override this behaviour.")

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import List
+from typing import List, Type
 
 from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
@@ -89,22 +89,22 @@ class Registry(object):
     def get_sort_enum_for_object_type(self, obj_type: graphene.ObjectType):
         return self._registry_sort_enums.get(obj_type)
 
-    def register_union_type(self, union: graphene.Union, obj_types: List[graphene.ObjectType]):
+    def register_union_type(self, union: graphene.Union, obj_types: List[Type[graphene.ObjectType]]):
         if not isinstance(union, graphene.Union):
             raise TypeError(
                 "Expected graphene.Union, but got: {!r}".format(union)
             )
 
         for obj_type in obj_types:
-            if not isinstance(obj_type, graphene.ObjectType):
+            if not isinstance(obj_type, type(graphene.ObjectType)):
                 raise TypeError(
                     "Expected Graphene ObjectType, but got: {!r}".format(obj_type)
                 )
 
-        self._registry_enums[tuple(sorted(obj_types))] = union
+        self._registry_unions[frozenset(obj_types)] = union
 
-    def get_union_for_object_types(self, obj_types: List[graphene.ObjectType]):
-        self._registry_unions.get(tuple(sorted(obj_types)))
+    def get_union_for_object_types(self, obj_types : List[Type[graphene.ObjectType]]):
+        return self._registry_unions.get(frozenset(obj_types))
 
 
 registry = None
