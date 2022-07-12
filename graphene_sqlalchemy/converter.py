@@ -17,9 +17,11 @@ from .batching import get_batch_resolver
 from .enums import enum_for_sa_enum
 from .fields import (BatchSQLAlchemyConnectionField,
                      default_connection_field_factory)
+from .registry import get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
-from .utils import (registry_sqlalchemy_model_from_str, safe_isinstance,
-                    singledispatchbymatchfunction, value_equals, DummyImport)
+from .utils import (DummyImport, registry_sqlalchemy_model_from_str,
+                    safe_isinstance, singledispatchbymatchfunction,
+                    value_equals)
 
 try:
     from typing import ForwardRef
@@ -248,7 +250,6 @@ def convert_column_to_float(type, column, registry=None):
 
 @convert_sqlalchemy_type.register(sqa_types.Enum)
 def convert_enum_to_enum(type, column, registry=None):
-    from .registry import get_global_registry
     return lambda: enum_for_sa_enum(type, registry or get_global_registry())
 
 
@@ -257,8 +258,6 @@ def convert_enum_to_enum(type, column, registry=None):
 def convert_choice_to_enum(type, column, registry=None):
     name = "{}_{}".format(column.table.name, column.key).upper()
     if isinstance(type.type_impl, EnumTypeImpl):
-        print("AAAA")
-        print(EnumTypeImpl)
         # type.choices may be Enum/IntEnum, in ChoiceType both presented as EnumMeta
         # do not use from_enum here because we can have more than one enum column in table
         return graphene.Enum(name, list((v.name, v.value) for v in type.choices))
@@ -302,7 +301,6 @@ def convert_variant_to_impl_type(type, column, registry=None):
 
 @singledispatchbymatchfunction
 def convert_sqlalchemy_hybrid_property_type(arg: Any):
-    from .registry import get_global_registry
     existing_graphql_type = get_global_registry().get_type_for_model(arg)
     if existing_graphql_type:
         return existing_graphql_type

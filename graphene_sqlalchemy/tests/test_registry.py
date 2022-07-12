@@ -1,8 +1,8 @@
 import pytest
 from sqlalchemy.types import Enum as SQLAlchemyEnum
 
-from graphene import Enum as GrapheneEnum
 import graphene
+from graphene import Enum as GrapheneEnum
 
 from ..registry import Registry
 from ..types import SQLAlchemyObjectType
@@ -147,7 +147,7 @@ def test_register_union():
     reg.register_union_type(union, union_types)
 
     assert reg.get_union_for_object_types(union_types) == union
-    # Order should no matter
+    # Order should not matter
     assert reg.get_union_for_object_types([ReporterType, PetType]) == union
 
 

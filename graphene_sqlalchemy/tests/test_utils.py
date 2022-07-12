@@ -3,8 +3,8 @@ import sqlalchemy as sa
 
 from graphene import Enum, List, ObjectType, Schema, String
 
-from ..utils import (get_session, sort_argument_for_model, sort_enum_for_model,
-                     to_enum_value_name, to_type_name, DummyImport)
+from ..utils import (DummyImport, get_session, sort_argument_for_model,
+                     sort_enum_for_model, to_enum_value_name, to_type_name)
 from .models import Base, Editor, Pet
 
 
