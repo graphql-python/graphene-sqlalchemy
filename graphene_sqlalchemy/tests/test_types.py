@@ -76,7 +76,7 @@ def test_sqlalchemy_default_fields():
 
     assert sorted(list(ReporterType._meta.fields.keys())) == sorted([
         # Columns
-        "column_prop",  # SQLAlchemy retuns column properties first
+        "column_prop",
         "id",
         "first_name",
         "last_name",

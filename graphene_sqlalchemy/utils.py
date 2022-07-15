@@ -8,8 +8,6 @@ from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
 
-from graphene_sqlalchemy.registry import get_global_registry
-
 
 def get_session(context):
     return context.get("session")
@@ -203,7 +201,14 @@ def safe_isinstance(cls):
 
 
 def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:
+    from graphene_sqlalchemy.registry import get_global_registry
     try:
         return next(filter(lambda x: x.__name__ == model_name, list(get_global_registry()._registry.keys())))
     except StopIteration:
         pass
+
+
+class DummyImport:
+    """The dummy module returns 'object' for a query for any member"""
+    def __getattr__(self, name):
+        return object
