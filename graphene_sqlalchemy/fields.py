@@ -129,20 +129,31 @@ class SQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
         return query
 
 
-class BatchSQLAlchemyConnectionField(UnsortedSQLAlchemyConnectionField):
+class BatchSQLAlchemyConnectionField(SQLAlchemyConnectionField):
     """
     This is currently experimental.
     The API and behavior may change in future versions.
     Use at your own risk.
     """
 
-    def wrap_resolve(self, parent_resolver):
-        return partial(
-            self.connection_resolver,
-            self.resolver,
-            get_nullable_type(self.type),
-            self.model,
-        )
+    @classmethod
+    def connection_resolver(cls, resolver, connection_type, model, root, info, **args):
+        if root is None:
+            resolved = resolver(root, info, **args)
+            on_resolve = partial(cls.resolve_connection, connection_type, model, info, args)
+        else:
+            relationship_prop = None
+            for relationship in root.__class__.__mapper__.relationships:
+                if relationship.mapper.class_ == model:
+                    relationship_prop = relationship
+                    break
+            resolved = get_batch_resolver(relationship_prop)(root, info, **args)
+            on_resolve = partial(cls.resolve_connection, connection_type, root, info, args)
+
+        if is_thenable(resolved):
+            return Promise.resolve(resolved).then(on_resolve)
+
+        return on_resolve(resolved)
 
     @classmethod
     def from_relationship(cls, relationship, registry, **field_kwargs):

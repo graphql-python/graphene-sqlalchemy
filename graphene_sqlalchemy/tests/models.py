@@ -110,6 +110,24 @@ class Article(Base):
     headline = Column(String(100))
     pub_date = Column(Date())
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
+    readers = relationship(
+        "Reader", secondary="articles_readers", back_populates="articles"
+    )
+
+
+class Reader(Base):
+    __tablename__ = "readers"
+    id = Column(Integer(), primary_key=True)
+    name = Column(String(100))
+    articles = relationship(
+        "Article", secondary="articles_readers", back_populates="readers"
+    )
+
+
+class ArticleReader(Base):
+    __tablename__ = "articles_readers"
+    article_id = Column(Integer(), ForeignKey("articles.id"), primary_key=True)
+    reader_id = Column(Integer(), ForeignKey("readers.id"), primary_key=True)
 
 
 class ReflectedEditor(type):

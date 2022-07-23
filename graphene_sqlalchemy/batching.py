@@ -1,3 +1,5 @@
+from asyncio import get_event_loop
+
 import aiodataloader
 import sqlalchemy
 from sqlalchemy.orm import Session, strategies
@@ -5,15 +7,21 @@ from sqlalchemy.orm.query import QueryContext
 
 from .utils import is_sqlalchemy_version_less_than
 
+# Cache this across `batch_load_fn` calls
+# This is so SQL string generation is cached under-the-hood via `bakery`
+# Caching the relationship loader for each relationship prop.
+RELATIONSHIP_LOADERS_CACHE = {}
+
 
 def get_batch_resolver(relationship_prop):
 
-    # Cache this across `batch_load_fn` calls
-    # This is so SQL string generation is cached under-the-hood via `bakery`
-    selectin_loader = strategies.SelectInLoader(relationship_prop, (('lazy', 'selectin'),))
-
     class RelationshipLoader(aiodataloader.DataLoader):
         cache = False
+
+        def __init__(self, relationship_prop, selectin_loader):
+            super().__init__()
+            self.relationship_prop = relationship_prop
+            self.selectin_loader = selectin_loader
 
         async def batch_load_fn(self, parents):
             """
@@ -38,8 +46,8 @@ def get_batch_resolver(relationship_prop):
               SQLAlchemy's main maitainer suggestion.
               See https://git.io/JewQ7
             """
-            child_mapper = relationship_prop.mapper
-            parent_mapper = relationship_prop.parent
+            child_mapper = self.relationship_prop.mapper
+            parent_mapper = self.relationship_prop.parent
             session = Session.object_session(parents[0])
 
             # These issues are very unlikely to happen in practice...
@@ -62,7 +70,7 @@ def get_batch_resolver(relationship_prop):
                 query_context = parent_mapper_query._compile_context()
 
             if is_sqlalchemy_version_less_than('1.4'):
-                selectin_loader._load_for_path(
+                self.selectin_loader._load_for_path(
                     query_context,
                     parent_mapper._path_registry,
                     states,
@@ -70,7 +78,7 @@ def get_batch_resolver(relationship_prop):
                     child_mapper
                 )
             else:
-                selectin_loader._load_for_path(
+                self.selectin_loader._load_for_path(
                     query_context,
                     parent_mapper._path_registry,
                     states,
@@ -78,10 +86,26 @@ def get_batch_resolver(relationship_prop):
                     child_mapper,
                     None
                 )
+            return [getattr(parent, self.relationship_prop.key) for parent in parents]
 
-            return [getattr(parent, relationship_prop.key) for parent in parents]
+    def _get_loader(relationship_prop):
+        """Retrieve the cached loader of the given relationship."""
+        loader = RELATIONSHIP_LOADERS_CACHE.get(relationship_prop, None)
+        if loader is None:
+            selectin_loader = strategies.SelectInLoader(
+                relationship_prop,
+                (('lazy', 'selectin'),)
+            )
+            loader = RelationshipLoader(
+                relationship_prop=relationship_prop,
+                selectin_loader=selectin_loader
+            )
+            RELATIONSHIP_LOADERS_CACHE[relationship_prop] = loader
+        else:
+            loader.loop = get_event_loop()
+        return loader
 
-    loader = RelationshipLoader()
+    loader = _get_loader(relationship_prop)
 
     async def resolve(root, info, **args):
         return await loader.load(root)
