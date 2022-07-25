@@ -1,0 +1,317 @@
+import graphene
+
+from ..fields import SQLAlchemyConnectionField
+from ..filters import FloatFilter
+from ..types import SQLAlchemyObjectType
+from .models import Article, Editor, HairKind, Image, Pet, Reporter, Tag
+from .utils import to_std_dicts
+
+
+def add_test_data(session):
+    reporter = Reporter(
+        first_name='John', last_name='Doe', favorite_pet_kind='cat')
+    session.add(reporter)
+    pet = Pet(name='Garfield', pet_kind='cat', hair_kind=HairKind.SHORT)
+    pet.reporters = reporter
+    session.add(pet)
+    pet = Pet(name='Snoopy', pet_kind='dog', hair_kind=HairKind.SHORT)
+    pet.reporters = reporter
+    session.add(pet)
+    reporter = Reporter(
+        first_name='John', last_name='Woe', favorite_pet_kind='cat')
+    session.add(reporter)
+    article = Article(headline='Hi!')
+    article.reporter = reporter
+    session.add(article)
+    reporter = Reporter(
+        first_name='Jane', last_name='Roe', favorite_pet_kind='dog')
+    session.add(reporter)
+    pet = Pet(name='Lassie', pet_kind='dog', hair_kind=HairKind.LONG)
+    pet.reporters.append(reporter)
+    session.add(pet)
+    editor = Editor(name="Jack")
+    session.add(editor)
+    session.commit()
+
+
+def create_schema(session):
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+
+    class ImageType(SQLAlchemyObjectType):
+        class Meta:
+            model = Image
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+
+    class Query(graphene.ObjectType):
+        article = graphene.Field(ArticleType)
+        articles = graphene.List(ArticleType)
+        image = graphene.Field(ImageType)
+        images = graphene.List(ImageType)
+        reporter = graphene.Field(ReporterType)
+        reporters = graphene.List(ReporterType)
+
+        def resolve_article(self, _info):
+            return session.query(Article).first()
+
+        def resolve_articles(self, _info):
+            return session.query(Article)
+
+        def resolve_image(self, _info):
+            return session.query(Image).first()
+
+        def resolve_images(self, _info):
+            return session.query(Image)
+
+        def resolve_reporter(self, _info):
+            return session.query(Reporter).first()
+
+        def resolve_reporters(self, _info):
+            return session.query(Reporter)
+
+    return Query
+
+
+# Test a simple example of filtering
+def test_filter_simple(session):
+    add_test_data(session)
+    Query = create_schema(session)
+
+    query = """
+        query {
+          reporters(filters: {firstName: "John"}) {
+            firstName
+          }
+        }
+    """
+    expected = {
+        "reporters": [{"firstName": "John"}],
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query)
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+
+# Test a custom filter type
+def test_filter_custom_type(session):
+    add_test_data(session)
+    Query = create_schema(session)
+
+    class MathFilter(FloatFilter):
+        def divisibleBy(dividend, divisor):
+            return dividend % divisor == 0
+
+    class ExtraQuery:
+        pets = SQLAlchemyConnectionField(Pet, filters=MathFilter())
+
+    class CustomQuery(Query, ExtraQuery):
+        pass
+
+    query = """
+        query {
+          pets (filters: {
+            legs: {divisibleBy: 2}
+          }) {
+            name
+          }
+        }
+    """
+    expected = {
+        "pets": [{"name": "Garfield"}, {"name": "Lassie"}],
+    }
+    schema = graphene.Schema(query=CustomQuery)
+    result = schema.execute(query)
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+# Test a 1:1 relationship
+def test_filter_relationship_one_to_one(session):
+    article = Article(headline='Hi!')
+    image = Image(external_id=1, description="A beautiful image.")
+    article.image = image
+    session.add(article)
+    session.add(image)
+    session.commit()
+
+    Query = create_schema(session)
+
+    query = """
+        query {
+          article (filters: {
+            image: {description: "A beautiful image."}
+          }) {
+            firstName
+          }
+        }
+    """
+    expected = {
+        "article": [{"headline": "Hi!"}],
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query)
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+
+# Test a 1:n relationship
+def test_filter_relationship_one_to_many(session):
+    add_test_data(session)
+    Query = create_schema(session)
+
+    query = """
+        query {
+          reporter (filters: {
+            pets: {
+                name: {in: ["Garfield", "Snoopy"]}
+            }
+          }) {
+            firstName
+            lastName
+          }
+        }
+    """
+    expected = {
+        "reporter": [{"firstName": "John"}, {"lastName": "Doe"}],
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query)
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+
+# Test a n:m relationship
+def test_filter_relationship_many_to_many(session):
+    article1 = Article(headline='Article! Look!')
+    article2 = Article(headline='Woah! Another!')
+    tag1 = Tag(name="sensational")
+    tag2 = Tag(name="eye-grabbing")
+    article1.tags.append(tag1)
+    article2.tags.append([tag1, tag2])
+    session.add(article1)
+    session.add(article2)
+    session.add(tag1)
+    session.add(tag2)
+    session.commit()
+
+    Query = create_schema(session)
+
+    query = """
+        query {
+          articles (filters: {
+            tags: { name: { in: ["sensational", "eye-grabbing"] } }
+          }) {
+            headline
+          }
+        }
+    """
+    expected = {
+        "articles": [{"headline": "Woah! Another!"}],
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query)
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+
+# Test connecting filters with "and"
+def test_filter_logic_and(session):
+    add_test_data(session)
+
+    Query = create_schema(session)
+
+    query = """
+        query {
+          reporters (filters: {
+            and: [
+                {firstName: "John"},
+                {favoritePetKind: "cat"}, 
+            ]
+        }) {
+            lastName
+          }
+        }
+    """
+    expected = {
+        "reporters": [{"lastName": "Doe"}, {"lastName": "Woe"}],
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query)
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+
+# Test connecting filters with "or" 
+def test_filter_logic_or(session):
+    add_test_data(session)
+    Query = create_schema(session)
+
+    query = """
+        query {
+          reporters (filters: {
+            or: [
+                {lastName: "Woe"},
+                {favoritePetKind: "dog"}, 
+            ]
+        }) {
+            firstName
+            lastName
+          }
+        }
+    """
+    expected = {
+        "reporters": [
+            {"firstName": "John", "lastName": "Woe"}, 
+            {"firstName": "Jane", "lastName": "Roe"},
+        ],
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query)
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+
+# Test connecting filters with "and" and "or" together
+def test_filter_logic_and_or(session):
+    add_test_data(session)
+    Query = create_schema(session)
+
+    query = """
+        query {
+          reporters (filters: {
+            and: [
+                {firstName: "John"},
+                or : [ 
+                    {lastName: "Doe"},
+                    {favoritePetKind: "cat"}, 
+                ]
+            ]
+        }) {
+            firstName
+          }
+        }
+    """
+    expected = {
+        "reporters": [{"firstName": "John"}, {"firstName": "Jane"}],
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query)
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+
+# TODO hybrid property
+def test_filter_hybrid_property(session):
+    raise NotImplementedError
