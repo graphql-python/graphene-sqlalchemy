@@ -108,9 +108,22 @@ class Reporter(Base):
 articles_tags_table = Table(
     "articles_tags",
     Base.metadata,
-    Column("article_id", ForeignKey("article.id")),
-    Column("imgae_id", ForeignKey("image.id")),
+    Column("article_id", ForeignKey("articles.id")),
+    Column("tag_id", ForeignKey("tags.id")),
 ) 
+
+
+class Image(Base):
+    __tablename__ = "images"
+    id = Column(Integer(), primary_key=True)
+    external_id = Column(Integer())
+    description = Column(String(30))
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+    id = Column(Integer(), primary_key=True)
+    name = Column(String(30))
 
 
 class Article(Base):
@@ -139,24 +152,11 @@ class ArticleReader(Base):
     reader_id = Column(Integer(), ForeignKey("readers.id"), primary_key=True)
 
     # one-to-one relationship with image
-    image_id = Column(Integer(), ForeignKey('image.id'), unique=True)
+    image_id = Column(Integer(), ForeignKey('images.id'), unique=True)
     image = relationship("Image", backref=backref("articles", uselist=False))
 
     # many-to-many relationship with tags
     tags = relationship("Tag", secondary=articles_tags_table, backref="articles")
-
-
-class Image(Base):
-    __tablename__ = "images"
-    id = Column(Integer(), primary_key=True)
-    external_id = Column(Integer())
-    description = Column(String(30))
-
-
-class Tag(Base):
-    __tablename__ = "tags"
-    id = Column(Integer(), primary_key=True)
-    name = Column(String(30))
 
 
 class ReflectedEditor(type):

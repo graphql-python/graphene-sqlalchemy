@@ -51,8 +51,8 @@ def create_schema(session):
     class Query(graphene.ObjectType):
         article = graphene.Field(ArticleType)
         articles = graphene.List(ArticleType)
-        image = graphene.Field(ImageType)
-        images = graphene.List(ImageType)
+        # image = graphene.Field(ImageType)
+        # images = graphene.List(ImageType)
         reporter = graphene.Field(ReporterType)
         reporters = graphene.List(ReporterType)
 
