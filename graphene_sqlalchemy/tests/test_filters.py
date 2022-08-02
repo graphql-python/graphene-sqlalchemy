@@ -104,8 +104,8 @@ def test_filter_custom_type(session):
     Query = create_schema(session)
 
     class MathFilter(FloatFilter):
-        def divisibleBy(dividend, divisor):
-            return dividend % divisor == 0
+        def divisibleBy(dividend: float, divisor: float) -> float:
+            return dividend % divisor == 0.
 
     class ExtraQuery:
         pets = SQLAlchemyConnectionField(Pet, filters=MathFilter())
