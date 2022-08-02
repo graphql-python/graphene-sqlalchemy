@@ -1,0 +1,2 @@
+class FloatFilter:
+    pass
