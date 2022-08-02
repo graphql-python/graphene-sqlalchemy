@@ -6,7 +6,7 @@ from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, String, Table,
                         func, select)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import column_property, composite, mapper, relationship
+from sqlalchemy.orm import backref, column_property, composite, mapper, relationship
 
 PetKind = Enum("cat", "dog", name="pet_kind")
 
@@ -39,6 +39,7 @@ class Pet(Base):
     pet_kind = Column(PetKind, nullable=False)
     hair_kind = Column(Enum(HairKind, name="hair_kind"), nullable=False)
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
+    legs = Column(Integer(), default=4)
 
 
 class CompositeFullName(object):
@@ -76,12 +77,40 @@ class Reporter(Base):
     composite_prop = composite(CompositeFullName, first_name, last_name, doc="Composite")
 
 
+articles_tags_table = Table(
+    "articles_tags",
+    Base.metadata,
+    Column("article_id", ForeignKey("article.id")),
+    Column("imgae_id", ForeignKey("image.id")),
+) 
+
+
 class Article(Base):
     __tablename__ = "articles"
     id = Column(Integer(), primary_key=True)
     headline = Column(String(100))
     pub_date = Column(Date())
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
+
+    # one-to-one relationship with image
+    image_id = Column(Integer(), ForeignKey('image.id'), unique=True)
+    image = relationship("Image", backref=backref("articles", uselist=False))
+
+    # many-to-many relationship with tags
+    tags = relationship("Tag", secondary=articles_tags_table, backref="articles")
+
+
+class Image(Base):
+    __tablename__ = "images"
+    id = Column(Integer(), primary_key=True)
+    external_id = Column(Integer())
+    description = Column(String(30))
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+    id = Column(Integer(), primary_key=True)
+    name = Column(String(30))
 
 
 class ReflectedEditor(type):
