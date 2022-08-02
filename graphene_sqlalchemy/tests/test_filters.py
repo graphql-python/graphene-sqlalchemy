@@ -166,11 +166,38 @@ def test_filter_relationship_one_to_many(session):
     add_test_data(session)
     Query = create_schema(session)
 
+    # test contains
     query = """
         query {
           reporter (filters: {
             pets: {
-                name: {in: ["Garfield", "Snoopy"]}
+              contains: {
+                name: {in: ["Garfield", "Lassie"]}
+              }
+            }
+          }) {
+            lastName
+          }
+        }
+    """
+    expected = {
+        "reporter": [{"lastName": "Doe"}, {"lastName": "Roe"}],
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query)
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+    # test containsAllOf
+    query = """
+        query {
+          reporter (filters: {
+            pets: {
+              containsAllOf: [
+                name: {eq: "Garfield"},
+                name: {eq: "Snoopy"},
+              ]
             }
           }) {
             firstName
@@ -187,6 +214,28 @@ def test_filter_relationship_one_to_many(session):
     result = to_std_dicts(result.data)
     assert result == expected
 
+    # test containsExactly
+    query = """
+        query {
+          reporter (filters: {
+            pets: {
+              containsExactly: [
+                name: {eq: "Garfield"}
+              ]
+            }
+          }) {
+            firstName
+          }
+        }
+    """
+    expected = {
+        "reporter": [],
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query)
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
 
 # Test a n:m relationship
 def test_filter_relationship_many_to_many(session):
@@ -204,10 +253,42 @@ def test_filter_relationship_many_to_many(session):
 
     Query = create_schema(session)
 
+    # test contains
+    query = """
+    query {
+      articles (filters: {
+        tags: {
+          contains: {
+            name: { in: ["sensational", "eye-grabbing"] } 
+          }
+        }
+      }) {
+        headline
+      }
+    }
+    """
+    expected = {
+        "articles": [
+            {"headline": "Woah! Another!"}, 
+            {"headline": "Article! Look!"},
+        ],
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query)
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+    # test containsAllOf
     query = """
         query {
           articles (filters: {
-            tags: { name: { in: ["sensational", "eye-grabbing"] } }
+            tags: {
+              containsAllOf: [
+                { tag: { name: { eq: "eye-grabbing" } } },
+                { tag: { name: { eq: "sensational" } } },
+              ]
+            }
           }) {
             headline
           }
@@ -215,6 +296,27 @@ def test_filter_relationship_many_to_many(session):
     """
     expected = {
         "articles": [{"headline": "Woah! Another!"}],
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query)
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+    # test containsExactly
+    query = """
+        query {
+          articles (filters: {
+              containsExactly: [
+                { tag: { name: { eq: "sensational" } } }
+              ]
+          }) {
+            headline
+          }
+        }
+    """
+    expected = {
+        "articles": [{"headline": "Article! Look!"}],
     }
     schema = graphene.Schema(query=Query)
     result = schema.execute(query)
