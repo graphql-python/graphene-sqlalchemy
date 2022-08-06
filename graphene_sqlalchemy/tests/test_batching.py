@@ -730,8 +730,15 @@ async def test_batching_across_nested_relay_schema(session_factory):
         messages = sqlalchemy_logging_handler.messages
 
     result = to_std_dicts(result.data)
-    select_statements = [message for message in messages if 'SELECT' in message and 'FROM articles' in message]
-    assert len(select_statements) == 2
+    select_statements = [message for message in messages if 'SELECT' in message]
+    assert len(select_statements) == 4
+    assert select_statements[-1].startswith("SELECT articles_1.id")
+    if is_sqlalchemy_version_less_than('1.3'):
+        assert select_statements[-2].startswith("SELECT reporters_1.id")
+        assert "WHERE reporters_1.id IN" in select_statements[-2]
+    else:
+        assert select_statements[-2].startswith("SELECT articles.reporter_id")
+        assert "WHERE articles.reporter_id IN" in select_statements[-2]
 
 
 @pytest.mark.asyncio
