@@ -5,6 +5,8 @@ from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
 import graphene
 from graphene import Enum
+from graphene_sqlalchemy.filters import (ObjectTypeFilter, RelationshipFilter,
+                                         ScalarFilter)
 
 
 class Registry(object):
@@ -103,8 +105,30 @@ class Registry(object):
 
         self._registry_unions[frozenset(obj_types)] = union
 
-    def get_union_for_object_types(self, obj_types : List[Type[graphene.ObjectType]]):
+    def get_union_for_object_types(self, obj_types: List[Type[graphene.ObjectType]]):
         return self._registry_unions.get(frozenset(obj_types))
+
+    # Filter Scalar Fields of Object Types
+    def register_filter_for_scalar_type(self, scalar_type: graphene.Scalar, filter: ScalarFilter):
+        pass
+
+    def get_filter_for_scalar_type(self, scalar_type: graphene.Scalar) -> ScalarFilter:
+        pass
+
+    # Filter Object Types
+    def register_filter_for_object_type(self, object_type: graphene.ObjectType, filter: ObjectTypeFilter):
+        pass
+
+    def get_filter_for_object_type(self, object_type: graphene.ObjectType):
+        pass
+
+    # Filter Relationships between object types
+    def register_relationship_filter_for_object_type(self, object_type: graphene.ObjectType,
+                                                     filter: RelationshipFilter):
+        pass
+
+    def get_relationship_filter_for_object_type(self, object_type: graphene.ObjectType) -> RelationshipFilter:
+        pass
 
 
 registry = None
