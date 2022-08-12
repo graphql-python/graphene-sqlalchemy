@@ -5,7 +5,7 @@ from typing import List
 import graphene
 from graphene.types.inputobjecttype import InputObjectTypeOptions
 from graphene_sqlalchemy.utils import is_list
-
+from sqlalchemy import not_
 
 class AbstractType:
     """Dummy class for generic filters"""
@@ -14,7 +14,7 @@ class AbstractType:
 
 class ObjectTypeFilter(graphene.InputObjectType):
     @classmethod
-    def __init_subclass_with_meta__(cls, filter_fields=None, _meta=None, **options):
+    def __init_subclass_with_meta__(cls, filter_fields=None, model=None, _meta=None, **options):
 
         # Init meta options class if it doesn't exist already
         if not _meta:
@@ -25,6 +25,8 @@ class ObjectTypeFilter(graphene.InputObjectType):
             _meta.fields.update(filter_fields)
         else:
             _meta.fields = filter_fields
+
+        _meta.model = model
 
         super(ObjectTypeFilter, cls).__init_subclass_with_meta__(_meta=_meta, **options)
 
@@ -135,9 +137,12 @@ class FieldFilter(graphene.InputObjectType):
 
     # Abstract methods can be marked using AbstractType. See comment on the init method
     @classmethod
-    def eq_filter(cls, val: AbstractType) -> bool:
-        # TBD filtering magic
-        pass
+    def eq_filter(cls, query, field, val: AbstractType) -> bool:
+        return query.filter(field == val)
+
+    @classmethod
+    def n_eq_filter(cls, query, field, val: AbstractType) -> bool:
+        return query.filter(not_(field == val))
 
 
 class StringFilter(FieldFilter):

@@ -330,7 +330,7 @@ class SQLAlchemyObjectType(ObjectType):
                 field_filter = filter_field_from_type_field(field, registry)
                 if field_filter:
                     filters[fieldname] = field_filter
-            _meta.filter_class = ObjectTypeFilter.create_type(f"{cls.__name__}Filter", filter_fields=filters)
+            _meta.filter_class = ObjectTypeFilter.create_type(f"{cls.__name__}Filter", filter_fields=filters, model=model)
             registry.register_filter_for_object_type(cls, _meta.filter_class)
 
         _meta.connection = connection

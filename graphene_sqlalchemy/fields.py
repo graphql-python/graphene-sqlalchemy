@@ -69,7 +69,7 @@ class SQLAlchemyConnectionField(ConnectionField):
         return get_nullable_type(self.type)._meta.node._meta.model
 
     @classmethod
-    def get_query(cls, model, info, sort=None, **args):
+    def get_query(cls, model, info, sort=None, filter=None, **args):
         query = get_query(model, info.context)
         if sort is not None:
             if not isinstance(sort, list):
@@ -85,6 +85,18 @@ class SQLAlchemyConnectionField(ConnectionField):
                 else:
                     sort_args.append(item)
             query = query.order_by(*sort_args)
+
+        if filter is not None:
+            assert isinstance(filter, dict)
+            filter_type = type(filter)
+            for field, filt_dict in filter.items():
+                model = filter_type._meta.model
+                field_filter_type = filter_type._meta.fields[field]._type
+                for filt, val in filt_dict.items():
+                    query = getattr(
+                        field_filter_type, filt + "_filter"
+                    )(query, getattr(model, field), val)
+
         return query
 
     @classmethod
