@@ -1,4 +1,5 @@
 import re
+import typing
 import warnings
 from collections import OrderedDict
 from typing import Any, Callable, Dict, Optional
@@ -7,6 +8,14 @@ import pkg_resources
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
+
+from graphene import NonNull
+
+
+def get_nullable_type(_type):
+    if isinstance(_type, NonNull):
+        return _type.of_type
+    return _type
 
 
 def get_session(context):
@@ -197,6 +206,7 @@ def safe_isinstance(cls):
             return isinstance(arg, cls)
         except TypeError:
             pass
+
     return safe_isinstance_checker
 
 
@@ -208,7 +218,12 @@ def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:
         pass
 
 
+def is_list(x):
+    return getattr(x, '__origin__', None) in [list, typing.List]
+
+
 class DummyImport:
     """The dummy module returns 'object' for a query for any member"""
+
     def __getattr__(self, name):
         return object

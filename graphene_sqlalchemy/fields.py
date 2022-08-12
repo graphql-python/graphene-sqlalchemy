@@ -5,13 +5,12 @@ from functools import partial
 from promise import Promise, is_thenable
 from sqlalchemy.orm.query import Query
 
-from graphene import NonNull
 from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import connection_adapter, page_info_adapter
 from graphql_relay import connection_from_array_slice
 
 from .batching import get_batch_resolver
-from .utils import EnumValue, get_query
+from .utils import EnumValue, get_nullable_type, get_query
 
 
 class SQLAlchemyConnectionField(ConnectionField):
@@ -39,19 +38,30 @@ class SQLAlchemyConnectionField(ConnectionField):
 
     def __init__(self, type_, *args, **kwargs):
         nullable_type = get_nullable_type(type_)
-        if "sort" not in kwargs and nullable_type and issubclass(nullable_type, Connection):
-            # Let super class raise if type is not a Connection
-            try:
-                kwargs.setdefault("sort", nullable_type.Edge.node._type.sort_argument())
-            except (AttributeError, TypeError):
-                raise TypeError(
-                    'Cannot create sort argument for {}. A model is required. Set the "sort" argument'
-                    " to None to disabling the creation of the sort query argument".format(
-                        nullable_type.__name__
+        # Handle Sorting and Filtering
+        if nullable_type and issubclass(nullable_type, Connection):
+            if "sort" not in kwargs:
+                # Let super class raise if type is not a Connection
+                try:
+                    kwargs.setdefault("sort", nullable_type.Edge.node._type.sort_argument())
+                except (AttributeError, TypeError):
+                    raise TypeError(
+                        'Cannot create sort argument for {}. A model is required. Set the "sort" argument'
+                        " to None to disabling the creation of the sort query argument".format(
+                            nullable_type.__name__
+                        )
                     )
-                )
-        elif "sort" in kwargs and kwargs["sort"] is None:
-            del kwargs["sort"]
+            elif "sort" in kwargs and kwargs["sort"] is None:
+                del kwargs["sort"]
+
+            if "filter" not in kwargs:
+                # Only add filtering if a filter argument exists on the object type
+                filter_argument = nullable_type.Edge.node._type.get_filter_argument()
+                if filter_argument:
+                    kwargs.setdefault("filter", filter_argument)
+            elif "filter" in kwargs and kwargs["filter"] is None:
+                del kwargs["filter"]
+
         super(SQLAlchemyConnectionField, self).__init__(type_, *args, **kwargs)
 
     @property
@@ -204,9 +214,3 @@ def unregisterConnectionFieldFactory():
     )
     global __connectionFactory
     __connectionFactory = UnsortedSQLAlchemyConnectionField
-
-
-def get_nullable_type(_type):
-    if isinstance(_type, NonNull):
-        return _type.of_type
-    return _type

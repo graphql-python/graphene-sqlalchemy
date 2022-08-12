@@ -5,11 +5,14 @@ from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
 import graphene
 from graphene import Enum
-from graphene_sqlalchemy.filters import (ObjectTypeFilter, RelationshipFilter,
-                                         ScalarFilter)
+from graphene_sqlalchemy.filters import (BooleanFilter, FieldFilter,
+                                         FloatFilter, IntFilter, StringFilter)
 
 
 class Registry(object):
+    from graphene_sqlalchemy.filters import (FieldFilter, ObjectTypeFilter,
+                                             RelationshipFilter)
+
     def __init__(self):
         self._registry = {}
         self._registry_models = {}
@@ -18,6 +21,9 @@ class Registry(object):
         self._registry_enums = {}
         self._registry_sort_enums = {}
         self._registry_unions = {}
+        self._registry_scalar_filters = {}
+        self._registry_object_type_filters = {}
+        self._registry_relationship_filters = {}
 
     def register(self, obj_type):
 
@@ -109,26 +115,55 @@ class Registry(object):
         return self._registry_unions.get(frozenset(obj_types))
 
     # Filter Scalar Fields of Object Types
-    def register_filter_for_scalar_type(self, scalar_type: graphene.Scalar, filter: ScalarFilter):
-        pass
+    def register_filter_for_scalar_type(self, scalar_type: Type[graphene.Scalar], filter_obj: Type[FieldFilter]):
+        if not isinstance(scalar_type, type(graphene.Scalar)):
+            raise TypeError(
+                "Expected Scalar, but got: {!r}".format(scalar_type)
+            )
 
-    def get_filter_for_scalar_type(self, scalar_type: graphene.Scalar) -> ScalarFilter:
-        pass
+        if not isinstance(filter_obj, type(FieldFilter)):
+            raise TypeError(
+                "Expected ScalarFilter, but got: {!r}".format(filter_obj)
+            )
+        self._registry_scalar_filters[scalar_type] = filter_obj
+
+    def get_filter_for_scalar_type(self, scalar_type: Type[graphene.Scalar]) -> Type[FieldFilter]:
+
+        return self._registry_scalar_filters.get(scalar_type)
 
     # Filter Object Types
-    def register_filter_for_object_type(self, object_type: graphene.ObjectType, filter: ObjectTypeFilter):
-        pass
+    def register_filter_for_object_type(self, object_type: Type[graphene.ObjectType],
+                                        filter_obj: Type[ObjectTypeFilter]):
+        if not isinstance(object_type, type(graphene.ObjectType)):
+            raise TypeError(
+                "Expected Object Type, but got: {!r}".format(object_type)
+            )
 
-    def get_filter_for_object_type(self, object_type: graphene.ObjectType):
-        pass
+        if not isinstance(filter_obj, type(FieldFilter)):
+            raise TypeError(
+                "Expected ObjectTypeFilter, but got: {!r}".format(filter_obj)
+            )
+        self._registry_object_type_filters[object_type] = filter_obj
+
+    def get_filter_for_object_type(self, object_type: Type[graphene.ObjectType]):
+        return self._registry_object_type_filters.get(object_type)
 
     # Filter Relationships between object types
     def register_relationship_filter_for_object_type(self, object_type: graphene.ObjectType,
-                                                     filter: RelationshipFilter):
-        pass
+                                                     filter_obj: RelationshipFilter):
+        if not isinstance(object_type, type(graphene.ObjectType)):
+            raise TypeError(
+                "Expected Object Type, but got: {!r}".format(object_type)
+            )
 
-    def get_relationship_filter_for_object_type(self, object_type: graphene.ObjectType) -> RelationshipFilter:
-        pass
+        if not isinstance(filter_obj, type(FieldFilter)):
+            raise TypeError(
+                "Expected RelationshipFilter, but got: {!r}".format(filter_obj)
+            )
+        self._registry_relationship_filters[object_type] = filter_obj
+
+    def get_relationship_filter_for_object_type(self, object_type: Type[graphene.ObjectType]) -> RelationshipFilter:
+        return self._registry_relationship_filters.get(object_type)
 
 
 registry = None
@@ -144,3 +179,9 @@ def get_global_registry():
 def reset_global_registry():
     global registry
     registry = None
+
+
+get_global_registry().register_filter_for_scalar_type(graphene.Float, FloatFilter)
+get_global_registry().register_filter_for_scalar_type(graphene.Float, IntFilter)
+get_global_registry().register_filter_for_scalar_type(graphene.String, StringFilter)
+get_global_registry().register_filter_for_scalar_type(graphene.Boolean, BooleanFilter)

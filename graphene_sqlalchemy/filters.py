@@ -1,15 +1,9 @@
 import re
+from typing import List
 
 import graphene
 from graphene.types.inputobjecttype import InputObjectTypeOptions
-
-
-class ObjectTypeFilter(graphene.InputObjectType):
-    pass
-
-
-class RelationshipFilter(graphene.InputObjectType):
-    pass
+from graphene_sqlalchemy.utils import is_list
 
 
 class AbstractType:
@@ -17,7 +11,76 @@ class AbstractType:
     pass
 
 
-class ScalarFilter(graphene.InputObjectType):
+class ObjectTypeFilter(graphene.InputObjectType):
+    @classmethod
+    def __init_subclass_with_meta__(cls, filter_fields=None, _meta=None, **options):
+
+        # Init meta options class if it doesn't exist already
+        if not _meta:
+            _meta = InputObjectTypeOptions(cls)
+
+        # Add all fields to the meta options. graphene.InputObjectType will take care of the rest
+        if _meta.fields:
+            _meta.fields.update(filter_fields)
+        else:
+            _meta.fields = filter_fields
+
+        super(ObjectTypeFilter, cls).__init_subclass_with_meta__(_meta=_meta, **options)
+
+    @classmethod
+    def and_logic(cls, val: list["ObjectTypeFilter"]):
+        # TODO
+        pass
+
+
+class RelationshipFilter(graphene.InputObjectType):
+    @classmethod
+    def __init_subclass_with_meta__(cls, object_type_filter=None, _meta=None, **options):
+        if not object_type_filter:
+            raise Exception("Relationship Filters must be specific to an object type")
+        # Init meta options class if it doesn't exist already
+        if not _meta:
+            _meta = InputObjectTypeOptions(cls)
+
+        # get all filter functions
+        filter_function_regex = re.compile(".+_filter$")
+
+        filter_functions = []
+
+        # Search the entire class for functions matching the filter regex
+        for func in dir(cls):
+            func_attr = getattr(cls, func)
+            # Check if attribute is a function
+            if callable(func_attr) and filter_function_regex.match(func):
+                # add function and attribute name to the list
+                filter_functions.append((func.removesuffix("_filter"), func_attr.__annotations__))
+
+        relationship_filters = {}
+
+        # Generate Graphene Fields from the filter functions based on type hints
+        for field_name, annotations in filter_functions:
+            assert "val" in annotations, "Each filter method must have a value field with valid type annotations"
+            # If type is generic, replace with actual type of filter class
+            if is_list(annotations["val"]):
+                relationship_filters.update({field_name: graphene.InputField(graphene.List(object_type_filter))})
+            else:
+                relationship_filters.update({field_name: graphene.InputField(object_type_filter)})
+
+        # Add all fields to the meta options. graphene.InputObjectType will take care of the rest
+        if _meta.fields:
+            _meta.fields.update(relationship_filters)
+        else:
+            _meta.fields = relationship_filters
+
+        super(RelationshipFilter, cls).__init_subclass_with_meta__(_meta=_meta, **options)
+
+    @classmethod
+    def contains_filter(cls, val: List["RelationshipFilter"]):
+        # TODO
+        pass
+
+
+class FieldFilter(graphene.InputObjectType):
     """Basic Filter for Scalars in Graphene.
     We want this filter to use Dynamic fields so it provides the base
     filtering methods ("eq, nEq") for different types of scalars.
@@ -25,7 +88,6 @@ class ScalarFilter(graphene.InputObjectType):
 
     @classmethod
     def __init_subclass_with_meta__(cls, type=None, _meta=None, **options):
-        print(type)  # The type from the Meta Class
 
         # get all filter functions
         filter_function_regex = re.compile(".+_filter$")
@@ -66,7 +128,7 @@ class ScalarFilter(graphene.InputObjectType):
             _meta.fields = new_filter_fields
 
         # Pass modified meta to the super class
-        super(ScalarFilter, cls).__init_subclass_with_meta__(_meta=_meta, **options)
+        super(FieldFilter, cls).__init_subclass_with_meta__(_meta=_meta, **options)
 
     # Abstract methods can be marked using AbstractType. See comment on the init method
     @classmethod
@@ -75,19 +137,24 @@ class ScalarFilter(graphene.InputObjectType):
         pass
 
 
-class StringFilter(ScalarFilter):
+class StringFilter(FieldFilter):
     class Meta:
         type = graphene.String
 
 
-class NumberFilter(ScalarFilter):
+class BooleanFilter(FieldFilter):
+    class Meta:
+        type = graphene.Boolean
+
+
+class NumberFilter(FieldFilter):
     """Intermediate Filter class since all Numbers are in an order relationship (support <, > etc)"""
 
     class Meta:
         abstract = True
 
     @classmethod
-    def gt_filter(cls, val: str) -> bool:
+    def gt_filter(cls, val: AbstractType) -> bool:
         # TBD filtering magic
         pass
 
@@ -97,3 +164,15 @@ class FloatFilter(NumberFilter):
 
     class Meta:
         type = graphene.Float
+
+
+class IntFilter(NumberFilter):
+    class Meta:
+        type = graphene.Int
+
+
+class DateFilter(NumberFilter):
+    """Concrete Filter Class which specifies a type for all the abstract filter methods defined in the super classes"""
+
+    class Meta:
+        type = graphene.Date

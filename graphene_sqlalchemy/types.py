@@ -1,4 +1,6 @@
+import warnings
 from collections import OrderedDict
+from typing import Type, Union
 
 import sqlalchemy
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -6,6 +8,7 @@ from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
                             RelationshipProperty)
 from sqlalchemy.orm.exc import NoResultFound
 
+import graphene
 from graphene import Field
 from graphene.relay import Connection, Node
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
@@ -18,9 +21,11 @@ from .converter import (convert_sqlalchemy_column,
                         convert_sqlalchemy_relationship)
 from .enums import (enum_for_field, sort_argument_for_object_type,
                     sort_enum_for_object_type)
+from .filters import ObjectTypeFilter, RelationshipFilter
 from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
-from .utils import get_query, is_mapped_class, is_mapped_instance
+from .utils import (get_nullable_type, get_query, is_mapped_class,
+                    is_mapped_instance)
 
 
 class ORMField(OrderedType):
@@ -88,6 +93,52 @@ class ORMField(OrderedType):
         self.kwargs.update(common_kwargs)
 
 
+def get_or_create_relationship_filter(obj_type: Type[ObjectType], registry: Registry) -> Type[RelationshipFilter]:
+    relationship_filter = registry.get_relationship_filter_for_object_type(obj_type)
+
+    if not relationship_filter:
+        object_type_filter = registry.get_filter_for_object_type(obj_type)
+        relationship_filter = RelationshipFilter.create_type(f"{obj_type.__name__}RelationshipFilter",
+                                                             object_type_filter=object_type_filter)
+
+    return relationship_filter
+
+
+def filter_field_from_type_field(field: Union[graphene.Field, graphene.Dynamic],
+                                 registry: Registry) -> Union[graphene.InputField, graphene.Dynamic]:
+    if isinstance(field.type, graphene.List):
+        pass
+    elif isinstance(field.type, graphene.Dynamic):
+        pass
+    # If the field is Dynamic, we don't know its type yet and can't select the right filter
+    elif isinstance(field, graphene.Dynamic):
+        def resolve_dynamic():
+            # Resolve Dynamic Type
+            type_ = get_nullable_type(field.get_type())
+            from graphene_sqlalchemy import SQLAlchemyConnectionField
+            if isinstance(type_, SQLAlchemyConnectionField):
+                inner_type = get_nullable_type(type_.type.Edge.node._type)
+                return graphene.InputField(get_or_create_relationship_filter(inner_type, registry))
+            elif isinstance(type_, Field):
+                reg_res = registry.get_filter_for_object_type(type_.type)
+                return graphene.InputField(reg_res)
+            else:
+                warnings.warn(f"Unexpected Dynamic Type: {type_}")  # Investigate
+                # raise Exception(f"Unexpected Dynamic Type: {type_}")
+
+        return graphene.Dynamic(resolve_dynamic)
+
+    elif isinstance(field, graphene.Field):
+        type_ = get_nullable_type(field.type)
+        filter_class = registry.get_filter_for_scalar_type(type_)
+        if not filter_class:
+            warnings.warn(f"No compatible filters found for {field.type}. Skipping field.")
+            return None
+        return graphene.InputField(filter_class)
+    else:
+        raise Exception(f"Expected a graphene.Field or graphene.Dynamic, but got: {field}")
+
+
 def construct_fields(
         obj_type, model, registry, only_fields, exclude_fields, batching, connection_field_factory
 ):
@@ -138,9 +189,9 @@ def construct_fields(
         attr_name = orm_field.kwargs.get('model_attr', orm_field_name)
         if attr_name not in all_model_attrs:
             raise ValueError((
-                "Cannot map ORMField to a model attribute.\n"
-                "Field: '{}.{}'"
-            ).format(obj_type.__name__, orm_field_name,))
+                             "Cannot map ORMField to a model attribute.\n"
+                             "Field: '{}.{}'"
+                             ).format(obj_type.__name__, orm_field_name, ))
         orm_field.kwargs['model_attr'] = attr_name
 
     # Merge automatic fields with custom ORM fields
@@ -174,7 +225,6 @@ def construct_fields(
             field = convert_sqlalchemy_hybrid_method(attr, resolver, **orm_field.kwargs)
         else:
             raise Exception('Property type is not supported')  # Should never happen
-
         registry.register_orm_field(obj_type, orm_field_name, attr)
         fields[orm_field_name] = field
 
@@ -186,6 +236,7 @@ class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
     registry = None  # type: sqlalchemy.Registry
     connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
     id = None  # type: str
+    filter_class: Type[ObjectTypeFilter] = None
 
 
 class SQLAlchemyObjectType(ObjectType):
@@ -199,6 +250,7 @@ class SQLAlchemyObjectType(ObjectType):
             exclude_fields=(),
             connection=None,
             connection_class=None,
+            filter_base_class=None,
             use_connection=None,
             interfaces=(),
             id=None,
@@ -268,6 +320,19 @@ class SQLAlchemyObjectType(ObjectType):
         else:
             _meta.fields = sqla_fields
 
+        # Save Generated filter class in Meta Class
+        if not _meta.filter_class:
+            filters = OrderedDict()
+            # Map graphene fields to filters
+            # TODO we might need to pass the ORMFields containing the SQLAlchemy models
+            #  to the scalar filters here (to generate expressions from the model)
+            for fieldname, field in sqla_fields.items():
+                field_filter = filter_field_from_type_field(field, registry)
+                if field_filter:
+                    filters[fieldname] = field_filter
+            _meta.filter_class = ObjectTypeFilter.create_type(f"{cls.__name__}Filter", filter_fields=filters)
+            registry.register_filter_for_object_type(cls, _meta.filter_class)
+
         _meta.connection = connection
         _meta.id = id or "id"
 
@@ -308,6 +373,12 @@ class SQLAlchemyObjectType(ObjectType):
     @classmethod
     def enum_for_field(cls, field_name):
         return enum_for_field(cls, field_name)
+
+    @classmethod
+    def get_filter_argument(cls):
+        if cls._meta.filter_class:
+            return graphene.Argument(cls._meta.filter_class)
+        return None
 
     sort_enum = classmethod(sort_enum_for_object_type)
 

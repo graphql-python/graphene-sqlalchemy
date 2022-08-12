@@ -19,7 +19,7 @@ from .fields import (BatchSQLAlchemyConnectionField,
                      default_connection_field_factory)
 from .registry import get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
-from .utils import (DummyImport, registry_sqlalchemy_model_from_str,
+from .utils import (DummyImport, is_list, registry_sqlalchemy_model_from_str,
                     safe_isinstance, singledispatchbymatchfunction,
                     value_equals)
 
@@ -420,7 +420,7 @@ def convert_sqlalchemy_hybrid_property_union(arg):
                                        get_global_registry())
 
 
-@convert_sqlalchemy_hybrid_property_type.register(lambda x: getattr(x, '__origin__', None) in [list, typing.List])
+@convert_sqlalchemy_hybrid_property_type.register(is_list)
 def convert_sqlalchemy_hybrid_property_type_list_t(arg):
     # type is either list[T] or List[T], generic argument at __args__[0]
     internal_type = arg.__args__[0]
