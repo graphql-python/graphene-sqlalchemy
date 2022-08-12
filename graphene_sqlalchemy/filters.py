@@ -100,7 +100,9 @@ class FieldFilter(graphene.InputObjectType):
             # Check if attribute is a function
             if callable(func_attr) and filter_function_regex.match(func):
                 # add function and attribute name to the list
-                filter_functions.append((func.removesuffix("_filter"), func_attr.__annotations__))
+                filter_functions.append((
+                    re.sub("\_filter$", "", func), func_attr.__annotations__)
+                )
 
         # Init meta options class if it doesn't exist already
         if not _meta:
