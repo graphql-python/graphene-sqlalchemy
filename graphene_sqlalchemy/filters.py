@@ -44,10 +44,29 @@ class ObjectTypeFilter(graphene.InputObjectType):
         clauses = []
         for field, filt_dict in filter_dict.items():
             model = cls._meta.model
-            field_filter_type: FieldFilter = cls._meta.fields[field]._type
-            model_field = getattr(model, field)
-            query, _clauses = field_filter_type.execute_filters(query, model_field, filt_dict)
-            clauses.extend(_clauses)
+            # Relationships are Dynamic, we need to resolve them fist
+            # Maybe we can cache these dynamics to improve efficiency
+            # Check with a profiler is required to determine necessity
+            input_field = cls._meta.fields[field]
+            if isinstance(input_field, graphene.Dynamic):
+                field_filter_type = input_field.get_type().type
+            else:
+                field_filter_type = cls._meta.fields[field].type
+            # TODO we need to save the relationship props in the meta fields array
+            #  to conduct joins and alias the joins (in case there are duplicate joins: A->B A->C B->C)
+            if issubclass(field_filter_type, ObjectTypeFilter):
+                # TODO see above; not yet working
+                query, _clauses = field_filter_type.execute_filters(query, filt_dict)
+                clauses.extend(_clauses)
+            if issubclass(field_filter_type, RelationshipFilter):
+                # TODO see above; not yet working
+                relationship_prop = None
+                query, _clauses = field_filter_type.execute_filters(query, filt_dict, relationship_prop)
+                clauses.extend(_clauses)
+            elif issubclass(field_filter_type, FieldFilter):
+                model_field = getattr(model, field)
+                query, _clauses = field_filter_type.execute_filters(query, model_field, filt_dict)
+                clauses.extend(_clauses)
 
         return query, clauses
 
@@ -97,6 +116,12 @@ class RelationshipFilter(graphene.InputObjectType):
     def contains_filter(cls, val: List["RelationshipFilter"]):
         # TODO
         pass
+
+    @classmethod
+    def execute_filters(cls: Type[FieldFilter], query, filter_dict: Dict, relationship_prop) -> Tuple[Query, List[Any]]:
+        query, clauses = (query, [])
+        # TODO
+        return query, clauses
 
 
 any_field_filter = TypeVar('any_field_filter', bound="FieldFilter")
