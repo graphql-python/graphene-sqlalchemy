@@ -42,7 +42,7 @@ def _convert_sa_to_graphene_enum(sa_enum, fallback_name=None):
     return Enum(name, members)
 
 
-def enum_for_sa_enum(sa_enum, registry):
+def enum_for_sa_enum(sa_enum, registry, fallback_name=None):
     """Return the Graphene Enum type for the specified SQLAlchemy Enum type."""
     if not isinstance(sa_enum, SQLAlchemyEnumType):
         raise TypeError(
@@ -50,7 +50,7 @@ def enum_for_sa_enum(sa_enum, registry):
         )
     enum = registry.get_graphene_enum_for_sa_enum(sa_enum)
     if not enum:
-        enum = _convert_sa_to_graphene_enum(sa_enum)
+        enum = _convert_sa_to_graphene_enum(sa_enum, fallback_name=fallback_name)
         registry.register_enum(sa_enum, enum)
     return enum
 
