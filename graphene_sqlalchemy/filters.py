@@ -46,8 +46,8 @@ class ObjectTypeFilter(graphene.InputObjectType):
             model = cls._meta.model
             field_filter_type: FieldFilter = cls._meta.fields[field]._type
             model_field = getattr(model, field)
-            query, clauses = field_filter_type.execute_filters(query, model_field, filt_dict)
-            clauses.extend(clauses)
+            query, _clauses = field_filter_type.execute_filters(query, model_field, filt_dict)
+            clauses.extend(_clauses)
 
         return query, clauses
 
