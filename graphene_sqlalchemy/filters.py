@@ -4,7 +4,7 @@ import re
 from typing import Any, Dict, List, Tuple, Type, TypeVar, Union
 
 from sqlalchemy import not_
-from sqlalchemy.orm import Query
+from sqlalchemy.orm import Query, aliased
 
 import graphene
 from graphene.types.inputobjecttype import InputObjectTypeOptions
@@ -40,10 +40,13 @@ class ObjectTypeFilter(graphene.InputObjectType):
         pass
 
     @classmethod
-    def execute_filters(cls: Type[FieldFilter], query, filter_dict: Dict) -> Tuple[Query, List[Any]]:
+    def execute_filters(cls: Type[FieldFilter], query, filter_dict: Dict, model_alias=None) -> Tuple[Query, List[Any]]:
+        model = cls._meta.model
+        if model_alias:
+            model = model_alias
+
         clauses = []
         for field, filt_dict in filter_dict.items():
-            model = cls._meta.model
             # Relationships are Dynamic, we need to resolve them fist
             # Maybe we can cache these dynamics to improve efficiency
             # Check with a profiler is required to determine necessity
@@ -54,9 +57,18 @@ class ObjectTypeFilter(graphene.InputObjectType):
                 field_filter_type = cls._meta.fields[field].type
             # TODO we need to save the relationship props in the meta fields array
             #  to conduct joins and alias the joins (in case there are duplicate joins: A->B A->C B->C)
+            model_field = getattr(model, field)
             if issubclass(field_filter_type, ObjectTypeFilter):
-                # TODO see above; not yet working
-                query, _clauses = field_filter_type.execute_filters(query, filt_dict)
+                # Get the model to join on the Filter Query
+                joined_model = field_filter_type._meta.model
+                # Always alias the model
+                joined_model_alias = aliased(joined_model)
+
+                # Join the aliased model onto the query
+                query = query.join(model_field.of_type(joined_model_alias))
+
+                # Pass the joined query down to the next object type filter for processing
+                query, _clauses = field_filter_type.execute_filters(query, filt_dict, model_alias=joined_model_alias)
                 clauses.extend(_clauses)
             if issubclass(field_filter_type, RelationshipFilter):
                 # TODO see above; not yet working
@@ -64,7 +76,6 @@ class ObjectTypeFilter(graphene.InputObjectType):
                 query, _clauses = field_filter_type.execute_filters(query, filt_dict, relationship_prop)
                 clauses.extend(_clauses)
             elif issubclass(field_filter_type, FieldFilter):
-                model_field = getattr(model, field)
                 query, _clauses = field_filter_type.execute_filters(query, model_field, filt_dict)
                 clauses.extend(_clauses)
 
