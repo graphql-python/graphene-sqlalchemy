@@ -95,7 +95,7 @@ RELATIONSHIP_LOADERS_CACHE: Dict[
 
 
 def get_batch_resolver(relationship_prop):
-    """get the resolve function for the given relationship."""
+    """Get the resolve function for the given relationship."""
 
     def _get_loader(relationship_prop):
         """Retrieve the cached loader of the given relationship."""

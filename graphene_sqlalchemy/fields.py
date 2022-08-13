@@ -125,13 +125,19 @@ class SQLAlchemyConnectionField(ConnectionField):
 # TODO Remove in next major version
 class UnsortedSQLAlchemyConnectionField(SQLAlchemyConnectionField):
     def __init__(self, type_, *args, **kwargs):
-        super(UnsortedSQLAlchemyConnectionField, self).__init__(type_, *args, **kwargs)
+        if "sort" in kwargs and kwargs["sort"] is not None:
+            warnings.warn(
+                "UnsortedSQLAlchemyConnectionField does not support sorting. "
+                "All sorting arguments will be ignored."
+            )
+            kwargs["sort"] = None
         warnings.warn(
             "UnsortedSQLAlchemyConnectionField is deprecated and will be removed in the next "
-            "major version. Use SQLAlchemyConnectionField instead and set `sort = None` "
-            "if you want to disable sorting.",
+            "major version. Use SQLAlchemyConnectionField instead and either don't "
+            "provide the `sort` argument or set it to None if you do not want sorting.",
             DeprecationWarning,
         )
+        super(UnsortedSQLAlchemyConnectionField, self).__init__(type_, *args, **kwargs)
 
 
 class BatchSQLAlchemyConnectionField(SQLAlchemyConnectionField):

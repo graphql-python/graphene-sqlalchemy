@@ -64,6 +64,14 @@ def test_type_assert_object_has_connection():
 ##
 
 
+def test_unsorted_connection_field_removes_sort_arg_if_passed():
+    editor = UnsortedSQLAlchemyConnectionField(
+        Editor.connection,
+        sort=Editor.sort_argument(has_default=True)
+    )
+    assert "sort" not in editor.args
+
+
 def test_sort_added_by_default():
     field = SQLAlchemyConnectionField(Pet.connection)
     assert "sort" in field.args
