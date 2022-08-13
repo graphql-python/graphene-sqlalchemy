@@ -10,6 +10,7 @@ from graphene.relay.connection import connection_adapter, page_info_adapter
 from graphql_relay import connection_from_array_slice
 
 from .batching import get_batch_resolver
+from .filters import ObjectTypeFilter
 from .utils import EnumValue, get_nullable_type, get_query
 
 
@@ -88,14 +89,10 @@ class SQLAlchemyConnectionField(ConnectionField):
 
         if filter is not None:
             assert isinstance(filter, dict)
-            filter_type = type(filter)
-            for field, filt_dict in filter.items():
-                model = filter_type._meta.model
-                field_filter_type = filter_type._meta.fields[field]._type
-                for filt, val in filt_dict.items():
-                    query = getattr(
-                        field_filter_type, filt + "_filter"
-                    )(query, getattr(model, field), val)
+            filter_type : ObjectTypeFilter = type(filter)
+            query, clauses = filter_type.execute_filters(query, filter)
+
+            query = query.filter(*clauses)
 
         return query
 

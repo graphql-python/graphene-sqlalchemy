@@ -182,6 +182,6 @@ def reset_global_registry():
 
 
 get_global_registry().register_filter_for_scalar_type(graphene.Float, FloatFilter)
-get_global_registry().register_filter_for_scalar_type(graphene.Float, IntFilter)
+get_global_registry().register_filter_for_scalar_type(graphene.Int, IntFilter)
 get_global_registry().register_filter_for_scalar_type(graphene.String, StringFilter)
 get_global_registry().register_filter_for_scalar_type(graphene.Boolean, BooleanFilter)

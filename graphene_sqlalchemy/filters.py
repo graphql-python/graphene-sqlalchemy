@@ -1,11 +1,15 @@
 from __future__ import annotations
+
 import re
-from typing import List
+from typing import Any, Dict, List, Tuple, Type, TypeVar, Union
+
+from sqlalchemy import not_
+from sqlalchemy.orm import Query
 
 import graphene
 from graphene.types.inputobjecttype import InputObjectTypeOptions
 from graphene_sqlalchemy.utils import is_list
-from sqlalchemy import not_
+
 
 class AbstractType:
     """Dummy class for generic filters"""
@@ -31,9 +35,21 @@ class ObjectTypeFilter(graphene.InputObjectType):
         super(ObjectTypeFilter, cls).__init_subclass_with_meta__(_meta=_meta, **options)
 
     @classmethod
-    def and_logic(cls, val: list["ObjectTypeFilter"]):
+    def and_logic(cls, query, field, val: list["ObjectTypeFilter"]):
         # TODO
         pass
+
+    @classmethod
+    def execute_filters(cls: Type[FieldFilter], query, filter_dict: Dict) -> Tuple[Query, List[Any]]:
+        clauses = []
+        for field, filt_dict in filter_dict.items():
+            model = cls._meta.model
+            field_filter_type: FieldFilter = cls._meta.fields[field]._type
+            model_field = getattr(model, field)
+            query, clauses = field_filter_type.execute_filters(query, model_field, filt_dict)
+            clauses.extend(clauses)
+
+        return query, clauses
 
 
 class RelationshipFilter(graphene.InputObjectType):
@@ -56,15 +72,15 @@ class RelationshipFilter(graphene.InputObjectType):
             # Check if attribute is a function
             if callable(func_attr) and filter_function_regex.match(func):
                 # add function and attribute name to the list
-                filter_functions.append((re.sub("\_filter$", "", func), func_attr.__annotations__))
+                filter_functions.append((re.sub("_filter$", "", func), func_attr.__annotations__))
 
         relationship_filters = {}
 
         # Generate Graphene Fields from the filter functions based on type hints
-        for field_name, annotations in filter_functions:
-            assert "val" in annotations, "Each filter method must have a value field with valid type annotations"
+        for field_name, _annotations in filter_functions:
+            assert "val" in _annotations, "Each filter method must have a value field with valid type annotations"
             # If type is generic, replace with actual type of filter class
-            if is_list(annotations["val"]):
+            if is_list(_annotations["val"]):
                 relationship_filters.update({field_name: graphene.InputField(graphene.List(object_type_filter))})
             else:
                 relationship_filters.update({field_name: graphene.InputField(object_type_filter)})
@@ -81,6 +97,9 @@ class RelationshipFilter(graphene.InputObjectType):
     def contains_filter(cls, val: List["RelationshipFilter"]):
         # TODO
         pass
+
+
+any_field_filter = TypeVar('any_field_filter', bound="FieldFilter")
 
 
 class FieldFilter(graphene.InputObjectType):
@@ -104,7 +123,7 @@ class FieldFilter(graphene.InputObjectType):
             if callable(func_attr) and filter_function_regex.match(func):
                 # add function and attribute name to the list
                 filter_functions.append((
-                    re.sub("\_filter$", "", func), func_attr.__annotations__)
+                    re.sub("_filter$", "", func), func_attr.__annotations__)
                 )
 
         # Init meta options class if it doesn't exist already
@@ -112,12 +131,13 @@ class FieldFilter(graphene.InputObjectType):
             _meta = InputObjectTypeOptions(cls)
 
         new_filter_fields = {}
-
+        print(f"Geenerating Fields for {cls.__name__} with type {type} ")
         # Generate Graphene Fields from the filter functions based on type hints
-        for field_name, annotations in filter_functions:
-            assert "val" in annotations, "Each filter method must have a value field with valid type annotations"
+        for field_name, _annotations in filter_functions:
+            assert "val" in _annotations, "Each filter method must have a value field with valid type annotations"
             # If type is generic, replace with actual type of filter class
-            if annotations["val"] == AbstractType:
+            print(f"Field: {field_name} with annotation {_annotations['val']}")
+            if _annotations["val"] == "AbstractType":
                 # TODO Maybe there is an existing class or a more elegant way to solve this
                 # One option would be to only annotate non-abstract filters
                 new_filter_fields.update({field_name: graphene.InputField(type)})
@@ -137,12 +157,23 @@ class FieldFilter(graphene.InputObjectType):
 
     # Abstract methods can be marked using AbstractType. See comment on the init method
     @classmethod
-    def eq_filter(cls, query, field, val: AbstractType) -> bool:
-        return query.filter(field == val)
+    def eq_filter(cls, query, field, val: AbstractType) -> Union[Tuple[Query, Any], Any]:
+        return field == val
 
     @classmethod
-    def n_eq_filter(cls, query, field, val: AbstractType) -> bool:
-        return query.filter(not_(field == val))
+    def n_eq_filter(cls, query, field, val: AbstractType) -> Union[Tuple[Query, Any], Any]:
+        return not_(field == val)
+
+    @classmethod
+    def execute_filters(cls: Type[FieldFilter], query, field, filter_dict: any_field_filter) -> Tuple[Query, List[Any]]:
+        clauses = []
+        for filt, val in filter_dict.items():
+            clause = getattr(cls, filt + "_filter")(query, field, val)
+            if isinstance(clause, tuple):
+                query, clause = clause
+            clauses.append(clause)
+
+        return query, clauses
 
 
 class StringFilter(FieldFilter):
@@ -155,16 +186,32 @@ class BooleanFilter(FieldFilter):
         type = graphene.Boolean
 
 
-class NumberFilter(FieldFilter):
-    """Intermediate Filter class since all Numbers are in an order relationship (support <, > etc)"""
-
+class OrderedFilter(FieldFilter):
     class Meta:
         abstract = True
 
     @classmethod
-    def gt_filter(cls, val: AbstractType) -> bool:
-        # TBD filtering magic
-        pass
+    def gt_filter(cls, query, field, val: AbstractType) -> bool:
+        return field > val
+
+    @classmethod
+    def gte_filter(cls, query, field, val: AbstractType) -> bool:
+        return field >= val
+
+    @classmethod
+    def lt_filter(cls, query, field, val: AbstractType) -> bool:
+        return field < val
+
+    @classmethod
+    def lte_filter(cls, query, field, val: AbstractType) -> bool:
+        return field <= val
+
+
+class NumberFilter(OrderedFilter):
+    """Intermediate Filter class since all Numbers are in an order relationship (support <, > etc)"""
+
+    class Meta:
+        abstract = True
 
 
 class FloatFilter(NumberFilter):
@@ -179,7 +226,7 @@ class IntFilter(NumberFilter):
         type = graphene.Int
 
 
-class DateFilter(NumberFilter):
+class DateFilter(OrderedFilter):
     """Concrete Filter Class which specifies a type for all the abstract filter methods defined in the super classes"""
 
     class Meta:
