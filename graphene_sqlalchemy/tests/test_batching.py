@@ -566,6 +566,70 @@ def test_disable_batching_via_ormfield(session_factory):
 
 
 @pytest.mark.asyncio
+def test_batch_sorting_with_custom_ormfield(session_factory):
+    session = session_factory()
+    reporter_1 = Reporter(first_name='Reporter_1')
+    session.add(reporter_1)
+    reporter_2 = Reporter(first_name='Reporter_2')
+    session.add(reporter_2)
+    session.commit()
+    session.close()
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            name = "Reporter"
+            interfaces = (relay.Node,)
+            batching = True
+            connection_class = Connection
+
+        firstname = ORMField(model_attr="first_name")
+
+    class Query(graphene.ObjectType):
+        node = relay.Node.Field()
+        reporters = BatchSQLAlchemyConnectionField(ReporterType.connection)
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (relay.Node,)
+            batching = True
+
+    schema = graphene.Schema(query=Query)
+
+    # Test one-to-one and many-to-one relationships
+    with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
+        # Starts new session to fully reset the engine / connection logging level
+        session = session_factory()
+        result = schema.execute("""
+          query {
+            reporters(sort: [FIRSTNAME_DESC]) {
+              edges {
+                node {
+                  firstname
+                }
+              }
+            }
+          }
+        """, context_value={"session": session})
+        messages = sqlalchemy_logging_handler.messages
+
+        result = to_std_dicts(result.data)
+    assert result == {
+        "reporters": {"edges": [
+            {"node": {
+                "firstname": "Reporter_2",
+            }},
+            {"node": {
+                "firstname": "Reporter_1",
+            }},
+        ]}
+    }
+    select_statements = [message for message in messages if 'SELECT' in message and 'FROM reporters' in message]
+    assert len(select_statements) == 2
+
+
+@pytest.mark.asyncio
 async def test_connection_factory_field_overrides_batching_is_false(session_factory):
     session = session_factory()
     reporter_1 = Reporter(first_name='Reporter_1')
