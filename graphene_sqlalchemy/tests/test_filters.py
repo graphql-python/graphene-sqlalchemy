@@ -1,6 +1,8 @@
 import graphene
 import pytest
 
+from graphene import Connection, relay
+
 from ..fields import SQLAlchemyConnectionField
 from ..filters import FloatFilter
 from ..types import SQLAlchemyObjectType
@@ -13,10 +15,10 @@ def add_test_data(session):
         first_name='John', last_name='Doe', favorite_pet_kind='cat')
     session.add(reporter)
     pet = Pet(name='Garfield', pet_kind='cat', hair_kind=HairKind.SHORT)
-    pet.reporters = reporter
+    pet.reporter = reporter
     session.add(pet)
     pet = Pet(name='Snoopy', pet_kind='dog', hair_kind=HairKind.SHORT)
-    pet.reporters = reporter
+    pet.reporter = reporter
     session.add(pet)
     reporter = Reporter(
         first_name='John', last_name='Woe', favorite_pet_kind='cat')
@@ -28,7 +30,7 @@ def add_test_data(session):
         first_name='Jane', last_name='Roe', favorite_pet_kind='dog')
     session.add(reporter)
     pet = Pet(name='Lassie', pet_kind='dog', hair_kind=HairKind.LONG)
-    pet.reporters.append(reporter)
+    pet.reporter = reporter
     session.add(pet)
     editor = Editor(name="Jack")
     session.add(editor)
@@ -47,45 +49,44 @@ def create_schema(session):
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
+            name = "Reporter"
+            interfaces = (relay.Node,)
+            connection_class = Connection
 
     class Query(graphene.ObjectType):
+        node = relay.Node.Field()
+        # TODO how to create filterable singular field?
         article = graphene.Field(ArticleType)
-        articles = graphene.List(ArticleType)
-        # image = graphene.Field(ImageType)
-        # images = graphene.List(ImageType)
+        articles = SQLAlchemyConnectionField(ArticleType.connection)
+        image = graphene.Field(ImageType)
+        images = SQLAlchemyConnectionField(ImageType.connection)
         reporter = graphene.Field(ReporterType)
-        reporters = graphene.List(ReporterType)
+        reporters = SQLAlchemyConnectionField(ReporterType.connection)
 
         def resolve_article(self, _info):
             return session.query(Article).first()
 
-        def resolve_articles(self, _info):
-            return session.query(Article)
-
         def resolve_image(self, _info):
             return session.query(Image).first()
 
-        def resolve_images(self, _info):
-            return session.query(Image)
-
         def resolve_reporter(self, _info):
             return session.query(Reporter).first()
-
-        def resolve_reporters(self, _info):
-            return session.query(Reporter)
 
     return Query
 
 
 # Test a simple example of filtering
-@pytest.mark.xfail
 def test_filter_simple(session):
     add_test_data(session)
     Query = create_schema(session)
 
+    # TODO test singular field filter
+      # reporter(filter: {firstName: "John"}) {
+      #   firstName
+      # }
     query = """
         query {
-          reporters(filters: {firstName: "John"}) {
+          reporters(filter: {firstName: "John"}) {
             firstName
           }
         }
@@ -95,6 +96,7 @@ def test_filter_simple(session):
     }
     schema = graphene.Schema(query=Query)
     result = schema.execute(query)
+    print(result)
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
