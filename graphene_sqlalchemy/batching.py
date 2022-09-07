@@ -10,7 +10,7 @@ from .utils import (is_graphene_version_less_than,
                     is_sqlalchemy_version_less_than)
 
 
-def get_data_loader_impl() -> Any: # pragma: no cover
+def get_data_loader_impl() -> Any:  # pragma: no cover
     """Graphene >= 3.1.1 ships a copy of aiodataloader with minor fixes. To preserve backward-compatibility,
     aiodataloader is used in conjunction with older versions of graphene"""
     if is_graphene_version_less_than("3.1.1"):
