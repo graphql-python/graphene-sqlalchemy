@@ -1,13 +1,30 @@
+"""The dataloader uses "select in loading" strategy to load related entities."""
+from typing import Any
+
 import aiodataloader
 import sqlalchemy
 from sqlalchemy.orm import Session, strategies
 from sqlalchemy.orm.query import QueryContext
 
-from .utils import is_sqlalchemy_version_less_than
+from .utils import (is_graphene_version_less_than,
+                    is_sqlalchemy_version_less_than)
+
+
+def get_data_loader_impl() -> Any:  # pragma: no cover
+    """Graphene >= 3.1.1 ships a copy of aiodataloader with minor fixes. To preserve backward-compatibility,
+    aiodataloader is used in conjunction with older versions of graphene"""
+    if is_graphene_version_less_than("3.1.1"):
+        from aiodataloader import DataLoader
+    else:
+        from graphene.utils.dataloader import DataLoader
+
+    return DataLoader
+
+
+DataLoader = get_data_loader_impl()
 
 
 def get_batch_resolver(relationship_prop):
-
     # Cache this across `batch_load_fn` calls
     # This is so SQL string generation is cached under-the-hood via `bakery`
     selectin_loader = strategies.SelectInLoader(relationship_prop, (('lazy', 'selectin'),))
