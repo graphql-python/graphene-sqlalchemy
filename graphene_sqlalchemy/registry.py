@@ -20,8 +20,9 @@ class Registry(object):
     def register(self, obj_type):
 
         from .types import SQLAlchemyObjectType
+
         if not isinstance(obj_type, type) or not issubclass(
-                obj_type, SQLAlchemyObjectType
+            obj_type, SQLAlchemyObjectType
         ):
             raise TypeError(
                 "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
@@ -40,7 +41,7 @@ class Registry(object):
         from .types import SQLAlchemyObjectType
 
         if not isinstance(obj_type, type) or not issubclass(
-                obj_type, SQLAlchemyObjectType
+            obj_type, SQLAlchemyObjectType
         ):
             raise TypeError(
                 "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
@@ -76,8 +77,9 @@ class Registry(object):
     def register_sort_enum(self, obj_type, sort_enum: Enum):
 
         from .types import SQLAlchemyObjectType
+
         if not isinstance(obj_type, type) or not issubclass(
-                obj_type, SQLAlchemyObjectType
+            obj_type, SQLAlchemyObjectType
         ):
             raise TypeError(
                 "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
@@ -89,11 +91,11 @@ class Registry(object):
     def get_sort_enum_for_object_type(self, obj_type: graphene.ObjectType):
         return self._registry_sort_enums.get(obj_type)
 
-    def register_union_type(self, union: graphene.Union, obj_types: List[Type[graphene.ObjectType]]):
+    def register_union_type(
+        self, union: graphene.Union, obj_types: List[Type[graphene.ObjectType]]
+    ):
         if not isinstance(union, graphene.Union):
-            raise TypeError(
-                "Expected graphene.Union, but got: {!r}".format(union)
-            )
+            raise TypeError("Expected graphene.Union, but got: {!r}".format(union))
 
         for obj_type in obj_types:
             if not isinstance(obj_type, type(graphene.ObjectType)):
@@ -103,7 +105,7 @@ class Registry(object):
 
         self._registry_unions[frozenset(obj_types)] = union
 
-    def get_union_for_object_types(self, obj_types : List[Type[graphene.ObjectType]]):
+    def get_union_for_object_types(self, obj_types: List[Type[graphene.ObjectType]]):
         return self._registry_unions.get(frozenset(obj_types))
 
 

@@ -153,12 +153,16 @@ def sort_argument_for_model(cls, has_default=True):
 
 def is_sqlalchemy_version_less_than(version_string):  # pragma: no cover
     """Check the installed SQLAlchemy version"""
-    return pkg_resources.get_distribution('SQLAlchemy').parsed_version < pkg_resources.parse_version(version_string)
+    return pkg_resources.get_distribution(
+        "SQLAlchemy"
+    ).parsed_version < pkg_resources.parse_version(version_string)
 
 
 def is_graphene_version_less_than(version_string):  # pragma: no cover
     """Check the installed graphene version"""
-    return pkg_resources.get_distribution('graphene').parsed_version < pkg_resources.parse_version(version_string)
+    return pkg_resources.get_distribution(
+        "graphene"
+    ).parsed_version < pkg_resources.parse_version(version_string)
 
 
 class singledispatchbymatchfunction:
@@ -182,7 +186,6 @@ class singledispatchbymatchfunction:
         return self.default(*args, **kwargs)
 
     def register(self, matcher_function: Callable[[Any], bool]):
-
         def grab_function_from_outside(f):
             self.registry[matcher_function] = f
             return self
@@ -192,7 +195,7 @@ class singledispatchbymatchfunction:
 
 def value_equals(value):
     """A simple function that makes the equality based matcher functions for
-     SingleDispatchByMatchFunction prettier"""
+    SingleDispatchByMatchFunction prettier"""
     return lambda x: x == value
 
 
@@ -208,8 +211,14 @@ def safe_isinstance(cls):
 
 def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:
     from graphene_sqlalchemy.registry import get_global_registry
+
     try:
-        return next(filter(lambda x: x.__name__ == model_name, list(get_global_registry()._registry.keys())))
+        return next(
+            filter(
+                lambda x: x.__name__ == model_name,
+                list(get_global_registry()._registry.keys()),
+            )
+        )
     except StopIteration:
         pass
 

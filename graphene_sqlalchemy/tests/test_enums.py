@@ -54,7 +54,7 @@ def test_convert_sa_enum_to_graphene_enum_based_on_list_named():
     assert [
         (key, value.value)
         for key, value in graphene_enum._meta.enum.__members__.items()
-    ] == [("RED", 'red'), ("GREEN", 'green'), ("BLUE", 'blue')]
+    ] == [("RED", "red"), ("GREEN", "green"), ("BLUE", "blue")]
 
 
 def test_convert_sa_enum_to_graphene_enum_based_on_list_unnamed():
@@ -65,7 +65,7 @@ def test_convert_sa_enum_to_graphene_enum_based_on_list_unnamed():
     assert [
         (key, value.value)
         for key, value in graphene_enum._meta.enum.__members__.items()
-    ] == [("RED", 'red'), ("GREEN", 'green'), ("BLUE", 'blue')]
+    ] == [("RED", "red"), ("GREEN", "green"), ("BLUE", "blue")]
 
 
 def test_convert_sa_enum_to_graphene_enum_based_on_list_without_name():
@@ -80,36 +80,35 @@ def test_enum_for_field():
         class Meta:
             model = Pet
 
-    enum = enum_for_field(PetType, 'pet_kind')
+    enum = enum_for_field(PetType, "pet_kind")
     assert isinstance(enum, type(Enum))
     assert enum._meta.name == "PetKind"
     assert [
-        (key, value.value)
-        for key, value in enum._meta.enum.__members__.items()
-    ] == [("CAT", 'cat'), ("DOG", 'dog')]
-    enum2 = enum_for_field(PetType, 'pet_kind')
+        (key, value.value) for key, value in enum._meta.enum.__members__.items()
+    ] == [("CAT", "cat"), ("DOG", "dog")]
+    enum2 = enum_for_field(PetType, "pet_kind")
     assert enum2 is enum
-    enum2 = PetType.enum_for_field('pet_kind')
+    enum2 = PetType.enum_for_field("pet_kind")
     assert enum2 is enum
 
-    enum = enum_for_field(PetType, 'hair_kind')
+    enum = enum_for_field(PetType, "hair_kind")
     assert isinstance(enum, type(Enum))
     assert enum._meta.name == "HairKind"
     assert enum._meta.enum is HairKind
-    enum2 = PetType.enum_for_field('hair_kind')
+    enum2 = PetType.enum_for_field("hair_kind")
     assert enum2 is enum
 
     re_err = r"Cannot get PetType\.other_kind"
     with pytest.raises(TypeError, match=re_err):
-        enum_for_field(PetType, 'other_kind')
+        enum_for_field(PetType, "other_kind")
     with pytest.raises(TypeError, match=re_err):
-        PetType.enum_for_field('other_kind')
+        PetType.enum_for_field("other_kind")
 
     re_err = r"PetType\.name does not map to enum column"
     with pytest.raises(TypeError, match=re_err):
-        enum_for_field(PetType, 'name')
+        enum_for_field(PetType, "name")
     with pytest.raises(TypeError, match=re_err):
-        PetType.enum_for_field('name')
+        PetType.enum_for_field("name")
 
     re_err = r"Expected a field name, but got: None"
     with pytest.raises(TypeError, match=re_err):
@@ -119,4 +118,4 @@ def test_enum_for_field():
 
     re_err = "Expected SQLAlchemyObjectType, but got: None"
     with pytest.raises(TypeError, match=re_err):
-        enum_for_field(None, 'other_kind')
+        enum_for_field(None, "other_kind")

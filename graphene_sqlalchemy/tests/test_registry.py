@@ -142,7 +142,7 @@ def test_register_union():
             model = Reporter
 
     union_types = [PetType, ReporterType]
-    union = graphene.Union('ReporterPet', tuple(union_types))
+    union = graphene.Union("ReporterPet", tuple(union_types))
 
     reg.register_union_type(union, union_types)
 
@@ -155,7 +155,7 @@ def test_register_union_scalar():
     reg = Registry()
 
     union_types = [graphene.String, graphene.Int]
-    union = graphene.Union('StringInt', tuple(union_types))
+    union = graphene.Union("StringInt", tuple(union_types))
 
     re_err = r"Expected Graphene ObjectType, but got: .*String.*"
     with pytest.raises(TypeError, match=re_err):
