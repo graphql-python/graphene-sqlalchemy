@@ -1,13 +1,14 @@
 """The dataloader uses "select in loading" strategy to load related entities."""
 from asyncio import get_event_loop
-from typing import Dict
+from typing import Any, Dict
 
 import aiodataloader
 import sqlalchemy
 from sqlalchemy.orm import Session, strategies
 from sqlalchemy.orm.query import QueryContext
 
-from .utils import is_sqlalchemy_version_less_than
+from .utils import (is_graphene_version_less_than,
+                    is_sqlalchemy_version_less_than)
 
 
 class RelationshipLoader(aiodataloader.DataLoader):
@@ -92,6 +93,20 @@ class RelationshipLoader(aiodataloader.DataLoader):
 RELATIONSHIP_LOADERS_CACHE: Dict[
     sqlalchemy.orm.relationships.RelationshipProperty, RelationshipLoader
 ] = {}
+
+
+def get_data_loader_impl() -> Any:  # pragma: no cover
+    """Graphene >= 3.1.1 ships a copy of aiodataloader with minor fixes. To preserve backward-compatibility,
+    aiodataloader is used in conjunction with older versions of graphene"""
+    if is_graphene_version_less_than("3.1.1"):
+        from aiodataloader import DataLoader
+    else:
+        from graphene.utils.dataloader import DataLoader
+
+    return DataLoader
+
+
+DataLoader = get_data_loader_impl()
 
 
 def get_batch_resolver(relationship_prop):
