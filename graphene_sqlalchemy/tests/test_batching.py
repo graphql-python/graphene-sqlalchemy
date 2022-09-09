@@ -5,13 +5,13 @@ import logging
 import pytest
 
 import graphene
-from graphene import relay
+from graphene import Connection, relay
 
 from ..fields import (BatchSQLAlchemyConnectionField,
                       default_connection_field_factory)
 from ..types import ORMField, SQLAlchemyObjectType
 from ..utils import is_sqlalchemy_version_less_than
-from .models import Article, HairKind, Pet, Reporter
+from .models import Article, HairKind, Pet, Reader, Reporter
 from .utils import remove_cache_miss_stat, to_std_dicts
 
 
@@ -73,6 +73,40 @@ def get_schema():
     return graphene.Schema(query=Query)
 
 
+def get_full_relay_schema():
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            name = "Reporter"
+            interfaces = (relay.Node,)
+            batching = True
+            connection_class = Connection
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            name = "Article"
+            interfaces = (relay.Node,)
+            batching = True
+            connection_class = Connection
+
+    class ReaderType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reader
+            name = "Reader"
+            interfaces = (relay.Node,)
+            batching = True
+            connection_class = Connection
+
+    class Query(graphene.ObjectType):
+        node = relay.Node.Field()
+        articles = BatchSQLAlchemyConnectionField(ArticleType.connection)
+        reporters = BatchSQLAlchemyConnectionField(ReporterType.connection)
+        readers = BatchSQLAlchemyConnectionField(ReaderType.connection)
+
+    return graphene.Schema(query=Query)
+
+
 if is_sqlalchemy_version_less_than('1.2'):
     pytest.skip('SQL batching only works for SQLAlchemy 1.2+', allow_module_level=True)
 
@@ -82,11 +116,11 @@ async def test_many_to_one(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
-      first_name='Reporter_1',
+        first_name='Reporter_1',
     )
     session.add(reporter_1)
     reporter_2 = Reporter(
-      first_name='Reporter_2',
+        first_name='Reporter_2',
     )
     session.add(reporter_2)
 
@@ -138,20 +172,20 @@ async def test_many_to_one(session_factory):
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == {
-      "articles": [
-        {
-          "headline": "Article_1",
-          "reporter": {
-            "firstName": "Reporter_1",
-          },
-        },
-        {
-          "headline": "Article_2",
-          "reporter": {
-            "firstName": "Reporter_2",
-          },
-        },
-      ],
+        "articles": [
+            {
+                "headline": "Article_1",
+                "reporter": {
+                    "firstName": "Reporter_1",
+                },
+            },
+            {
+                "headline": "Article_2",
+                "reporter": {
+                    "firstName": "Reporter_2",
+                },
+            },
+        ],
     }
 
 
@@ -160,11 +194,11 @@ async def test_one_to_one(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
-      first_name='Reporter_1',
+        first_name='Reporter_1',
     )
     session.add(reporter_1)
     reporter_2 = Reporter(
-      first_name='Reporter_2',
+        first_name='Reporter_2',
     )
     session.add(reporter_2)
 
@@ -185,14 +219,14 @@ async def test_one_to_one(session_factory):
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
         result = await schema.execute_async("""
-          query {
-            reporters {
-              firstName
-              favoriteArticle {
-                headline
-              }
+            query {
+                reporters {
+                    firstName
+                    favoriteArticle {
+                        headline
+                    }
+                }
             }
-          }
         """, context_value={"session": session})
         messages = sqlalchemy_logging_handler.messages
 
@@ -216,20 +250,20 @@ async def test_one_to_one(session_factory):
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == {
-      "reporters": [
-        {
-          "firstName": "Reporter_1",
-          "favoriteArticle": {
-            "headline": "Article_1",
-          },
-        },
-        {
-          "firstName": "Reporter_2",
-          "favoriteArticle": {
-            "headline": "Article_2",
-          },
-        },
-      ],
+        "reporters": [
+            {
+                "firstName": "Reporter_1",
+                "favoriteArticle": {
+                    "headline": "Article_1",
+                },
+            },
+            {
+                "firstName": "Reporter_2",
+                "favoriteArticle": {
+                    "headline": "Article_2",
+                },
+            },
+        ],
     }
 
 
@@ -238,11 +272,11 @@ async def test_one_to_many(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
-      first_name='Reporter_1',
+        first_name='Reporter_1',
     )
     session.add(reporter_1)
     reporter_2 = Reporter(
-      first_name='Reporter_2',
+        first_name='Reporter_2',
     )
     session.add(reporter_2)
 
@@ -271,18 +305,18 @@ async def test_one_to_many(session_factory):
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
         result = await schema.execute_async("""
-          query {
-            reporters {
-              firstName
-              articles(first: 2) {
-                edges {
-                  node {
-                    headline
-                  }
+            query {
+                reporters {
+                    firstName
+                    articles(first: 2) {
+                        edges {
+                            node {
+                                headline
+                            }
+                        }
+                    }
                 }
-              }
             }
-          }
         """, context_value={"session": session})
         messages = sqlalchemy_logging_handler.messages
 
@@ -306,42 +340,42 @@ async def test_one_to_many(session_factory):
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == {
-      "reporters": [
-        {
-          "firstName": "Reporter_1",
-          "articles": {
-            "edges": [
-              {
-                "node": {
-                  "headline": "Article_1",
+        "reporters": [
+            {
+                "firstName": "Reporter_1",
+                "articles": {
+                    "edges": [
+                        {
+                            "node": {
+                                "headline": "Article_1",
+                            },
+                        },
+                        {
+                            "node": {
+                                "headline": "Article_2",
+                            },
+                        },
+                    ],
                 },
-              },
-              {
-                "node": {
-                  "headline": "Article_2",
+            },
+            {
+                "firstName": "Reporter_2",
+                "articles": {
+                    "edges": [
+                        {
+                            "node": {
+                                "headline": "Article_3",
+                            },
+                        },
+                        {
+                            "node": {
+                                "headline": "Article_4",
+                            },
+                        },
+                    ],
                 },
-              },
-            ],
-          },
-        },
-        {
-          "firstName": "Reporter_2",
-          "articles": {
-            "edges": [
-              {
-                "node": {
-                  "headline": "Article_3",
-                },
-              },
-              {
-                "node": {
-                  "headline": "Article_4",
-                },
-              },
-            ],
-          },
-        },
-      ],
+            },
+        ],
     }
 
 
@@ -350,11 +384,11 @@ async def test_many_to_many(session_factory):
     session = session_factory()
 
     reporter_1 = Reporter(
-      first_name='Reporter_1',
+        first_name='Reporter_1',
     )
     session.add(reporter_1)
     reporter_2 = Reporter(
-      first_name='Reporter_2',
+        first_name='Reporter_2',
     )
     session.add(reporter_2)
 
@@ -385,18 +419,18 @@ async def test_many_to_many(session_factory):
         # Starts new session to fully reset the engine / connection logging level
         session = session_factory()
         result = await schema.execute_async("""
-          query {
-            reporters {
-              firstName
-              pets(first: 2) {
-                edges {
-                  node {
-                    name
-                  }
+            query {
+                reporters {
+                    firstName
+                    pets(first: 2) {
+                        edges {
+                            node {
+                                name
+                            }
+                        }
+                    }
                 }
-              }
             }
-          }
         """, context_value={"session": session})
         messages = sqlalchemy_logging_handler.messages
 
@@ -420,42 +454,42 @@ async def test_many_to_many(session_factory):
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == {
-      "reporters": [
-        {
-          "firstName": "Reporter_1",
-          "pets": {
-            "edges": [
-              {
-                "node": {
-                  "name": "Pet_1",
+        "reporters": [
+            {
+                "firstName": "Reporter_1",
+                "pets": {
+                    "edges": [
+                        {
+                            "node": {
+                                "name": "Pet_1",
+                            },
+                        },
+                        {
+                            "node": {
+                                "name": "Pet_2",
+                            },
+                        },
+                    ],
                 },
-              },
-              {
-                "node": {
-                  "name": "Pet_2",
+            },
+            {
+                "firstName": "Reporter_2",
+                "pets": {
+                    "edges": [
+                        {
+                            "node": {
+                                "name": "Pet_3",
+                            },
+                        },
+                        {
+                            "node": {
+                                "name": "Pet_4",
+                            },
+                        },
+                    ],
                 },
-              },
-            ],
-          },
-        },
-        {
-          "firstName": "Reporter_2",
-          "pets": {
-            "edges": [
-              {
-                "node": {
-                  "name": "Pet_3",
-                },
-              },
-              {
-                "node": {
-                  "name": "Pet_4",
-                },
-              },
-            ],
-          },
-        },
-      ],
+            },
+        ],
     }
 
 
@@ -528,6 +562,70 @@ def test_disable_batching_via_ormfield(session_factory):
         messages = sqlalchemy_logging_handler.messages
 
     select_statements = [message for message in messages if 'SELECT' in message and 'FROM articles' in message]
+    assert len(select_statements) == 2
+
+
+@pytest.mark.asyncio
+def test_batch_sorting_with_custom_ormfield(session_factory):
+    session = session_factory()
+    reporter_1 = Reporter(first_name='Reporter_1')
+    session.add(reporter_1)
+    reporter_2 = Reporter(first_name='Reporter_2')
+    session.add(reporter_2)
+    session.commit()
+    session.close()
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            name = "Reporter"
+            interfaces = (relay.Node,)
+            batching = True
+            connection_class = Connection
+
+        firstname = ORMField(model_attr="first_name")
+
+    class Query(graphene.ObjectType):
+        node = relay.Node.Field()
+        reporters = BatchSQLAlchemyConnectionField(ReporterType.connection)
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (relay.Node,)
+            batching = True
+
+    schema = graphene.Schema(query=Query)
+
+    # Test one-to-one and many-to-one relationships
+    with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
+        # Starts new session to fully reset the engine / connection logging level
+        session = session_factory()
+        result = schema.execute("""
+          query {
+            reporters(sort: [FIRSTNAME_DESC]) {
+              edges {
+                node {
+                  firstname
+                }
+              }
+            }
+          }
+        """, context_value={"session": session})
+        messages = sqlalchemy_logging_handler.messages
+
+        result = to_std_dicts(result.data)
+    assert result == {
+        "reporters": {"edges": [
+            {"node": {
+                "firstname": "Reporter_2",
+            }},
+            {"node": {
+                "firstname": "Reporter_1",
+            }},
+        ]}
+    }
+    select_statements = [message for message in messages if 'SELECT' in message and 'FROM reporters' in message]
     assert len(select_statements) == 2
 
 
@@ -642,3 +740,106 @@ def test_connection_factory_field_overrides_batching_is_true(session_factory):
 
     select_statements = [message for message in messages if 'SELECT' in message and 'FROM articles' in message]
     assert len(select_statements) == 2
+
+
+@pytest.mark.asyncio
+async def test_batching_across_nested_relay_schema(session_factory):
+    session = session_factory()
+
+    for first_name in "fgerbhjikzutzxsdfdqqa":
+        reporter = Reporter(
+            first_name=first_name,
+        )
+        session.add(reporter)
+        article = Article(headline='Article')
+        article.reporter = reporter
+        session.add(article)
+        reader = Reader(name='Reader')
+        reader.articles = [article]
+        session.add(reader)
+
+    session.commit()
+    session.close()
+
+    schema = get_full_relay_schema()
+
+    with mock_sqlalchemy_logging_handler() as sqlalchemy_logging_handler:
+        # Starts new session to fully reset the engine / connection logging level
+        session = session_factory()
+        result = await schema.execute_async("""
+          query {
+            reporters {
+              edges {
+                node {
+                  firstName
+                  articles {
+                    edges {
+                      node {
+                        id
+                        readers {
+                          edges {
+                            node {
+                              name
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        """, context_value={"session": session})
+        messages = sqlalchemy_logging_handler.messages
+
+    result = to_std_dicts(result.data)
+    select_statements = [message for message in messages if 'SELECT' in message]
+    assert len(select_statements) == 4
+    assert select_statements[-1].startswith("SELECT articles_1.id")
+    if is_sqlalchemy_version_less_than('1.3'):
+        assert select_statements[-2].startswith("SELECT reporters_1.id")
+        assert "WHERE reporters_1.id IN" in select_statements[-2]
+    else:
+        assert select_statements[-2].startswith("SELECT articles.reporter_id")
+        assert "WHERE articles.reporter_id IN" in select_statements[-2]
+
+
+@pytest.mark.asyncio
+async def test_sorting_can_be_used_with_batching_when_using_full_relay(session_factory):
+    session = session_factory()
+
+    for first_name, email in zip("cadbbb", "aaabac"):
+        reporter_1 = Reporter(
+            first_name=first_name,
+            email=email
+        )
+        session.add(reporter_1)
+        article_1 = Article(headline="headline")
+        article_1.reporter = reporter_1
+        session.add(article_1)
+
+    session.commit()
+    session.close()
+
+    schema = get_full_relay_schema()
+
+    session = session_factory()
+    result = await schema.execute_async("""
+      query {
+        reporters(sort: [FIRST_NAME_ASC, EMAIL_ASC]) {
+          edges {
+            node {
+              firstName
+              email
+            }
+          }
+        }
+      }
+    """, context_value={"session": session})
+
+    result = to_std_dicts(result.data)
+    assert [
+        r["node"]["firstName"] + r["node"]["email"]
+        for r in result["reporters"]["edges"]
+    ] == ['aa', 'ba', 'bb', 'bc', 'ca', 'da']
