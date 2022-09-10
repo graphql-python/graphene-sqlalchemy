@@ -113,6 +113,7 @@ To learn more check out the following [examples](examples/):
 
 - [Flask SQLAlchemy example](examples/flask_sqlalchemy)
 - [Nameko SQLAlchemy example](examples/nameko_sqlalchemy)
+- [Falcon SQLAlchemy example](examples/falcon_sqlalchemy)
 
 ## Contributing
 
