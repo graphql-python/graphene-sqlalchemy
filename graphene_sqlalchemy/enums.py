@@ -18,9 +18,7 @@ def _convert_sa_to_graphene_enum(sa_enum, fallback_name=None):
     The Enum value names are converted to upper case if necessary.
     """
     if not isinstance(sa_enum, SQLAlchemyEnumType):
-        raise TypeError(
-            "Expected sqlalchemy.types.Enum, but got: {!r}".format(sa_enum)
-        )
+        raise TypeError("Expected sqlalchemy.types.Enum, but got: {!r}".format(sa_enum))
     enum_class = sa_enum.enum_class
     if enum_class:
         if all(to_enum_value_name(key) == key for key in enum_class.__members__):
@@ -45,9 +43,7 @@ def _convert_sa_to_graphene_enum(sa_enum, fallback_name=None):
 def enum_for_sa_enum(sa_enum, registry):
     """Return the Graphene Enum type for the specified SQLAlchemy Enum type."""
     if not isinstance(sa_enum, SQLAlchemyEnumType):
-        raise TypeError(
-            "Expected sqlalchemy.types.Enum, but got: {!r}".format(sa_enum)
-        )
+        raise TypeError("Expected sqlalchemy.types.Enum, but got: {!r}".format(sa_enum))
     enum = registry.get_graphene_enum_for_sa_enum(sa_enum)
     if not enum:
         enum = _convert_sa_to_graphene_enum(sa_enum)
@@ -60,11 +56,9 @@ def enum_for_field(obj_type, field_name):
     from .types import SQLAlchemyObjectType
 
     if not isinstance(obj_type, type) or not issubclass(obj_type, SQLAlchemyObjectType):
-        raise TypeError(
-            "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type))
+        raise TypeError("Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type))
     if not field_name or not isinstance(field_name, str):
-        raise TypeError(
-            "Expected a field name, but got: {!r}".format(field_name))
+        raise TypeError("Expected a field name, but got: {!r}".format(field_name))
     registry = obj_type._meta.registry
     orm_field = registry.get_orm_field_for_graphene_field(obj_type, field_name)
     if orm_field is None:
@@ -166,7 +160,7 @@ def sort_argument_for_object_type(
     get_symbol_name=None,
     has_default=True,
 ):
-    """"Returns Graphene Argument for sorting the given SQLAlchemyObjectType.
+    """ "Returns Graphene Argument for sorting the given SQLAlchemyObjectType.
 
     Parameters
     - obj_type : SQLAlchemyObjectType

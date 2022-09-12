@@ -4,8 +4,8 @@ from nameko.web.handlers import http
 
 
 class DepartmentService:
-    name = 'department'
+    name = "department"
 
-    @http('POST', '/graphql')
+    @http("POST", "/graphql")
     def query(self, request):
         return App().query(request)

@@ -26,9 +26,7 @@ class SQLAlchemyConnectionField(ConnectionField):
         assert issubclass(nullable_type, SQLAlchemyObjectType), (
             "SQLALchemyConnectionField only accepts SQLAlchemyObjectType types, not {}"
         ).format(nullable_type.__name__)
-        assert (
-            nullable_type.connection
-        ), "The type {} doesn't have a connection".format(
+        assert nullable_type.connection, "The type {} doesn't have a connection".format(
             nullable_type.__name__
         )
         assert type_ == nullable_type, (
@@ -39,7 +37,11 @@ class SQLAlchemyConnectionField(ConnectionField):
 
     def __init__(self, type_, *args, **kwargs):
         nullable_type = get_nullable_type(type_)
-        if "sort" not in kwargs and nullable_type and issubclass(nullable_type, Connection):
+        if (
+            "sort" not in kwargs
+            and nullable_type
+            and issubclass(nullable_type, Connection)
+        ):
             # Let super class raise if type is not a Connection
             try:
                 kwargs.setdefault("sort", nullable_type.Edge.node._type.sort_argument())
@@ -151,7 +153,9 @@ class BatchSQLAlchemyConnectionField(SQLAlchemyConnectionField):
     def connection_resolver(cls, resolver, connection_type, model, root, info, **args):
         if root is None:
             resolved = resolver(root, info, **args)
-            on_resolve = partial(cls.resolve_connection, connection_type, model, info, args)
+            on_resolve = partial(
+                cls.resolve_connection, connection_type, model, info, args
+            )
         else:
             relationship_prop = None
             for relationship in root.__class__.__mapper__.relationships:
@@ -159,7 +163,9 @@ class BatchSQLAlchemyConnectionField(SQLAlchemyConnectionField):
                     relationship_prop = relationship
                     break
             resolved = get_batch_resolver(relationship_prop)(root, info, **args)
-            on_resolve = partial(cls.resolve_connection, connection_type, root, info, args)
+            on_resolve = partial(
+                cls.resolve_connection, connection_type, root, info, args
+            )
 
         if is_thenable(resolved):
             return Promise.resolve(resolved).then(on_resolve)
@@ -170,7 +176,11 @@ class BatchSQLAlchemyConnectionField(SQLAlchemyConnectionField):
     def from_relationship(cls, relationship, registry, **field_kwargs):
         model = relationship.mapper.entity
         model_type = registry.get_type_for_model(model)
-        return cls(model_type.connection, resolver=get_batch_resolver(relationship), **field_kwargs)
+        return cls(
+            model_type.connection,
+            resolver=get_batch_resolver(relationship),
+            **field_kwargs
+        )
 
 
 def default_connection_field_factory(relationship, registry, **field_kwargs):
@@ -185,8 +195,8 @@ __connectionFactory = UnsortedSQLAlchemyConnectionField
 
 def createConnectionField(type_, **field_kwargs):
     warnings.warn(
-        'createConnectionField is deprecated and will be removed in the next '
-        'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.',
+        "createConnectionField is deprecated and will be removed in the next "
+        "major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.",
         DeprecationWarning,
     )
     return __connectionFactory(type_, **field_kwargs)
@@ -194,8 +204,8 @@ def createConnectionField(type_, **field_kwargs):
 
 def registerConnectionFieldFactory(factoryMethod):
     warnings.warn(
-        'registerConnectionFieldFactory is deprecated and will be removed in the next '
-        'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.',
+        "registerConnectionFieldFactory is deprecated and will be removed in the next "
+        "major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.",
         DeprecationWarning,
     )
     global __connectionFactory
@@ -204,8 +214,8 @@ def registerConnectionFieldFactory(factoryMethod):
 
 def unregisterConnectionFieldFactory():
     warnings.warn(
-        'registerConnectionFieldFactory is deprecated and will be removed in the next '
-        'major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.',
+        "registerConnectionFieldFactory is deprecated and will be removed in the next "
+        "major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.",
         DeprecationWarning,
     )
     global __connectionFactory
