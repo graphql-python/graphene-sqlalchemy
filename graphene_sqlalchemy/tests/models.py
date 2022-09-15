@@ -5,8 +5,18 @@ import enum
 from decimal import Decimal
 from typing import List, Optional, Tuple
 
-from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, String, Table,
-                        func, select)
+from sqlalchemy import (
+    Column,
+    Date,
+    Enum,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Table,
+    func,
+    select,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import column_property, composite, mapper, relationship
@@ -118,6 +128,24 @@ class Article(Base):
     headline = Column(String(100))
     pub_date = Column(Date())
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
+    readers = relationship(
+        "Reader", secondary="articles_readers", back_populates="articles"
+    )
+
+
+class Reader(Base):
+    __tablename__ = "readers"
+    id = Column(Integer(), primary_key=True)
+    name = Column(String(100))
+    articles = relationship(
+        "Article", secondary="articles_readers", back_populates="readers"
+    )
+
+
+class ArticleReader(Base):
+    __tablename__ = "articles_readers"
+    article_id = Column(Integer(), ForeignKey("articles.id"), primary_key=True)
+    reader_id = Column(Integer(), ForeignKey("readers.id"), primary_key=True)
 
 
 class ReflectedEditor(type):
@@ -242,3 +270,9 @@ class ShoppingCart(Base):
     @hybrid_property
     def hybrid_prop_optional_self_referential(self) -> Optional["ShoppingCart"]:
         return None
+
+
+class KeyedModel(Base):
+    __tablename__ = "test330"
+    id = Column(Integer(), primary_key=True)
+    reporter_number = Column("% reporter_number", Numeric, key="reporter_number")

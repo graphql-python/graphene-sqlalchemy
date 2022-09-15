@@ -4,8 +4,7 @@ from typing import Any
 
 import sqlalchemy
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
-                            RelationshipProperty)
+from sqlalchemy.orm import ColumnProperty, CompositeProperty, RelationshipProperty
 from sqlalchemy.orm.exc import NoResultFound
 
 from graphene import Field
@@ -14,16 +13,26 @@ from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
 from graphene.utils.orderedtype import OrderedType
 
-from .converter import (convert_sqlalchemy_column,
-                        convert_sqlalchemy_composite,
-                        convert_sqlalchemy_hybrid_method,
-                        convert_sqlalchemy_relationship)
-from .enums import (enum_for_field, sort_argument_for_object_type,
-                    sort_enum_for_object_type)
+from .converter import (
+    convert_sqlalchemy_column,
+    convert_sqlalchemy_composite,
+    convert_sqlalchemy_hybrid_method,
+    convert_sqlalchemy_relationship,
+)
+from .enums import (
+    enum_for_field,
+    sort_argument_for_object_type,
+    sort_enum_for_object_type,
+)
 from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
-from .utils import (get_query, get_session, is_mapped_class,
-                    is_mapped_instance, is_sqlalchemy_version_less_than)
+from .utils import (
+    get_query,
+    get_session,
+    is_mapped_class,
+    is_mapped_instance,
+    is_sqlalchemy_version_less_than,
+)
 
 if not is_sqlalchemy_version_less_than("1.4"):
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -275,7 +284,7 @@ class SQLAlchemyObjectType(ObjectType):
 
         if use_connection is None and interfaces:
             use_connection = any(
-                (issubclass(interface, Node) for interface in interfaces)
+                issubclass(interface, Node) for interface in interfaces
             )
 
         if use_connection and not connection:

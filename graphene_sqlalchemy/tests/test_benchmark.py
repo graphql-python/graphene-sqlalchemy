@@ -15,7 +15,7 @@ if is_sqlalchemy_version_less_than("1.2"):
     pytest.skip("SQL batching only works for SQLAlchemy 1.2+", allow_module_level=True)
 
 
-def get_schema():
+def get_async_schema():
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
@@ -54,7 +54,36 @@ def get_schema():
     return graphene.Schema(query=Query)
 
 
-async def benchmark_query(session_factory, benchmark, query):
+def get_schema():
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (relay.Node,)
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (relay.Node,)
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            interfaces = (relay.Node,)
+
+    class Query(graphene.ObjectType):
+        articles = graphene.Field(graphene.List(ArticleType))
+        reporters = graphene.Field(graphene.List(ReporterType))
+
+        def resolve_articles(self, info):
+            return info.context.get("session").query(Article).all()
+
+        def resolve_reporters(self, info):
+            return info.context.get("session").query(Reporter).all()
+
+    return graphene.Schema(query=Query)
+
+
+async def benchmark_query(session_factory, benchmark, query, schema):
     schema = get_schema()
 
     @benchmark
@@ -66,9 +95,11 @@ async def benchmark_query(session_factory, benchmark, query):
         assert not result.errors
 
 
+@pytest.mark.parametrize("schema_provider", [get_schema, get_async_schema])
 @pytest.mark.asyncio
-async def test_one_to_one(session_factory, benchmark):
+async def test_one_to_one(session_factory, benchmark, schema_provider):
     session = session_factory()
+    schema = schema_provider()
 
     reporter_1 = Reporter(
         first_name="Reporter_1",
@@ -93,6 +124,7 @@ async def test_one_to_one(session_factory, benchmark):
     await benchmark_query(
         session_factory,
         benchmark,
+        schema,
         """
       query {
         reporters {
@@ -106,9 +138,11 @@ async def test_one_to_one(session_factory, benchmark):
     )
 
 
+@pytest.mark.parametrize("schema_provider", [get_schema, get_async_schema])
 @pytest.mark.asyncio
-async def test_many_to_one(session_factory, benchmark):
+async def test_many_to_one(session_factory, benchmark, schema_provider):
     session = session_factory()
+    schema = schema_provider()
 
     reporter_1 = Reporter(
         first_name="Reporter_1",
@@ -133,6 +167,7 @@ async def test_many_to_one(session_factory, benchmark):
     await benchmark_query(
         session_factory,
         benchmark,
+        schema,
         """
       query {
         articles {
@@ -147,8 +182,10 @@ async def test_many_to_one(session_factory, benchmark):
 
 
 @pytest.mark.asyncio
-async def test_one_to_many(session_factory, benchmark):
+@pytest.mark.parametrize("schema_provider", [get_schema, get_async_schema])
+async def test_one_to_many(session_factory, benchmark, schema_provider):
     session = session_factory()
+    schema = schema_provider()
 
     reporter_1 = Reporter(
         first_name="Reporter_1",
@@ -181,6 +218,7 @@ async def test_one_to_many(session_factory, benchmark):
     await benchmark_query(
         session_factory,
         benchmark,
+        schema,
         """
       query {
         reporters {
@@ -198,10 +236,11 @@ async def test_one_to_many(session_factory, benchmark):
     )
 
 
+@pytest.mark.parametrize("schema_provider", [get_schema, get_async_schema])
 @pytest.mark.asyncio
-async def test_many_to_many(session_factory, benchmark):
+async def test_many_to_many(session_factory, benchmark, schema_provider):
     session = session_factory()
-
+    schema = schema_provider()
     reporter_1 = Reporter(
         first_name="Reporter_1",
     )
@@ -235,6 +274,7 @@ async def test_many_to_many(session_factory, benchmark):
     await benchmark_query(
         session_factory,
         benchmark,
+        schema,
         """
       query {
         reporters {

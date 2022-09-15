@@ -42,7 +42,7 @@ def test_db_url(async_session: bool):
 async def session_factory(async_session: bool, test_db_url: str):
     if async_session:
         if is_sqlalchemy_version_less_than("1.4"):
-            pytest.skip(f"Async Sessions only work in sql alchemy 1.4 and above")
+            pytest.skip("Async Sessions only work in sql alchemy 1.4 and above")
         engine = create_async_engine(test_db_url)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)

@@ -6,16 +6,31 @@ import sqlalchemy.orm.exc
 from graphql.pyutils import is_awaitable
 from sqlalchemy import select
 
-from graphene import (Boolean, Dynamic, Field, Float, GlobalID, Int, List,
-                      Node, NonNull, ObjectType, Schema, String)
+from graphene import (
+    Boolean,
+    Dynamic,
+    Field,
+    Float,
+    GlobalID,
+    Int,
+    List,
+    Node,
+    NonNull,
+    ObjectType,
+    Schema,
+    String,
+)
 from graphene.relay import Connection
 
 from .. import utils
 from ..converter import convert_sqlalchemy_composite
-from ..fields import (SQLAlchemyConnectionField,
-                      UnsortedSQLAlchemyConnectionField, createConnectionField,
-                      registerConnectionFieldFactory,
-                      unregisterConnectionFieldFactory)
+from ..fields import (
+    SQLAlchemyConnectionField,
+    UnsortedSQLAlchemyConnectionField,
+    createConnectionField,
+    registerConnectionFieldFactory,
+    unregisterConnectionFieldFactory,
+)
 from ..types import ORMField, SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
 from ..utils import is_sqlalchemy_version_less_than
 from .models import Article, CompositeFullName, Pet, Reporter

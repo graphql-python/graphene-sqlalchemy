@@ -2,8 +2,17 @@ from __future__ import absolute_import
 
 import enum
 
-from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, String, Table,
-                        func, select)
+from sqlalchemy import (
+    Column,
+    Date,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    func,
+    select,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import column_property, relationship
 
@@ -62,3 +71,21 @@ class Article(Base):
     headline = Column(String(100))
     pub_date = Column(Date())
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
+    readers = relationship(
+        "Reader", secondary="articles_readers", back_populates="articles"
+    )
+
+
+class Reader(Base):
+    __tablename__ = "readers"
+    id = Column(Integer(), primary_key=True)
+    name = Column(String(100))
+    articles = relationship(
+        "Article", secondary="articles_readers", back_populates="readers"
+    )
+
+
+class ArticleReader(Base):
+    __tablename__ = "articles_readers"
+    article_id = Column(Integer(), ForeignKey("articles.id"), primary_key=True)
+    reader_id = Column(Integer(), ForeignKey("readers.id"), primary_key=True)

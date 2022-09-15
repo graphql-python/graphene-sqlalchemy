@@ -7,7 +7,7 @@ from graphene.relay import Node
 from ..fields import SQLAlchemyConnectionField
 from ..types import SQLAlchemyObjectType
 from ..utils import to_type_name
-from .models import Base, HairKind, Pet
+from .models import Base, HairKind, KeyedModel, Pet
 from .test_query import to_std_dicts
 from .utils import eventually_await_session
 
@@ -317,7 +317,9 @@ async def test_sort_query(session):
         return {"edges": nodes}
 
     expected = {
-        "defaultSort": makeNodes([{"name": "Lassie"}, {"name": "Barf"}, {"name": "Alf"}]),
+        "defaultSort": makeNodes(
+            [{"name": "Lassie"}, {"name": "Barf"}, {"name": "Alf"}]
+        ),
         "nameSort": makeNodes([{"name": "Alf"}, {"name": "Barf"}, {"name": "Lassie"}]),
         "noDefaultSort": makeNodes(
             [{"name": "Alf"}, {"name": "Barf"}, {"name": "Lassie"}]
@@ -383,3 +385,32 @@ async def test_sort_query(session):
     assert [node["node"]["name"] for node in result.data["noSort"]["edges"]] == [
         node["node"]["name"] for node in result.data["noDefaultSort"]["edges"]
     ]
+
+
+def test_sort_enum_from_key_issue_330():
+    """
+    Verifies that the sort enum name is generated from the column key instead of the name,
+    in case the column has an invalid enum name. See #330
+    """
+
+    class KeyedType(SQLAlchemyObjectType):
+        class Meta:
+            model = KeyedModel
+
+    sort_enum = KeyedType.sort_enum()
+    assert isinstance(sort_enum, type(Enum))
+    assert sort_enum._meta.name == "KeyedTypeSortEnum"
+    assert list(sort_enum._meta.enum.__members__) == [
+        "ID_ASC",
+        "ID_DESC",
+        "REPORTER_NUMBER_ASC",
+        "REPORTER_NUMBER_DESC",
+    ]
+    assert (
+        str(sort_enum.REPORTER_NUMBER_ASC.value.value)
+        == 'test330."% reporter_number" ASC'
+    )
+    assert (
+        str(sort_enum.REPORTER_NUMBER_DESC.value.value)
+        == 'test330."% reporter_number" DESC'
+    )

@@ -9,8 +9,6 @@ from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
 
-from graphene_sqlalchemy.registry import get_global_registry
-
 
 def is_sqlalchemy_version_less_than(version_string):
     """Check the installed SQLAlchemy version"""
@@ -169,6 +167,13 @@ def sort_argument_for_model(cls, has_default=True):
     return Argument(List(enum), default_value=enum.default)
 
 
+def is_graphene_version_less_than(version_string):  # pragma: no cover
+    """Check the installed graphene version"""
+    return pkg_resources.get_distribution(
+        "graphene"
+    ).parsed_version < pkg_resources.parse_version(version_string)
+
+
 class singledispatchbymatchfunction:
     """
     Inspired by @singledispatch, this is a variant that works using a matcher function
@@ -214,6 +219,8 @@ def safe_isinstance(cls):
 
 
 def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:
+    from graphene_sqlalchemy.registry import get_global_registry
+
     try:
         return next(
             filter(
@@ -223,3 +230,10 @@ def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:
         )
     except StopIteration:
         pass
+
+
+class DummyImport:
+    """The dummy module returns 'object' for a query for any member"""
+
+    def __getattr__(self, name):
+        return object
