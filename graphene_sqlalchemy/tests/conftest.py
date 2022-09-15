@@ -1,4 +1,5 @@
 import pytest
+import pytest_asyncio
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -38,7 +39,7 @@ def test_db_url(async_session: bool):
 
 
 @pytest.mark.asyncio
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 async def session_factory(async_session: bool, test_db_url: str):
     if async_session:
         if is_sqlalchemy_version_less_than("1.4"):
@@ -57,7 +58,7 @@ async def session_factory(async_session: bool, test_db_url: str):
         engine.dispose()
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 async def sync_session_factory():
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
@@ -67,6 +68,6 @@ async def sync_session_factory():
     engine.dispose()
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 def session(session_factory):
     return session_factory()
