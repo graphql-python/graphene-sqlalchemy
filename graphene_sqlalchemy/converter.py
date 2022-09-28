@@ -1,6 +1,7 @@
 import datetime
 import sys
 import typing
+import uuid
 import warnings
 from decimal import Decimal
 from functools import singledispatch
@@ -396,6 +397,11 @@ def convert_sqlalchemy_hybrid_property_type_date(arg):
 @convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.time))
 def convert_sqlalchemy_hybrid_property_type_time(arg):
     return graphene.Time
+
+
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(uuid.UUID))
+def convert_sqlalchemy_hybrid_property_type_uuid(arg):
+    return graphene.UUID
 
 
 def is_union(arg) -> bool:

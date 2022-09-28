@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 import datetime
 import enum
+import uuid
 from decimal import Decimal
 from typing import List, Optional, Tuple
 
@@ -265,6 +266,21 @@ class ShoppingCart(Base):
 
     @hybrid_property
     def hybrid_prop_optional_self_referential(self) -> Optional["ShoppingCart"]:
+        return None
+
+    # UUIDS
+    @hybrid_property
+    def hybrid_prop_uuid(self) -> uuid.UUID:
+        return uuid.uuid4()
+
+    @hybrid_property
+    def hybrid_prop_uuid_list(self) -> List[uuid.UUID]:
+        return [
+            uuid.uuid4(),
+        ]
+
+    @hybrid_property
+    def hybrid_prop_optional_uuid(self) -> Optional[uuid.UUID]:
         return None
 
 
