@@ -673,6 +673,10 @@ def test_sqlalchemy_hybrid_property_type_inference():
         "hybrid_prop_self_referential_list": graphene.List(ShoppingCartType),
         # Optionals
         "hybrid_prop_optional_self_referential": ShoppingCartType,
+        # UUIDs
+        "hybrid_prop_uuid": graphene.UUID,
+        "hybrid_prop_optional_uuid": graphene.UUID,
+        "hybrid_prop_uuid_list": graphene.List(graphene.UUID),
     }
 
     assert sorted(list(ShoppingCartType._meta.fields.keys())) == sorted(
