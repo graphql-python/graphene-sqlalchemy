@@ -9,7 +9,8 @@ from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, Numeric,
                         String, Table, func, select)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import backref, column_property, composite, mapper, relationship
+from sqlalchemy.orm import (backref, column_property, composite, mapper,
+                            relationship)
 
 PetKind = Enum("cat", "dog", name="pet_kind")
 
@@ -99,7 +100,8 @@ class Reporter(Base):
         return [1, 2, 3]
 
     column_prop = column_property(
-        select([func.cast(func.count(id), Integer)]), doc="Column property"
+        select([func.cast(func.count(id), Integer)]).scalar_subquery(),
+        doc="Column property"
     )
 
     composite_prop = composite(CompositeFullName, first_name, last_name, doc="Composite")
@@ -110,7 +112,7 @@ articles_tags_table = Table(
     Base.metadata,
     Column("article_id", ForeignKey("articles.id")),
     Column("tag_id", ForeignKey("tags.id")),
-) 
+)
 
 
 class Image(Base):
@@ -136,6 +138,13 @@ class Article(Base):
         "Reader", secondary="articles_readers", back_populates="articles"
     )
 
+    # one-to-one relationship with image
+    image_id = Column(Integer(), ForeignKey('images.id'), unique=True)
+    image = relationship("Image", backref=backref("articles", uselist=False))
+
+    # many-to-many relationship with tags
+    tags = relationship("Tag", secondary=articles_tags_table, backref="articles")
+
 
 class Reader(Base):
     __tablename__ = "readers"
@@ -150,13 +159,6 @@ class ArticleReader(Base):
     __tablename__ = "articles_readers"
     article_id = Column(Integer(), ForeignKey("articles.id"), primary_key=True)
     reader_id = Column(Integer(), ForeignKey("readers.id"), primary_key=True)
-
-    # one-to-one relationship with image
-    image_id = Column(Integer(), ForeignKey('images.id'), unique=True)
-    image = relationship("Image", backref=backref("articles", uselist=False))
-
-    # many-to-many relationship with tags
-    tags = relationship("Tag", secondary=articles_tags_table, backref="articles")
 
 
 class ReflectedEditor(type):

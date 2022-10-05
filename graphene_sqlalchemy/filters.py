@@ -167,7 +167,7 @@ class FieldFilter(graphene.InputObjectType):
             _meta = InputObjectTypeOptions(cls)
 
         new_filter_fields = {}
-        print(f"Geenerating Fields for {cls.__name__} with type {type} ")
+        print(f"Generating Fields for {cls.__name__} with type {type} ")
         # Generate Graphene Fields from the filter functions based on type hints
         for field_name, _annotations in filter_functions:
             assert "val" in _annotations, "Each filter method must have a value field with valid type annotations"
@@ -267,3 +267,8 @@ class DateFilter(OrderedFilter):
 
     class Meta:
         type = graphene.Date
+
+
+class IdFilter(FieldFilter):
+    class Meta:
+        type = graphene.ID

@@ -5,13 +5,11 @@ from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
 import graphene
 from graphene import Enum
-from graphene_sqlalchemy.filters import (BooleanFilter, FieldFilter,
-                                         FloatFilter, IntFilter, StringFilter)
+from graphene_sqlalchemy.filters import (FieldFilter, ObjectTypeFilter,
+                                         RelationshipFilter)
 
 
 class Registry(object):
-    from graphene_sqlalchemy.filters import (FieldFilter, ObjectTypeFilter,
-                                             RelationshipFilter)
 
     def __init__(self):
         self._registry = {}
@@ -131,6 +129,22 @@ class Registry(object):
 
         return self._registry_scalar_filters.get(scalar_type)
 
+    # TODO register enums automatically
+    def register_filter_for_enum_type(self, enum_type: Type[graphene.Enum], filter_obj: Type[FieldFilter]):
+        if not isinstance(enum_type, type(graphene.Enum)):
+            raise TypeError(
+                "Expected Enum, but got: {!r}".format(enum_type)
+            )
+
+        if not isinstance(filter_obj, type(FieldFilter)):
+            raise TypeError(
+                "Expected FieldFilter, but got: {!r}".format(filter_obj)
+            )
+        self._registry_scalar_filters[enum_type] = filter_obj
+
+    def get_filter_for_enum_type(self, enum_type: Type[graphene.Enum]) -> Type[FieldFilter]:
+        return self._registry_enum_type_filters.get(enum_type)
+
     # Filter Object Types
     def register_filter_for_object_type(self, object_type: Type[graphene.ObjectType],
                                         filter_obj: Type[ObjectTypeFilter]):
@@ -179,9 +193,3 @@ def get_global_registry():
 def reset_global_registry():
     global registry
     registry = None
-
-
-get_global_registry().register_filter_for_scalar_type(graphene.Float, FloatFilter)
-get_global_registry().register_filter_for_scalar_type(graphene.Int, IntFilter)
-get_global_registry().register_filter_for_scalar_type(graphene.String, StringFilter)
-get_global_registry().register_filter_for_scalar_type(graphene.Boolean, BooleanFilter)

@@ -1,6 +1,6 @@
-import graphene
 import pytest
 
+import graphene
 from graphene import Connection, relay
 
 from ..fields import SQLAlchemyConnectionField
@@ -41,10 +41,23 @@ def create_schema(session):
     class ArticleType(SQLAlchemyObjectType):
         class Meta:
             model = Article
+            name = "Article"
+            interfaces = (relay.Node,)
+            connection_class = Connection
 
     class ImageType(SQLAlchemyObjectType):
         class Meta:
             model = Image
+            name = "Image"
+            interfaces = (relay.Node,)
+            connection_class = Connection
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            name = "Pet"
+            interfaces = (relay.Node,)
+            connection_class = Connection
 
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
@@ -55,22 +68,22 @@ def create_schema(session):
 
     class Query(graphene.ObjectType):
         node = relay.Node.Field()
-        # TODO how to create filterable singular field?
-        article = graphene.Field(ArticleType)
+        # # TODO how to create filterable singular field?
+        # article = graphene.Field(ArticleType)
         articles = SQLAlchemyConnectionField(ArticleType.connection)
-        image = graphene.Field(ImageType)
+        # image = graphene.Field(ImageType)
         images = SQLAlchemyConnectionField(ImageType.connection)
-        reporter = graphene.Field(ReporterType)
+        # reporter = graphene.Field(ReporterType)
         reporters = SQLAlchemyConnectionField(ReporterType.connection)
 
-        def resolve_article(self, _info):
-            return session.query(Article).first()
+        # def resolve_article(self, _info):
+        #     return session.query(Article).first()
 
-        def resolve_image(self, _info):
-            return session.query(Image).first()
+        # def resolve_image(self, _info):
+        #     return session.query(Image).first()
 
-        def resolve_reporter(self, _info):
-            return session.query(Reporter).first()
+        # def resolve_reporter(self, _info):
+        #     return session.query(Reporter).first()
 
     return Query
 
@@ -78,25 +91,25 @@ def create_schema(session):
 # Test a simple example of filtering
 def test_filter_simple(session):
     add_test_data(session)
+
     Query = create_schema(session)
 
-    # TODO test singular field filter
-      # reporter(filter: {firstName: "John"}) {
-      #   firstName
-      # }
     query = """
         query {
-          reporters(filter: {firstName: "John"}) {
-            firstName
+          reporters (filter: {lastName: {eq: "Roe"}}) {
+            edges {
+                node {
+                    firstName
+                }
+            }
           }
         }
     """
     expected = {
-        "reporters": [{"firstName": "John"}],
+        "reporters": {"edges": [{"node": {"firstName": "Jane"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query)
-    print(result)
+    result = schema.execute(query, context_value={'session': session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -109,18 +122,31 @@ def test_filter_custom_type(session):
     Query = create_schema(session)
 
     class MathFilter(FloatFilter):
-        def divisibleBy(dividend: float, divisor: float) -> float:
-            return dividend % divisor == 0.
+        class Meta:
+            type = graphene.Float
+
+        @classmethod
+        def divisible_by(cls, query, field, val: graphene.Float) -> bool:
+            return field % val == 0.
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            name = "Pet"
+            interfaces = (relay.Node,)
+            connection_class = Connection
 
     class ExtraQuery:
-        pets = SQLAlchemyConnectionField(Pet, filters=MathFilter())
+        pets = SQLAlchemyConnectionField(
+            PetType.connection, filter=MathFilter()
+        )
 
     class CustomQuery(Query, ExtraQuery):
         pass
 
     query = """
         query {
-          pets (filters: {
+          pets (filter: {
             legs: {divisibleBy: 2}
           }) {
             name
@@ -131,13 +157,13 @@ def test_filter_custom_type(session):
         "pets": [{"name": "Garfield"}, {"name": "Lassie"}],
     }
     schema = graphene.Schema(query=CustomQuery)
-    result = schema.execute(query)
+    result = schema.execute(query, context_value={'session': session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
+
 # Test a 1:1 relationship
-@pytest.mark.xfail
 def test_filter_relationship_one_to_one(session):
     article = Article(headline='Hi!')
     image = Image(external_id=1, description="A beautiful image.")
@@ -150,18 +176,22 @@ def test_filter_relationship_one_to_one(session):
 
     query = """
         query {
-          article (filters: {
-            image: {description: "A beautiful image."}
+          articles (filter: {
+            image: {description: {eq: "A beautiful image."}}
           }) {
-            firstName
+            edges {
+                node {
+                    headline
+                }
+            }
           }
         }
     """
     expected = {
-        "article": [{"headline": "Hi!"}],
+        "articles": {"edges": [{"node": {"headline": "Hi!"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query)
+    result = schema.execute(query, context_value={'session': session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -176,14 +206,18 @@ def test_filter_relationship_one_to_many(session):
     # test contains
     query = """
         query {
-          reporter (filters: {
+          reporters (filter: {
             pets: {
               contains: {
                 name: {in: ["Garfield", "Lassie"]}
               }
             }
           }) {
-            lastName
+            edges {
+              node {
+                lastName
+              }
+            }
           }
         }
     """
@@ -191,7 +225,7 @@ def test_filter_relationship_one_to_many(session):
         "reporter": [{"lastName": "Doe"}, {"lastName": "Roe"}],
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query)
+    result = schema.execute(query, context_value={'session': session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -199,7 +233,7 @@ def test_filter_relationship_one_to_many(session):
     # test containsAllOf
     query = """
         query {
-          reporter (filters: {
+          reporters (filter: {
             pets: {
               containsAllOf: [
                 name: {eq: "Garfield"},
@@ -207,8 +241,12 @@ def test_filter_relationship_one_to_many(session):
               ]
             }
           }) {
-            firstName
-            lastName
+            edges {
+              node {
+                firstName
+                lastName
+              }
+            }
           }
         }
     """
@@ -216,7 +254,7 @@ def test_filter_relationship_one_to_many(session):
         "reporter": [{"firstName": "John"}, {"lastName": "Doe"}],
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query)
+    result = schema.execute(query, context_value={'session': session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -224,7 +262,7 @@ def test_filter_relationship_one_to_many(session):
     # test containsExactly
     query = """
         query {
-          reporter (filters: {
+          reporter (filter: {
             pets: {
               containsExactly: [
                 name: {eq: "Garfield"}
@@ -243,6 +281,7 @@ def test_filter_relationship_one_to_many(session):
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
+
 
 # Test a n:m relationship
 @pytest.mark.xfail
@@ -264,10 +303,10 @@ def test_filter_relationship_many_to_many(session):
     # test contains
     query = """
     query {
-      articles (filters: {
+      articles (filter: {
         tags: {
           contains: {
-            name: { in: ["sensational", "eye-grabbing"] } 
+            name: { in: ["sensational", "eye-grabbing"] }
           }
         }
       }) {
@@ -277,7 +316,7 @@ def test_filter_relationship_many_to_many(session):
     """
     expected = {
         "articles": [
-            {"headline": "Woah! Another!"}, 
+            {"headline": "Woah! Another!"},
             {"headline": "Article! Look!"},
         ],
     }
@@ -290,7 +329,7 @@ def test_filter_relationship_many_to_many(session):
     # test containsAllOf
     query = """
         query {
-          articles (filters: {
+          articles (filter: {
             tags: {
               containsAllOf: [
                 { tag: { name: { eq: "eye-grabbing" } } },
@@ -314,7 +353,7 @@ def test_filter_relationship_many_to_many(session):
     # test containsExactly
     query = """
         query {
-          articles (filters: {
+          articles (filter: {
               containsExactly: [
                 { tag: { name: { eq: "sensational" } } }
               ]
@@ -342,10 +381,10 @@ def test_filter_logic_and(session):
 
     query = """
         query {
-          reporters (filters: {
+          reporters (filter: {
             and: [
                 {firstName: "John"},
-                {favoritePetKind: "cat"}, 
+                {favoritePetKind: "cat"},
             ]
         }) {
             lastName
@@ -362,7 +401,7 @@ def test_filter_logic_and(session):
     assert result == expected
 
 
-# Test connecting filters with "or" 
+# Test connecting filters with "or"
 @pytest.mark.xfail
 def test_filter_logic_or(session):
     add_test_data(session)
@@ -370,10 +409,10 @@ def test_filter_logic_or(session):
 
     query = """
         query {
-          reporters (filters: {
+          reporters (filter: {
             or: [
                 {lastName: "Woe"},
-                {favoritePetKind: "dog"}, 
+                {favoritePetKind: "dog"},
             ]
         }) {
             firstName
@@ -383,7 +422,7 @@ def test_filter_logic_or(session):
     """
     expected = {
         "reporters": [
-            {"firstName": "John", "lastName": "Woe"}, 
+            {"firstName": "John", "lastName": "Woe"},
             {"firstName": "Jane", "lastName": "Roe"},
         ],
     }
@@ -402,12 +441,12 @@ def test_filter_logic_and_or(session):
 
     query = """
         query {
-          reporters (filters: {
+          reporters (filter: {
             and: [
                 {firstName: "John"},
-                or : [ 
+                or : [
                     {lastName: "Doe"},
-                    {favoritePetKind: "cat"}, 
+                    {favoritePetKind: "cat"},
                 ]
             ]
         }) {

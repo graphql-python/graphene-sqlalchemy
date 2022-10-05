@@ -21,7 +21,8 @@ from .converter import (convert_sqlalchemy_column,
                         convert_sqlalchemy_relationship)
 from .enums import (enum_for_field, sort_argument_for_object_type,
                     sort_enum_for_object_type)
-from .filters import ObjectTypeFilter, RelationshipFilter
+from .filters import (BooleanFilter, FloatFilter, IdFilter, IntFilter,
+                      ObjectTypeFilter, RelationshipFilter, StringFilter)
 from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (get_nullable_type, get_query, is_mapped_class,
@@ -267,6 +268,12 @@ class SQLAlchemyObjectType(ObjectType):
 
         if not registry:
             registry = get_global_registry()
+            # TODO way of doing this automatically?
+            get_global_registry().register_filter_for_scalar_type(graphene.Float, FloatFilter)
+            get_global_registry().register_filter_for_scalar_type(graphene.Int, IntFilter)
+            get_global_registry().register_filter_for_scalar_type(graphene.String, StringFilter)
+            get_global_registry().register_filter_for_scalar_type(graphene.Boolean, BooleanFilter)
+            get_global_registry().register_filter_for_scalar_type(graphene.ID, IdFilter)
 
         assert isinstance(registry, Registry), (
             "The attribute registry in {} needs to be an instance of "
