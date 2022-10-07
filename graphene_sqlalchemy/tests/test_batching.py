@@ -159,10 +159,6 @@ def get_full_relay_schema():
     return graphene.Schema(query=Query)
 
 
-if is_sqlalchemy_version_less_than("1.2"):
-    pytest.skip("SQL batching only works for SQLAlchemy 1.2+", allow_module_level=True)
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("schema_provider", [get_schema, get_async_schema])
 async def test_many_to_one(sync_session_factory, schema_provider):
