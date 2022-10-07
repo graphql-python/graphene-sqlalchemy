@@ -12,7 +12,7 @@ from ..fields import BatchSQLAlchemyConnectionField, default_connection_field_fa
 from ..types import ORMField, SQLAlchemyObjectType
 from ..utils import get_session, is_sqlalchemy_version_less_than
 from .models_batching import Article, HairKind, Pet, Reader, Reporter
-from .utils import remove_cache_miss_stat, to_std_dicts
+from .utils import eventually_await_session, remove_cache_miss_stat, to_std_dicts
 
 if not is_sqlalchemy_version_less_than("1.4"):
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -123,13 +123,6 @@ def get_schema():
 
 if is_sqlalchemy_version_less_than("1.2"):
     pytest.skip("SQL batching only works for SQLAlchemy 1.2+", allow_module_level=True)
-
-
-async def eventually_await_session(session, func, *args):
-    if not is_sqlalchemy_version_less_than("1.4") and isinstance(session, AsyncSession):
-        await getattr(session, func)(*args)
-    else:
-        getattr(session, func)(*args)
 
 
 def get_full_relay_schema():
