@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from sqlalchemy import select
 
@@ -83,19 +84,26 @@ def get_schema():
     return graphene.Schema(query=Query)
 
 
-async def benchmark_query(session_factory, benchmark, query, schema):
-    schema = get_schema()
+async def benchmark_query(session, benchmark, schema, query):
+    import nest_asyncio
 
-    @benchmark
-    async def execute_query():
-        result = await schema.execute_async(
-            query,
-            context_value={"session": session_factory()},
+    nest_asyncio.apply()
+    loop = asyncio.get_event_loop()
+    result = benchmark(
+        lambda: loop.run_until_complete(
+            schema.execute_async(query, context_value={"session": session})
         )
-        assert not result.errors
+    )
+    assert not result.errors
 
 
-@pytest.mark.parametrize("schema_provider", [get_schema, get_async_schema])
+@pytest.fixture(params=[get_schema, get_async_schema])
+def schema_provider(request, async_session):
+    if async_session and request.param == get_schema:
+        pytest.skip("Cannot test sync schema with async sessions")
+    return request.param
+
+
 @pytest.mark.asyncio
 async def test_one_to_one(session_factory, benchmark, schema_provider):
     session = session_factory()
@@ -122,7 +130,7 @@ async def test_one_to_one(session_factory, benchmark, schema_provider):
     await eventually_await_session(session, "close")
 
     await benchmark_query(
-        session_factory,
+        session,
         benchmark,
         schema,
         """
@@ -138,12 +146,10 @@ async def test_one_to_one(session_factory, benchmark, schema_provider):
     )
 
 
-@pytest.mark.parametrize("schema_provider", [get_schema, get_async_schema])
 @pytest.mark.asyncio
 async def test_many_to_one(session_factory, benchmark, schema_provider):
     session = session_factory()
     schema = schema_provider()
-
     reporter_1 = Reporter(
         first_name="Reporter_1",
     )
@@ -160,12 +166,12 @@ async def test_many_to_one(session_factory, benchmark, schema_provider):
     article_2 = Article(headline="Article_2")
     article_2.reporter = reporter_2
     session.add(article_2)
-
+    await eventually_await_session(session, "flush")
     await eventually_await_session(session, "commit")
     await eventually_await_session(session, "close")
 
     await benchmark_query(
-        session_factory,
+        session,
         benchmark,
         schema,
         """
@@ -182,7 +188,6 @@ async def test_many_to_one(session_factory, benchmark, schema_provider):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("schema_provider", [get_schema, get_async_schema])
 async def test_one_to_many(session_factory, benchmark, schema_provider):
     session = session_factory()
     schema = schema_provider()
@@ -216,7 +221,7 @@ async def test_one_to_many(session_factory, benchmark, schema_provider):
     await eventually_await_session(session, "close")
 
     await benchmark_query(
-        session_factory,
+        session,
         benchmark,
         schema,
         """
@@ -236,7 +241,6 @@ async def test_one_to_many(session_factory, benchmark, schema_provider):
     )
 
 
-@pytest.mark.parametrize("schema_provider", [get_schema, get_async_schema])
 @pytest.mark.asyncio
 async def test_many_to_many(session_factory, benchmark, schema_provider):
     session = session_factory()
@@ -272,7 +276,7 @@ async def test_many_to_many(session_factory, benchmark, schema_provider):
     await eventually_await_session(session, "close")
 
     await benchmark_query(
-        session_factory,
+        session,
         benchmark,
         schema,
         """

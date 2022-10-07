@@ -7,9 +7,7 @@ from setuptools import find_packages, setup
 _version_re = re.compile(r"__version__\s+=\s+(.*)")
 
 with open("graphene_sqlalchemy/__init__.py", "rb") as f:
-    version = str(
-        ast.literal_eval(_version_re.search(f.read().decode("utf-8")).group(1))
-    )
+    version = str(ast.literal_eval(_version_re.search(f.read().decode("utf-8")).group(1)))
 
 requirements = [
     # To keep things simple, we only support newer versions of Graphene
@@ -26,6 +24,7 @@ tests_require = [
     "sqlalchemy_utils>=0.37.0,<1.0",
     "pytest-benchmark>=3.4.0,<4.0",
     "aiosqlite>=0.17.0",
+    "nest-asyncio",
 ]
 
 setup(

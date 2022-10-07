@@ -19,7 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import column_property, composite, mapper, relationship
+from sqlalchemy.orm import column_property, composite, mapper, relationship, backref
 
 PetKind = Enum("cat", "dog", name="pet_kind")
 
@@ -81,7 +81,9 @@ class Reporter(Base):
         order_by="Pet.id",
         lazy="selectin",
     )
-    articles = relationship("Article", backref="reporter", lazy="selectin")
+    articles = relationship(
+        "Article", backref=backref("reporter", lazy="selectin"), lazy="selectin"
+    )
     favorite_article = relationship("Article", uselist=False, lazy="selectin")
 
     @hybrid_property
@@ -117,9 +119,7 @@ class Reporter(Base):
         select([func.cast(func.count(id), Integer)]), doc="Column property"
     )
 
-    composite_prop = composite(
-        CompositeFullName, first_name, last_name, doc="Composite"
-    )
+    composite_prop = composite(CompositeFullName, first_name, last_name, doc="Composite")
 
 
 class Article(Base):
