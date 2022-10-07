@@ -1,9 +1,10 @@
 import asyncio
 
-import graphene
 import pytest
-from graphene import relay
 from sqlalchemy import select
+
+import graphene
+from graphene import relay
 
 from ..types import SQLAlchemyObjectType
 from ..utils import get_session, is_sqlalchemy_version_less_than

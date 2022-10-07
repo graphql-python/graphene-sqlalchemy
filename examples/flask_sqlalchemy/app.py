@@ -2,8 +2,9 @@
 
 from database import db_session, init_db
 from flask import Flask
-from flask_graphql import GraphQLView
 from schema import schema
+
+from flask_graphql import GraphQLView
 
 app = Flask(__name__)
 app.debug = True

@@ -119,7 +119,9 @@ class Reporter(Base):
         select([func.cast(func.count(id), Integer)]), doc="Column property"
     )
 
-    composite_prop = composite(CompositeFullName, first_name, last_name, doc="Composite")
+    composite_prop = composite(
+        CompositeFullName, first_name, last_name, doc="Composite"
+    )
 
 
 class Article(Base):

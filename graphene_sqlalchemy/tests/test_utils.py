@@ -1,5 +1,6 @@
 import pytest
 import sqlalchemy as sa
+
 from graphene import Enum, List, ObjectType, Schema, String
 
 from ..utils import (

@@ -1,7 +1,7 @@
-import graphene
 import pytest
 from sqlalchemy import select
 
+import graphene
 from graphene_sqlalchemy.tests.utils import eventually_await_session
 from graphene_sqlalchemy.utils import get_session, is_sqlalchemy_version_less_than
 

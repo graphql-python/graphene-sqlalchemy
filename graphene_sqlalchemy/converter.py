@@ -6,11 +6,12 @@ from decimal import Decimal
 from functools import singledispatch
 from typing import Any, cast
 
-import graphene
-from graphene.types.json import JSONString
 from sqlalchemy import types as sqa_types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import interfaces, strategies
+
+import graphene
+from graphene.types.json import JSONString
 
 from .batching import get_batch_resolver
 from .enums import enum_for_sa_enum

@@ -1,8 +1,9 @@
 from enum import Enum as PyEnum
 
 import pytest
-from graphene import Enum
 from sqlalchemy.types import Enum as SQLAlchemyEnumType
+
+from graphene import Enum
 
 from ..enums import _convert_sa_to_graphene_enum, enum_for_field
 from ..types import SQLAlchemyObjectType
@@ -40,7 +41,8 @@ def test_convert_sa_to_graphene_enum_based_on_py_enum_with_bad_names():
     assert graphene_enum._meta.name == "Color"
     assert graphene_enum._meta.enum is not Color
     assert [
-        (key, value.value) for key, value in graphene_enum._meta.enum.__members__.items()
+        (key, value.value)
+        for key, value in graphene_enum._meta.enum.__members__.items()
     ] == [("RED", 1), ("GREEN", 2), ("BLUE", 3)]
 
 
@@ -50,7 +52,8 @@ def test_convert_sa_enum_to_graphene_enum_based_on_list_named():
     assert isinstance(graphene_enum, type(Enum))
     assert graphene_enum._meta.name == "ColorValues"
     assert [
-        (key, value.value) for key, value in graphene_enum._meta.enum.__members__.items()
+        (key, value.value)
+        for key, value in graphene_enum._meta.enum.__members__.items()
     ] == [("RED", "red"), ("GREEN", "green"), ("BLUE", "blue")]
 
 
@@ -60,7 +63,8 @@ def test_convert_sa_enum_to_graphene_enum_based_on_list_unnamed():
     assert isinstance(graphene_enum, type(Enum))
     assert graphene_enum._meta.name == "FallbackName"
     assert [
-        (key, value.value) for key, value in graphene_enum._meta.enum.__members__.items()
+        (key, value.value)
+        for key, value in graphene_enum._meta.enum.__members__.items()
     ] == [("RED", "red"), ("GREEN", "green"), ("BLUE", "blue")]
 
 
@@ -79,7 +83,9 @@ def test_enum_for_field():
     enum = enum_for_field(PetType, "pet_kind")
     assert isinstance(enum, type(Enum))
     assert enum._meta.name == "PetKind"
-    assert [(key, value.value) for key, value in enum._meta.enum.__members__.items()] == [
+    assert [
+        (key, value.value) for key, value in enum._meta.enum.__members__.items()
+    ] == [
         ("CAT", "cat"),
         ("DOG", "dog"),
     ]

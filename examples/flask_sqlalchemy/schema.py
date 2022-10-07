@@ -1,9 +1,9 @@
-import graphene
-from graphene import relay
 from models import Department as DepartmentModel
 from models import Employee as EmployeeModel
 from models import Role as RoleModel
 
+import graphene
+from graphene import relay
 from graphene_sqlalchemy import SQLAlchemyConnectionField, SQLAlchemyObjectType
 
 

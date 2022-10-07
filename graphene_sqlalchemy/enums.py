@@ -1,6 +1,7 @@
-from graphene import Argument, Enum, List
 from sqlalchemy.orm import ColumnProperty
 from sqlalchemy.types import Enum as SQLAlchemyEnumType
+
+from graphene import Argument, Enum, List
 
 from .utils import EnumValue, to_enum_value_name, to_type_name
 

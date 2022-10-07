@@ -3,14 +3,15 @@ from inspect import isawaitable
 from typing import Any
 
 import sqlalchemy
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import ColumnProperty, CompositeProperty, RelationshipProperty
+from sqlalchemy.orm.exc import NoResultFound
+
 from graphene import Field
 from graphene.relay import Connection, Node
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
 from graphene.utils.orderedtype import OrderedType
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import ColumnProperty, CompositeProperty, RelationshipProperty
-from sqlalchemy.orm.exc import NoResultFound
 
 from .converter import (
     convert_sqlalchemy_column,
@@ -282,7 +283,9 @@ class SQLAlchemyObjectType(ObjectType):
         )
 
         if use_connection is None and interfaces:
-            use_connection = any(issubclass(interface, Node) for interface in interfaces)
+            use_connection = any(
+                issubclass(interface, Node) for interface in interfaces
+            )
 
         if use_connection and not connection:
             # We create the connection automatically

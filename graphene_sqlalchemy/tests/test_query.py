@@ -1,7 +1,8 @@
-import graphene
 import pytest
-from graphene.relay import Node
 from sqlalchemy import select
+
+import graphene
+from graphene.relay import Node
 
 from ..converter import convert_sqlalchemy_composite
 from ..fields import SQLAlchemyConnectionField

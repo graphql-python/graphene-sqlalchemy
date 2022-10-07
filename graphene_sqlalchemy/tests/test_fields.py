@@ -1,7 +1,8 @@
 import pytest
+from promise import Promise
+
 from graphene import NonNull, ObjectType
 from graphene.relay import Connection, Node
-from promise import Promise
 
 from ..fields import SQLAlchemyConnectionField, UnsortedSQLAlchemyConnectionField
 from ..types import SQLAlchemyObjectType
