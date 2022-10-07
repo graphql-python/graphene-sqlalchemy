@@ -2,11 +2,10 @@ import ast
 import contextlib
 import logging
 
-import pytest
-from sqlalchemy import select
-
 import graphene
+import pytest
 from graphene import Connection, relay
+from sqlalchemy import select
 
 from ..fields import BatchSQLAlchemyConnectionField, default_connection_field_factory
 from ..types import ORMField, SQLAlchemyObjectType
@@ -651,7 +650,6 @@ def test_disable_batching_via_ormfield(sync_session_factory):
     assert len(select_statements) == 2
 
 
-@pytest.mark.asyncio
 def test_batch_sorting_with_custom_ormfield(sync_session_factory):
     session = sync_session_factory()
     reporter_1 = Reporter(first_name="Reporter_1")
@@ -862,9 +860,7 @@ def test_connection_factory_field_overrides_batching_is_true(sync_session_factor
 
 
 @pytest.mark.asyncio
-async def test_batching_across_nested_relay_schema(
-    session_factory, async_session: bool
-):
+async def test_batching_across_nested_relay_schema(session_factory, async_session: bool):
     session = session_factory()
 
     for first_name in "fgerbhjikzutzxsdfdqqa":
@@ -967,6 +963,5 @@ async def test_sorting_can_be_used_with_batching_when_using_full_relay(session_f
 
     result = to_std_dicts(result.data)
     assert [
-        r["node"]["firstName"] + r["node"]["email"]
-        for r in result["reporters"]["edges"]
+        r["node"]["firstName"] + r["node"]["email"] for r in result["reporters"]["edges"]
     ] == ["aa", "ba", "bb", "bc", "ca", "da"]

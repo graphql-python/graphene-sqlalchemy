@@ -1,10 +1,9 @@
 from collections import defaultdict
 from typing import List, Type
 
-from sqlalchemy.types import Enum as SQLAlchemyEnumType
-
 import graphene
 from graphene import Enum
+from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
 
 class Registry(object):
@@ -61,13 +60,9 @@ class Registry(object):
 
     def register_enum(self, sa_enum: SQLAlchemyEnumType, graphene_enum: Enum):
         if not isinstance(sa_enum, SQLAlchemyEnumType):
-            raise TypeError(
-                "Expected SQLAlchemyEnumType, but got: {!r}".format(sa_enum)
-            )
+            raise TypeError("Expected SQLAlchemyEnumType, but got: {!r}".format(sa_enum))
         if not isinstance(graphene_enum, type(Enum)):
-            raise TypeError(
-                "Expected Graphene Enum, but got: {!r}".format(graphene_enum)
-            )
+            raise TypeError("Expected Graphene Enum, but got: {!r}".format(graphene_enum))
 
         self._registry_enums[sa_enum] = graphene_enum
 

@@ -1,8 +1,7 @@
-import pytest
-from sqlalchemy.types import Enum as SQLAlchemyEnum
-
 import graphene
+import pytest
 from graphene import Enum as GrapheneEnum
+from sqlalchemy.types import Enum as SQLAlchemyEnum
 
 from ..registry import Registry
 from ..types import SQLAlchemyObjectType

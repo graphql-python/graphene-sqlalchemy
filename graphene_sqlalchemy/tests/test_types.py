@@ -3,9 +3,6 @@ from unittest import mock
 import pytest
 import sqlalchemy.exc
 import sqlalchemy.orm.exc
-from graphql.pyutils import is_awaitable
-from sqlalchemy import select
-
 from graphene import (
     Boolean,
     Dynamic,
@@ -21,6 +18,8 @@ from graphene import (
     String,
 )
 from graphene.relay import Connection
+from graphql.pyutils import is_awaitable
+from sqlalchemy import select
 
 from .. import utils
 from ..converter import convert_sqlalchemy_composite
@@ -512,9 +511,9 @@ def test_objecttype_with_custom_options():
         def __init_subclass_with_meta__(cls, custom_option=None, **options):
             _meta = CustomOptions(cls)
             _meta.custom_option = custom_option
-            super(
-                SQLAlchemyObjectTypeWithCustomOptions, cls
-            ).__init_subclass_with_meta__(_meta=_meta, **options)
+            super(SQLAlchemyObjectTypeWithCustomOptions, cls).__init_subclass_with_meta__(
+                _meta=_meta, **options
+            )
 
     class ReporterWithCustomOptions(SQLAlchemyObjectTypeWithCustomOptions):
         class Meta:

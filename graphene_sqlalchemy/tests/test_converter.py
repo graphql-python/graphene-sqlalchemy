@@ -2,18 +2,17 @@ import enum
 import sys
 from typing import Dict, Union
 
+import graphene
 import pytest
 import sqlalchemy_utils as sqa_utils
+from graphene.relay import Node
+from graphene.types.structures import Structure
 from sqlalchemy import Column, func, select, types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import column_property, composite
-
-import graphene
-from graphene.relay import Node
-from graphene.types.structures import Structure
 
 from ..converter import (
     convert_sqlalchemy_column,

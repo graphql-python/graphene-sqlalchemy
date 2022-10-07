@@ -1,6 +1,5 @@
 import pytest
 import sqlalchemy as sa
-
 from graphene import Argument, Enum, List, ObjectType, Schema
 from graphene.relay import Node
 
@@ -317,9 +316,7 @@ async def test_sort_query(session):
         return {"edges": nodes}
 
     expected = {
-        "defaultSort": makeNodes(
-            [{"name": "Lassie"}, {"name": "Barf"}, {"name": "Alf"}]
-        ),
+        "defaultSort": makeNodes([{"name": "Lassie"}, {"name": "Barf"}, {"name": "Alf"}]),
         "nameSort": makeNodes([{"name": "Alf"}, {"name": "Barf"}, {"name": "Lassie"}]),
         "noDefaultSort": makeNodes(
             [{"name": "Alf"}, {"name": "Barf"}, {"name": "Lassie"}]

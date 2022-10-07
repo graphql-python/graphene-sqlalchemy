@@ -1,9 +1,9 @@
+import graphene
 import pytest
 import pytest_asyncio
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import graphene
 from graphene_sqlalchemy.utils import is_sqlalchemy_version_less_than
 
 from ..converter import convert_sqlalchemy_composite

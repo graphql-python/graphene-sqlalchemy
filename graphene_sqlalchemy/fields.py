@@ -2,13 +2,12 @@ import enum
 import warnings
 from functools import partial
 
-from promise import Promise, is_thenable
-from sqlalchemy.orm.query import Query
-
 from graphene import NonNull
 from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import connection_adapter, page_info_adapter
 from graphql_relay import connection_from_array_slice
+from promise import Promise, is_thenable
+from sqlalchemy.orm.query import Query
 
 from .batching import get_batch_resolver
 from .utils import EnumValue, get_query, get_session, is_sqlalchemy_version_less_than
@@ -122,9 +121,7 @@ class SQLAlchemyConnectionField(ConnectionField):
         return connection
 
     @classmethod
-    async def resolve_connection_async(
-        cls, connection_type, model, info, args, resolved
-    ):
+    async def resolve_connection_async(cls, connection_type, model, info, args, resolved):
         session = get_session(info.context)
         if resolved is None:
             query = cls.get_query(model, info, **args)
