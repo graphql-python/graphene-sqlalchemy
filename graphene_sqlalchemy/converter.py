@@ -54,6 +54,10 @@ def is_column_nullable(column):
     return bool(getattr(column, "nullable", True))
 
 
+def get_column_server_default(column):
+    return getattr(column, "server_default", None)
+
+
 def convert_sqlalchemy_relationship(
     relationship_prop,
     obj_type,
@@ -212,7 +216,10 @@ def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
         "type_",
         convert_sqlalchemy_type(getattr(column, "type", None), column, registry),
     )
-    field_kwargs.setdefault("required", not is_column_nullable(column))
+    field_kwargs.setdefault(
+        "required",
+        not is_column_nullable(column) and get_column_server_default(column) is None,
+    )
     field_kwargs.setdefault("description", get_column_doc(column))
 
     return graphene.Field(resolver=resolver, **field_kwargs)
