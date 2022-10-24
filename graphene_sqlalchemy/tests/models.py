@@ -100,7 +100,8 @@ class Reporter(Base):
         return [1, 2, 3]
 
     column_prop = column_property(
-        select([func.cast(func.count(id), Integer)]).scalar_subquery(),
+        # TODO scalar_subquery replaced as_scalar in sqlalchemy 1.4
+        select([func.cast(func.count(id), Integer)]).as_scalar(),
         doc="Column property"
     )
 
