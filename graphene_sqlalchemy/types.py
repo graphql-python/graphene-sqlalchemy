@@ -100,7 +100,9 @@ def get_or_create_relationship_filter(obj_type: Type[ObjectType], registry: Regi
     if not relationship_filter:
         object_type_filter = registry.get_filter_for_object_type(obj_type)
         relationship_filter = RelationshipFilter.create_type(f"{obj_type.__name__}RelationshipFilter",
-                                                             object_type_filter=object_type_filter)
+                                                             object_type_filter=object_type_filter,
+                                                             model=obj_type._meta.model)
+        registry.register_relationship_filter_for_object_type(obj_type, relationship_filter)
 
     return relationship_filter
 
@@ -117,7 +119,9 @@ def filter_field_from_type_field(field: Union[graphene.Field, graphene.Dynamic],
             # Resolve Dynamic Type
             type_ = get_nullable_type(field.get_type())
             from graphene_sqlalchemy import SQLAlchemyConnectionField
-            if isinstance(type_, SQLAlchemyConnectionField):
+
+            from .fields import UnsortedSQLAlchemyConnectionField
+            if isinstance(type_, SQLAlchemyConnectionField) or isinstance(type_, UnsortedSQLAlchemyConnectionField):
                 inner_type = get_nullable_type(type_.type.Edge.node._type)
                 return graphene.InputField(get_or_create_relationship_filter(inner_type, registry))
             elif isinstance(type_, Field):

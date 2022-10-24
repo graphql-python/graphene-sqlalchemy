@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, List, Tuple, Type, TypeVar, Union, get_type_hints
 
 from sqlalchemy import not_
 from sqlalchemy.orm import Query, aliased
@@ -55,6 +55,7 @@ class ObjectTypeFilter(graphene.InputObjectType):
                 field_filter_type = input_field.get_type().type
             else:
                 field_filter_type = cls._meta.fields[field].type
+            # raise Exception
             # TODO we need to save the relationship props in the meta fields array
             #  to conduct joins and alias the joins (in case there are duplicate joins: A->B A->C B->C)
             model_field = getattr(model, field)
@@ -72,8 +73,8 @@ class ObjectTypeFilter(graphene.InputObjectType):
                 clauses.extend(_clauses)
             if issubclass(field_filter_type, RelationshipFilter):
                 # TODO see above; not yet working
-                relationship_prop = None
-                query, _clauses = field_filter_type.execute_filters(query, filt_dict, relationship_prop)
+                relationship_prop = field_filter_type._meta.model
+                query, _clauses = field_filter_type.execute_filters(query, model_field, filt_dict, relationship_prop)
                 clauses.extend(_clauses)
             elif issubclass(field_filter_type, FieldFilter):
                 query, _clauses = field_filter_type.execute_filters(query, model_field, filt_dict)
@@ -84,7 +85,7 @@ class ObjectTypeFilter(graphene.InputObjectType):
 
 class RelationshipFilter(graphene.InputObjectType):
     @classmethod
-    def __init_subclass_with_meta__(cls, object_type_filter=None, _meta=None, **options):
+    def __init_subclass_with_meta__(cls, object_type_filter=None, model=None, _meta=None, **options):
         if not object_type_filter:
             raise Exception("Relationship Filters must be specific to an object type")
         # Init meta options class if it doesn't exist already
@@ -102,7 +103,7 @@ class RelationshipFilter(graphene.InputObjectType):
             # Check if attribute is a function
             if callable(func_attr) and filter_function_regex.match(func):
                 # add function and attribute name to the list
-                filter_functions.append((re.sub("_filter$", "", func), func_attr.__annotations__))
+                filter_functions.append((re.sub("_filter$", "", func), get_type_hints(func_attr)))
 
         relationship_filters = {}
 
@@ -121,18 +122,36 @@ class RelationshipFilter(graphene.InputObjectType):
         else:
             _meta.fields = relationship_filters
 
+        _meta.model = model
+
         super(RelationshipFilter, cls).__init_subclass_with_meta__(_meta=_meta, **options)
 
     @classmethod
-    def contains_filter(cls, val: List["RelationshipFilter"]):
-        # TODO
-        pass
+    def contains_filter(cls, query, field, val: List[AbstractType]):
+        clauses = []
+        for v in val:
+            query, clauses = v.execute_filters(query, dict(v))
+            clauses += clauses
+        return clauses
 
     @classmethod
-    def execute_filters(cls: Type[FieldFilter], query, filter_dict: Dict, relationship_prop) -> Tuple[Query, List[Any]]:
+    def contains_exactly_filter(cls, query, field, val: List[AbstractType]):
+        clauses = []
+        for v in val:
+            query, clauses = v.execute_filters(query, dict(v))
+            clauses += clauses
+        return clauses
+
+    @classmethod
+    def execute_filters(
+        cls: Type[FieldFilter], query, field, filter_dict: Dict, relationship_prop
+    ) -> Tuple[Query, List[Any]]:
         query, clauses = (query, [])
-        # TODO
-        return query, clauses
+
+        for filt, val in filter_dict.items():
+            clauses += getattr(cls, filt + "_filter")(query, field, val)
+
+        return query.join(field), clauses
 
 
 any_field_filter = TypeVar('any_field_filter', bound="FieldFilter")

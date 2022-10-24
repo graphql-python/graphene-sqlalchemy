@@ -26,6 +26,9 @@ def add_test_data(session):
     article = Article(headline='Hi!')
     article.reporter = reporter
     session.add(article)
+    article = Article(headline='Hello!')
+    article.reporter = reporter
+    session.add(article)
     reporter = Reporter(
         first_name='Jane', last_name='Roe', favorite_pet_kind='dog')
     session.add(reporter)
@@ -198,7 +201,6 @@ def test_filter_relationship_one_to_one(session):
 
 
 # Test a 1:n relationship
-@pytest.mark.xfail
 def test_filter_relationship_one_to_many(session):
     add_test_data(session)
     Query = create_schema(session)
@@ -207,10 +209,8 @@ def test_filter_relationship_one_to_many(session):
     query = """
         query {
           reporters (filter: {
-            pets: {
-              contains: {
-                name: {in: ["Garfield", "Lassie"]}
-              }
+            articles: {
+              contains: [{headline: {eq: "Hi!"}}],
             }
           }) {
             edges {
@@ -222,7 +222,7 @@ def test_filter_relationship_one_to_many(session):
         }
     """
     expected = {
-        "reporter": [{"lastName": "Doe"}, {"lastName": "Roe"}],
+        "reporters": {"edges": [{"node": {"lastName": "Woe"}}]},
     }
     schema = graphene.Schema(query=Query)
     result = schema.execute(query, context_value={'session': session})
@@ -230,14 +230,14 @@ def test_filter_relationship_one_to_many(session):
     result = to_std_dicts(result.data)
     assert result == expected
 
-    # test containsAllOf
+    # test containsExactly
     query = """
         query {
           reporters (filter: {
-            pets: {
-              containsAllOf: [
-                name: {eq: "Garfield"},
-                name: {eq: "Snoopy"},
+            articles: {
+              containsExactly: [
+                {headline: {eq: "Hi!"}}
+                {headline: {eq: "Hello!"}}
               ]
             }
           }) {
@@ -251,33 +251,10 @@ def test_filter_relationship_one_to_many(session):
         }
     """
     expected = {
-        "reporter": [{"firstName": "John"}, {"lastName": "Doe"}],
+        "reporters": {"edges": [{"node": {"firstName": "John", "lastName": "Woe"}}]}
     }
     schema = graphene.Schema(query=Query)
     result = schema.execute(query, context_value={'session': session})
-    assert not result.errors
-    result = to_std_dicts(result.data)
-    assert result == expected
-
-    # test containsExactly
-    query = """
-        query {
-          reporter (filter: {
-            pets: {
-              containsExactly: [
-                name: {eq: "Garfield"}
-              ]
-            }
-          }) {
-            firstName
-          }
-        }
-    """
-    expected = {
-        "reporter": [],
-    }
-    schema = graphene.Schema(query=Query)
-    result = schema.execute(query)
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
