@@ -7,6 +7,8 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from graphene import Field
 from graphene.relay import Connection, Node
+from graphene.types.base import BaseType
+from graphene.types.interface import Interface, InterfaceOptions
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
 from graphene.utils.orderedtype import OrderedType
@@ -211,14 +213,7 @@ def construct_fields(
     return fields
 
 
-class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
-    model = None  # type: sqlalchemy.Model
-    registry = None  # type: sqlalchemy.Registry
-    connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
-    id = None  # type: str
-
-
-class SQLAlchemyObjectType(ObjectType):
+class SQLAlchemyBase(BaseType):
     @classmethod
     def __init_subclass_with_meta__(
         cls,
@@ -237,6 +232,11 @@ class SQLAlchemyObjectType(ObjectType):
         _meta=None,
         **options
     ):
+        # We always want to bypass this hook unless we're defining a concrete
+        # `SQLAlchemyObjectType` or `SQLAlchemyInterface`.
+        if not _meta:
+            return
+
         # Make sure model is a valid SQLAlchemy model
         if not is_mapped_class(model):
             raise ValueError(
@@ -290,9 +290,6 @@ class SQLAlchemyObjectType(ObjectType):
                 "The connection must be a Connection. Received {}"
             ).format(connection.__name__)
 
-        if not _meta:
-            _meta = SQLAlchemyObjectTypeOptions(cls)
-
         _meta.model = model
         _meta.registry = registry
 
@@ -306,7 +303,7 @@ class SQLAlchemyObjectType(ObjectType):
 
         cls.connection = connection  # Public way to get the connection
 
-        super(SQLAlchemyObjectType, cls).__init_subclass_with_meta__(
+        super(SQLAlchemyBase, cls).__init_subclass_with_meta__(
             _meta=_meta, interfaces=interfaces, **options
         )
 
@@ -345,3 +342,39 @@ class SQLAlchemyObjectType(ObjectType):
     sort_enum = classmethod(sort_enum_for_object_type)
 
     sort_argument = classmethod(sort_argument_for_object_type)
+
+
+class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
+    model = None  # type: sqlalchemy.Model
+    registry = None  # type: sqlalchemy.Registry
+    connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
+    id = None  # type: str
+
+
+class SQLAlchemyObjectType(SQLAlchemyBase, ObjectType):
+    @classmethod
+    def __init_subclass_with_meta__(cls, _meta=None, **options):
+        if not _meta:
+            _meta = SQLAlchemyObjectTypeOptions(cls)
+
+        super(SQLAlchemyObjectType, cls).__init_subclass_with_meta__(
+            _meta=_meta, **options
+        )
+
+
+class SQLAlchemyInterfaceOptions(InterfaceOptions):
+    model = None  # type: sqlalchemy.Model
+    registry = None  # type: sqlalchemy.Registry
+    connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
+    id = None  # type: str
+
+
+class SQLAlchemyInterface(SQLAlchemyBase, Interface):
+    @classmethod
+    def __init_subclass_with_meta__(cls, _meta=None, **options):
+        if not _meta:
+            _meta = SQLAlchemyInterfaceOptions(cls)
+
+        super(SQLAlchemyInterface, cls).__init_subclass_with_meta__(
+            _meta=_meta, **options
+        )
