@@ -27,14 +27,14 @@ from .enums import (
 from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4,
     get_query,
     get_session,
     is_mapped_class,
     is_mapped_instance,
-    is_sqlalchemy_version_less_than,
 )
 
-if not is_sqlalchemy_version_less_than("1.4"):
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -344,7 +344,7 @@ class SQLAlchemyObjectType(ObjectType):
 
     @classmethod
     def get_node(cls, info, id):
-        if is_sqlalchemy_version_less_than("1.4"):
+        if not SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
             try:
                 return cls.get_query(info).get(id)
             except NoResultFound:

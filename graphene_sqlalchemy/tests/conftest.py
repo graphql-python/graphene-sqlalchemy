@@ -4,13 +4,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import graphene
-from graphene_sqlalchemy.utils import is_sqlalchemy_version_less_than
+from graphene_sqlalchemy.utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4
 
 from ..converter import convert_sqlalchemy_composite
 from ..registry import reset_global_registry
 from .models import Base, CompositeFullName
 
-if not is_sqlalchemy_version_less_than("1.4"):
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
@@ -42,7 +42,7 @@ def test_db_url(async_session: bool):
 @pytest_asyncio.fixture(scope="function")
 async def session_factory(async_session: bool, test_db_url: str):
     if async_session:
-        if is_sqlalchemy_version_less_than("1.4"):
+        if not SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
             pytest.skip("Async Sessions only work in sql alchemy 1.4 and above")
         engine = create_async_engine(test_db_url)
         async with engine.begin() as conn:

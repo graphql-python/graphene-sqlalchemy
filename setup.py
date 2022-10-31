@@ -27,6 +27,7 @@ tests_require = [
     "pytest-benchmark>=3.4.0,<4.0",
     "aiosqlite>=0.17.0",
     "nest-asyncio",
+    "greenlet",
 ]
 
 setup(

@@ -7,11 +7,11 @@ from graphene.relay import Node
 from ..converter import convert_sqlalchemy_composite
 from ..fields import SQLAlchemyConnectionField
 from ..types import ORMField, SQLAlchemyObjectType
-from ..utils import get_session, is_sqlalchemy_version_less_than
+from ..utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4, get_session
 from .models import Article, CompositeFullName, Editor, HairKind, Pet, Reporter
 from .utils import eventually_await_session, to_std_dicts
 
-if not is_sqlalchemy_version_less_than("1.4"):
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -52,17 +52,13 @@ async def test_query_fields(session):
 
         async def resolve_reporter(self, _info):
             session = get_session(_info.context)
-            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
-                session, AsyncSession
-            ):
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
                 return (await session.scalars(select(Reporter))).unique().first()
             return session.query(Reporter).first()
 
         async def resolve_reporters(self, _info):
             session = get_session(_info.context)
-            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
-                session, AsyncSession
-            ):
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
                 return (await session.scalars(select(Reporter))).unique().all()
             return session.query(Reporter)
 
@@ -120,9 +116,7 @@ async def test_query_node_sync(session):
 
         def resolve_reporter(self, _info):
             session = get_session(_info.context)
-            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
-                session, AsyncSession
-            ):
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
 
                 async def get_result():
                     return (await session.scalars(select(Reporter))).first()
@@ -172,7 +166,7 @@ async def test_query_node_sync(session):
         "myArticle": {"id": "QXJ0aWNsZU5vZGU6MQ==", "headline": "Hi!"},
     }
     schema = graphene.Schema(query=Query)
-    if not is_sqlalchemy_version_less_than("1.4") and isinstance(session, AsyncSession):
+    if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
         result = schema.execute(query, context_value={"session": session})
         assert result.errors
     else:
@@ -207,9 +201,7 @@ async def test_query_node_async(session):
 
         def resolve_reporter(self, _info):
             session = get_session(_info.context)
-            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
-                session, AsyncSession
-            ):
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
 
                 async def get_result():
                     return (await session.scalars(select(Reporter))).first()
@@ -295,9 +287,7 @@ async def test_orm_field(session):
 
         async def resolve_reporter(self, _info):
             session = get_session(_info.context)
-            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
-                session, AsyncSession
-            ):
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
                 return (await session.scalars(select(Reporter))).first()
             return session.query(Reporter).first()
 
@@ -397,9 +387,7 @@ async def test_mutation(session, session_factory):
         @classmethod
         async def get_node(cls, id, info):
             session = get_session(info.context)
-            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
-                session, AsyncSession
-            ):
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
                 return (await session.scalars(select(Reporter))).unique().first()
             return session.query(Reporter).first()
 

@@ -11,9 +11,9 @@ from graphene.relay.connection import connection_adapter, page_info_adapter
 from graphql_relay import connection_from_array_slice
 
 from .batching import get_batch_resolver
-from .utils import EnumValue, get_query, get_session, is_sqlalchemy_version_less_than
+from .utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4, EnumValue, get_query, get_session
 
-if not is_sqlalchemy_version_less_than("1.4"):
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -86,9 +86,7 @@ class SQLAlchemyConnectionField(ConnectionField):
     def resolve_connection(cls, connection_type, model, info, args, resolved):
         session = get_session(info.context)
         if resolved is None:
-            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
-                session, AsyncSession
-            ):
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
 
                 async def get_result():
                     return await cls.resolve_connection_async(

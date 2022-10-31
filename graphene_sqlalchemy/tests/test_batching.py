@@ -10,11 +10,15 @@ from graphene import Connection, relay
 
 from ..fields import BatchSQLAlchemyConnectionField, default_connection_field_factory
 from ..types import ORMField, SQLAlchemyObjectType
-from ..utils import get_session, is_sqlalchemy_version_less_than
+from ..utils import (
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4,
+    get_session,
+    is_sqlalchemy_version_less_than,
+)
 from .models_batching import Article, HairKind, Pet, Reader, Reporter
 from .utils import eventually_await_session, remove_cache_miss_stat, to_std_dicts
 
-if not is_sqlalchemy_version_less_than("1.4"):
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -70,17 +74,13 @@ def get_async_schema():
 
         async def resolve_articles(self, info):
             session = get_session(info.context)
-            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
-                session, AsyncSession
-            ):
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
                 return (await session.scalars(select(Article))).all()
             return session.query(Article).all()
 
         async def resolve_reporters(self, info):
             session = get_session(info.context)
-            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
-                session, AsyncSession
-            ):
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
                 return (await session.scalars(select(Reporter))).all()
             return session.query(Reporter).all()
 
@@ -235,7 +235,7 @@ async def test_many_to_one(sync_session_factory, schema_provider):
         assert len(sql_statements) == 1
         return
 
-    if not is_sqlalchemy_version_less_than("1.4"):
+    if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
         messages[2] = remove_cache_miss_stat(messages[2])
         messages[4] = remove_cache_miss_stat(messages[4])
 
@@ -319,7 +319,7 @@ async def test_one_to_one(sync_session_factory, schema_provider):
         assert len(sql_statements) == 1
         return
 
-    if not is_sqlalchemy_version_less_than("1.4"):
+    if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
         messages[2] = remove_cache_miss_stat(messages[2])
         messages[4] = remove_cache_miss_stat(messages[4])
 
@@ -437,7 +437,7 @@ async def test_one_to_many(sync_session_factory):
         assert len(sql_statements) == 1
         return
 
-    if not is_sqlalchemy_version_less_than("1.4"):
+    if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
         messages[2] = remove_cache_miss_stat(messages[2])
         messages[4] = remove_cache_miss_stat(messages[4])
 
@@ -557,7 +557,7 @@ async def test_many_to_many(sync_session_factory):
         assert len(sql_statements) == 1
         return
 
-    if not is_sqlalchemy_version_less_than("1.4"):
+    if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
         messages[2] = remove_cache_miss_stat(messages[2])
         messages[4] = remove_cache_miss_stat(messages[4])
 
@@ -701,7 +701,7 @@ def test_batch_sorting_with_custom_ormfield(sync_session_factory):
             context_value={"session": session},
         )
         messages = sqlalchemy_logging_handler.messages
-
+        assert not result.errors
         result = to_std_dicts(result.data)
     assert result == {
         "reporters": {

@@ -32,11 +32,11 @@ from ..fields import (
     unregisterConnectionFieldFactory,
 )
 from ..types import ORMField, SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
-from ..utils import is_sqlalchemy_version_less_than
+from ..utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4
 from .models import Article, CompositeFullName, Pet, Reporter
 from .utils import eventually_await_session
 
-if not is_sqlalchemy_version_less_than("1.4"):
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -441,9 +441,7 @@ async def test_resolvers(session):
 
         async def resolve_reporter(self, _info):
             session = utils.get_session(_info.context)
-            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
-                session, AsyncSession
-            ):
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
                 return (await session.scalars(select(Reporter))).unique().first()
             return session.query(Reporter).first()
 

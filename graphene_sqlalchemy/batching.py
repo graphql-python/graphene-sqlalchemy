@@ -7,7 +7,7 @@ import sqlalchemy
 from sqlalchemy.orm import Session, strategies
 from sqlalchemy.orm.query import QueryContext
 
-from .utils import is_graphene_version_less_than, is_sqlalchemy_version_less_than
+from .utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4, is_graphene_version_less_than
 
 
 class RelationshipLoader(aiodataloader.DataLoader):
@@ -58,19 +58,19 @@ class RelationshipLoader(aiodataloader.DataLoader):
 
         # For our purposes, the query_context will only used to get the session
         query_context = None
-        if is_sqlalchemy_version_less_than("1.4"):
-            query_context = QueryContext(session.query(parent_mapper.entity))
-        else:
+        if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
             parent_mapper_query = session.query(parent_mapper.entity)
             query_context = parent_mapper_query._compile_context()
-
-        if is_sqlalchemy_version_less_than("1.4"):
+        else:
+            query_context = QueryContext(session.query(parent_mapper.entity))
+        if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
             self.selectin_loader._load_for_path(
                 query_context,
                 parent_mapper._path_registry,
                 states,
                 None,
                 child_mapper,
+                None,
             )
         else:
             self.selectin_loader._load_for_path(
@@ -79,7 +79,6 @@ class RelationshipLoader(aiodataloader.DataLoader):
                 states,
                 None,
                 child_mapper,
-                None,
             )
         return [getattr(parent, self.relationship_prop.key) for parent in parents]
 

@@ -7,11 +7,15 @@ import graphene
 from graphene import relay
 
 from ..types import SQLAlchemyObjectType
-from ..utils import get_session, is_sqlalchemy_version_less_than
+from ..utils import (
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4,
+    get_session,
+    is_sqlalchemy_version_less_than,
+)
 from .models import Article, HairKind, Pet, Reporter
 from .utils import eventually_await_session
 
-if not is_sqlalchemy_version_less_than("1.4"):
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
     from sqlalchemy.ext.asyncio import AsyncSession
 if is_sqlalchemy_version_less_than("1.2"):
     pytest.skip("SQL batching only works for SQLAlchemy 1.2+", allow_module_level=True)
@@ -39,17 +43,13 @@ def get_async_schema():
 
         async def resolve_articles(self, info):
             session = get_session(info.context)
-            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
-                session, AsyncSession
-            ):
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
                 return (await session.scalars(select(Article))).all()
             return session.query(Article).all()
 
         async def resolve_reporters(self, info):
             session = get_session(info.context)
-            if not is_sqlalchemy_version_less_than("1.4") and isinstance(
-                session, AsyncSession
-            ):
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
                 return (await session.scalars(select(Reporter))).all()
             return session.query(Reporter).all()
 

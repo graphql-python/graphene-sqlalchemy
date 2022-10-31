@@ -24,8 +24,12 @@ def is_graphene_version_less_than(version_string):  # pragma: no cover
     ).parsed_version < pkg_resources.parse_version(version_string)
 
 
+SQL_VERSION_HIGHER_EQUAL_THAN_1_4 = False
+
 if not is_sqlalchemy_version_less_than("1.4"):
     from sqlalchemy.ext.asyncio import AsyncSession
+
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4 = True
 
 
 def get_session(context):
@@ -41,9 +45,7 @@ def get_query(model, context):
                 "A query in the model Base or a session in the schema is required for querying.\n"
                 "Read more http://docs.graphene-python.org/projects/sqlalchemy/en/latest/tips/#querying"
             )
-        if not is_sqlalchemy_version_less_than("1.4") and isinstance(
-            session, AsyncSession
-        ):
+        if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
             return select(model)
         query = session.query(model)
     return query
