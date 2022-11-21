@@ -362,7 +362,7 @@ def test_sort_query(session):
     """
     result = schema.execute(queryError, context_value={"session": session})
     assert result.errors is not None
-    assert 'cannot represent non-enum value' in result.errors[0].message
+    assert "cannot represent non-enum value" in result.errors[0].message
 
     queryNoSort = """
         query sortTest {
@@ -412,5 +412,11 @@ def test_sort_enum_from_key_issue_330():
         "REPORTER_NUMBER_ASC",
         "REPORTER_NUMBER_DESC",
     ]
-    assert str(sort_enum.REPORTER_NUMBER_ASC.value.value) == 'test330."% reporter_number" ASC'
-    assert str(sort_enum.REPORTER_NUMBER_DESC.value.value) == 'test330."% reporter_number" DESC'
+    assert (
+        str(sort_enum.REPORTER_NUMBER_ASC.value.value)
+        == 'test330."% reporter_number" ASC'
+    )
+    assert (
+        str(sort_enum.REPORTER_NUMBER_DESC.value.value)
+        == 'test330."% reporter_number" DESC'
+    )

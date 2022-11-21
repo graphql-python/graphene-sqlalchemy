@@ -9,19 +9,17 @@ from .utils import to_std_dicts
 
 
 def add_test_data(session):
-    reporter = Reporter(
-        first_name='John', last_name='Doe', favorite_pet_kind='cat')
+    reporter = Reporter(first_name="John", last_name="Doe", favorite_pet_kind="cat")
     session.add(reporter)
-    pet = Pet(name='Garfield', pet_kind='cat', hair_kind=HairKind.SHORT)
+    pet = Pet(name="Garfield", pet_kind="cat", hair_kind=HairKind.SHORT)
     session.add(pet)
     pet.reporters.append(reporter)
-    article = Article(headline='Hi!')
+    article = Article(headline="Hi!")
     article.reporter = reporter
     session.add(article)
-    reporter = Reporter(
-        first_name='Jane', last_name='Roe', favorite_pet_kind='dog')
+    reporter = Reporter(first_name="Jane", last_name="Roe", favorite_pet_kind="dog")
     session.add(reporter)
-    pet = Pet(name='Lassie', pet_kind='dog', hair_kind=HairKind.LONG)
+    pet = Pet(name="Lassie", pet_kind="dog", hair_kind=HairKind.LONG)
     pet.reporters.append(reporter)
     session.add(pet)
     editor = Editor(name="Jack")
@@ -163,12 +161,12 @@ def test_orm_field(session):
             model = Reporter
             interfaces = (Node,)
 
-        first_name_v2 = ORMField(model_attr='first_name')
-        hybrid_prop_v2 = ORMField(model_attr='hybrid_prop')
-        column_prop_v2 = ORMField(model_attr='column_prop')
+        first_name_v2 = ORMField(model_attr="first_name")
+        hybrid_prop_v2 = ORMField(model_attr="hybrid_prop")
+        column_prop_v2 = ORMField(model_attr="column_prop")
         composite_prop = ORMField()
-        favorite_article_v2 = ORMField(model_attr='favorite_article')
-        articles_v2 = ORMField(model_attr='articles')
+        favorite_article_v2 = ORMField(model_attr="favorite_article")
+        articles_v2 = ORMField(model_attr="articles")
 
     class ArticleType(SQLAlchemyObjectType):
         class Meta:

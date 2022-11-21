@@ -1,16 +1,29 @@
 """The dataloader uses "select in loading" strategy to load related entities."""
 from asyncio import get_event_loop
-from typing import Dict
+from typing import Any, Dict
 
-import aiodataloader
 import sqlalchemy
 from sqlalchemy.orm import Session, strategies
 from sqlalchemy.orm.query import QueryContext
 
-from .utils import is_sqlalchemy_version_less_than
+from .utils import is_graphene_version_less_than, is_sqlalchemy_version_less_than
 
 
-class RelationshipLoader(aiodataloader.DataLoader):
+def get_data_loader_impl() -> Any:  # pragma: no cover
+    """Graphene >= 3.1.1 ships a copy of aiodataloader with minor fixes. To preserve backward-compatibility,
+    aiodataloader is used in conjunction with older versions of graphene"""
+    if is_graphene_version_less_than("3.1.1"):
+        from aiodataloader import DataLoader
+    else:
+        from graphene.utils.dataloader import DataLoader
+
+    return DataLoader
+
+
+DataLoader = get_data_loader_impl()
+
+
+class RelationshipLoader(DataLoader):
     cache = False
 
     def __init__(self, relationship_prop, selectin_loader):
@@ -58,13 +71,13 @@ class RelationshipLoader(aiodataloader.DataLoader):
 
         # For our purposes, the query_context will only used to get the session
         query_context = None
-        if is_sqlalchemy_version_less_than('1.4'):
+        if is_sqlalchemy_version_less_than("1.4"):
             query_context = QueryContext(session.query(parent_mapper.entity))
         else:
             parent_mapper_query = session.query(parent_mapper.entity)
             query_context = parent_mapper_query._compile_context()
 
-        if is_sqlalchemy_version_less_than('1.4'):
+        if is_sqlalchemy_version_less_than("1.4"):
             self.selectin_loader._load_for_path(
                 query_context,
                 parent_mapper._path_registry,
@@ -81,9 +94,7 @@ class RelationshipLoader(aiodataloader.DataLoader):
                 child_mapper,
                 None,
             )
-        return [
-            getattr(parent, self.relationship_prop.key) for parent in parents
-        ]
+        return [getattr(parent, self.relationship_prop.key) for parent in parents]
 
 
 # Cache this across `batch_load_fn` calls
@@ -95,14 +106,14 @@ RELATIONSHIP_LOADERS_CACHE: Dict[
 
 
 def get_batch_resolver(relationship_prop):
-    """get the resolve function for the given relationship."""
+    """Get the resolve function for the given relationship."""
 
     def _get_loader(relationship_prop):
         """Retrieve the cached loader of the given relationship."""
         loader = RELATIONSHIP_LOADERS_CACHE.get(relationship_prop, None)
         if loader is None or loader.loop != get_event_loop():
             selectin_loader = strategies.SelectInLoader(
-                relationship_prop, (('lazy', 'selectin'),)
+                relationship_prop, (("lazy", "selectin"),)
             )
             loader = RelationshipLoader(
                 relationship_prop=relationship_prop,

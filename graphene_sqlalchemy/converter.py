@@ -1,6 +1,7 @@
 import datetime
 import sys
 import typing
+import uuid
 import warnings
 from decimal import Decimal
 from functools import singledispatch
@@ -15,13 +16,16 @@ from graphene.types.json import JSONString
 
 from .batching import get_batch_resolver
 from .enums import enum_for_sa_enum
-from .fields import (BatchSQLAlchemyConnectionField,
-                     default_connection_field_factory)
+from .fields import BatchSQLAlchemyConnectionField, default_connection_field_factory
 from .registry import get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
-from .utils import (DummyImport, is_list, registry_sqlalchemy_model_from_str,
-                    safe_isinstance, singledispatchbymatchfunction,
-                    value_equals)
+from .utils import (
+    DummyImport,
+    registry_sqlalchemy_model_from_str,
+    safe_isinstance,
+    singledispatchbymatchfunction,
+    value_equals,
+)
 
 try:
     from typing import ForwardRef
@@ -39,7 +43,7 @@ try:
 except ImportError:
     sqa_utils = DummyImport()
 
-is_selectin_available = getattr(strategies, 'SelectInLoader', None)
+is_selectin_available = getattr(strategies, "SelectInLoader", None)
 
 
 def get_column_doc(column):
@@ -50,8 +54,14 @@ def is_column_nullable(column):
     return bool(getattr(column, "nullable", True))
 
 
-def convert_sqlalchemy_relationship(relationship_prop, obj_type, connection_field_factory, batching,
-                                    orm_field_name, **field_kwargs):
+def convert_sqlalchemy_relationship(
+    relationship_prop,
+    obj_type,
+    connection_field_factory,
+    batching,
+    orm_field_name,
+    **field_kwargs,
+):
     """
     :param sqlalchemy.RelationshipProperty relationship_prop:
     :param SQLAlchemyObjectType obj_type:
@@ -65,24 +75,34 @@ def convert_sqlalchemy_relationship(relationship_prop, obj_type, connection_fiel
     def dynamic_type():
         """:rtype: Field|None"""
         direction = relationship_prop.direction
-        child_type = obj_type._meta.registry.get_type_for_model(relationship_prop.mapper.entity)
+        child_type = obj_type._meta.registry.get_type_for_model(
+            relationship_prop.mapper.entity
+        )
         batching_ = batching if is_selectin_available else False
 
         if not child_type:
             return None
 
         if direction == interfaces.MANYTOONE or not relationship_prop.uselist:
-            return _convert_o2o_or_m2o_relationship(relationship_prop, obj_type, batching_, orm_field_name,
-                                                    **field_kwargs)
+            return _convert_o2o_or_m2o_relationship(
+                relationship_prop, obj_type, batching_, orm_field_name, **field_kwargs
+            )
 
         if direction in (interfaces.ONETOMANY, interfaces.MANYTOMANY):
-            return _convert_o2m_or_m2m_relationship(relationship_prop, obj_type, batching_,
-                                                    connection_field_factory, **field_kwargs)
+            return _convert_o2m_or_m2m_relationship(
+                relationship_prop,
+                obj_type,
+                batching_,
+                connection_field_factory,
+                **field_kwargs,
+            )
 
     return graphene.Dynamic(dynamic_type)
 
 
-def _convert_o2o_or_m2o_relationship(relationship_prop, obj_type, batching, orm_field_name, **field_kwargs):
+def _convert_o2o_or_m2o_relationship(
+    relationship_prop, obj_type, batching, orm_field_name, **field_kwargs
+):
     """
     Convert one-to-one or many-to-one relationshsip. Return an object field.
 
@@ -93,17 +113,24 @@ def _convert_o2o_or_m2o_relationship(relationship_prop, obj_type, batching, orm_
     :param dict field_kwargs:
     :rtype: Field
     """
-    child_type = obj_type._meta.registry.get_type_for_model(relationship_prop.mapper.entity)
+    child_type = obj_type._meta.registry.get_type_for_model(
+        relationship_prop.mapper.entity
+    )
 
     resolver = get_custom_resolver(obj_type, orm_field_name)
     if resolver is None:
-        resolver = get_batch_resolver(relationship_prop) if batching else \
-            get_attr_resolver(obj_type, relationship_prop.key)
+        resolver = (
+            get_batch_resolver(relationship_prop)
+            if batching
+            else get_attr_resolver(obj_type, relationship_prop.key)
+        )
 
     return graphene.Field(child_type, resolver=resolver, **field_kwargs)
 
 
-def _convert_o2m_or_m2m_relationship(relationship_prop, obj_type, batching, connection_field_factory, **field_kwargs):
+def _convert_o2m_or_m2m_relationship(
+    relationship_prop, obj_type, batching, connection_field_factory, **field_kwargs
+):
     """
     Convert one-to-many or many-to-many relationshsip. Return a list field or a connection field.
 
@@ -114,30 +141,34 @@ def _convert_o2m_or_m2m_relationship(relationship_prop, obj_type, batching, conn
     :param dict field_kwargs:
     :rtype: Field
     """
-    child_type = obj_type._meta.registry.get_type_for_model(relationship_prop.mapper.entity)
+    child_type = obj_type._meta.registry.get_type_for_model(
+        relationship_prop.mapper.entity
+    )
 
     if not child_type._meta.connection:
         return graphene.Field(graphene.List(child_type), **field_kwargs)
 
     # TODO Allow override of connection_field_factory and resolver via ORMField
     if connection_field_factory is None:
-        connection_field_factory = BatchSQLAlchemyConnectionField.from_relationship if batching else \
-            default_connection_field_factory
+        connection_field_factory = (
+            BatchSQLAlchemyConnectionField.from_relationship
+            if batching
+            else default_connection_field_factory
+        )
 
-    return connection_field_factory(relationship_prop, obj_type._meta.registry, **field_kwargs)
+    return connection_field_factory(
+        relationship_prop, obj_type._meta.registry, **field_kwargs
+    )
 
 
 def convert_sqlalchemy_hybrid_method(hybrid_prop, resolver, **field_kwargs):
-    if 'type_' not in field_kwargs:
-        field_kwargs['type_'] = convert_hybrid_property_return_type(hybrid_prop)
+    if "type_" not in field_kwargs:
+        field_kwargs["type_"] = convert_hybrid_property_return_type(hybrid_prop)
 
-    if 'description' not in field_kwargs:
-        field_kwargs['description'] = getattr(hybrid_prop, "__doc__", None)
+    if "description" not in field_kwargs:
+        field_kwargs["description"] = getattr(hybrid_prop, "__doc__", None)
 
-    return graphene.Field(
-        resolver=resolver,
-        **field_kwargs
-    )
+    return graphene.Field(resolver=resolver, **field_kwargs)
 
 
 def convert_sqlalchemy_composite(composite_prop, registry, resolver):
@@ -177,14 +208,14 @@ convert_sqlalchemy_composite.register = _register_composite_class
 def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
     column = column_prop.columns[0]
 
-    field_kwargs.setdefault('type_', convert_sqlalchemy_type(getattr(column, "type", None), column, registry))
-    field_kwargs.setdefault('required', not is_column_nullable(column))
-    field_kwargs.setdefault('description', get_column_doc(column))
-
-    return graphene.Field(
-        resolver=resolver,
-        **field_kwargs
+    field_kwargs.setdefault(
+        "type_",
+        convert_sqlalchemy_type(getattr(column, "type", None), column, registry),
     )
+    field_kwargs.setdefault("required", not is_column_nullable(column))
+    field_kwargs.setdefault("description", get_column_doc(column))
+
+    return graphene.Field(resolver=resolver, **field_kwargs)
 
 
 @singledispatch
@@ -271,14 +302,20 @@ def convert_scalar_list_to_list(type, column, registry=None):
 
 
 def init_array_list_recursive(inner_type, n):
-    return inner_type if n == 0 else graphene.List(init_array_list_recursive(inner_type, n - 1))
+    return (
+        inner_type
+        if n == 0
+        else graphene.List(init_array_list_recursive(inner_type, n - 1))
+    )
 
 
 @convert_sqlalchemy_type.register(sqa_types.ARRAY)
 @convert_sqlalchemy_type.register(postgresql.ARRAY)
 def convert_array_to_list(_type, column, registry=None):
     inner_type = convert_sqlalchemy_type(column.type.item_type, column)
-    return graphene.List(init_array_list_recursive(inner_type, (column.type.dimensions or 1) - 1))
+    return graphene.List(
+        init_array_list_recursive(inner_type, (column.type.dimensions or 1) - 1)
+    )
 
 
 @convert_sqlalchemy_type.register(postgresql.HSTORE)
@@ -313,8 +350,8 @@ def convert_sqlalchemy_hybrid_property_type(arg: Any):
 
     # No valid type found, warn and fall back to graphene.String
     warnings.warn(
-        (f"I don't know how to generate a GraphQL type out of a \"{arg}\" type."
-         "Falling back to \"graphene.String\"")
+        f'I don\'t know how to generate a GraphQL type out of a "{arg}" type.'
+        'Falling back to "graphene.String"'
     )
     return graphene.String
 
@@ -362,21 +399,28 @@ def convert_sqlalchemy_hybrid_property_type_time(arg):
     return graphene.Time
 
 
+@convert_sqlalchemy_hybrid_property_type.register(value_equals(uuid.UUID))
+def convert_sqlalchemy_hybrid_property_type_uuid(arg):
+    return graphene.UUID
+
+
 def is_union(arg) -> bool:
     if sys.version_info >= (3, 10):
         from types import UnionType
 
         if isinstance(arg, UnionType):
             return True
-    return getattr(arg, '__origin__', None) == typing.Union
+    return getattr(arg, "__origin__", None) == typing.Union
 
 
-def graphene_union_for_py_union(obj_types: typing.List[graphene.ObjectType], registry) -> graphene.Union:
+def graphene_union_for_py_union(
+    obj_types: typing.List[graphene.ObjectType], registry
+) -> graphene.Union:
     union_type = registry.get_union_for_object_types(obj_types)
 
     if union_type is None:
         # Union Name is name of the three
-        union_name = ''.join(sorted([obj_type._meta.name for obj_type in obj_types]))
+        union_name = "".join(sorted(obj_type._meta.name for obj_type in obj_types))
         union_type = graphene.Union(union_name, obj_types)
         registry.register_union_type(union_type, obj_types)
 
@@ -411,16 +455,25 @@ def convert_sqlalchemy_hybrid_property_union(arg):
         return graphene_types[0]
 
     # Now check if every type is instance of an ObjectType
-    if not all(isinstance(graphene_type, type(graphene.ObjectType)) for graphene_type in graphene_types):
-        raise ValueError("Cannot convert hybrid_property Union to graphene.Union: the Union contains scalars. "
-                         "Please add the corresponding hybrid_property to the excluded fields in the ObjectType, "
-                         "or use an ORMField to override this behaviour.")
+    if not all(
+        isinstance(graphene_type, type(graphene.ObjectType))
+        for graphene_type in graphene_types
+    ):
+        raise ValueError(
+            "Cannot convert hybrid_property Union to graphene.Union: the Union contains scalars. "
+            "Please add the corresponding hybrid_property to the excluded fields in the ObjectType, "
+            "or use an ORMField to override this behaviour."
+        )
 
-    return graphene_union_for_py_union(cast(typing.List[graphene.ObjectType], list(graphene_types)),
-                                       get_global_registry())
+    return graphene_union_for_py_union(
+        cast(typing.List[graphene.ObjectType], list(graphene_types)),
+        get_global_registry(),
+    )
 
 
-@convert_sqlalchemy_hybrid_property_type.register(is_list)
+@convert_sqlalchemy_hybrid_property_type.register(
+    lambda x: getattr(x, "__origin__", None) in [list, typing.List]
+)
 def convert_sqlalchemy_hybrid_property_type_list_t(arg):
     # type is either list[T] or List[T], generic argument at __args__[0]
     internal_type = arg.__args__[0]
@@ -459,6 +512,6 @@ def convert_sqlalchemy_hybrid_property_bare_str(arg):
 
 def convert_hybrid_property_return_type(hybrid_prop):
     # Grab the original method's return type annotations from inside the hybrid property
-    return_type_annotation = hybrid_prop.fget.__annotations__.get('return', str)
+    return_type_annotation = hybrid_prop.fget.__annotations__.get("return", str)
 
     return convert_sqlalchemy_hybrid_property_type(return_type_annotation)

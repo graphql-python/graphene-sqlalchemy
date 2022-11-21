@@ -1,4 +1,3 @@
-
 from graphene import ObjectType
 
 from ..registry import Registry

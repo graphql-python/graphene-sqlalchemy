@@ -2,22 +2,32 @@ from __future__ import absolute_import
 
 import datetime
 import enum
+import uuid
 from decimal import Decimal
 from typing import List, Optional, Tuple
 
-from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, Numeric,
-                        String, Table, func, select)
+from sqlalchemy import (
+    Column,
+    Date,
+    Enum,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Table,
+    func,
+    select,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import (backref, column_property, composite, mapper,
-                            relationship)
+from sqlalchemy.orm import backref, column_property, composite, mapper, relationship
 
 PetKind = Enum("cat", "dog", name="pet_kind")
 
 
 class HairKind(enum.Enum):
-    LONG = 'long'
-    SHORT = 'short'
+    LONG = "long"
+    SHORT = "short"
 
 
 Base = declarative_base()
@@ -66,7 +76,9 @@ class Reporter(Base):
     last_name = Column(String(30), doc="Last name")
     email = Column(String(), doc="Email")
     favorite_pet_kind = Column(PetKind)
-    pets = relationship("Pet", secondary=association_table, backref="reporters", order_by="Pet.id")
+    pets = relationship(
+        "Pet", secondary=association_table, backref="reporters", order_by="Pet.id"
+    )
     articles = relationship("Article", backref="reporter")
     favorite_article = relationship("Article", uselist=False)
 
@@ -102,10 +114,12 @@ class Reporter(Base):
     column_prop = column_property(
         # TODO scalar_subquery replaced as_scalar in sqlalchemy 1.4
         select([func.cast(func.count(id), Integer)]).as_scalar(),
-        doc="Column property"
+        doc="Column property",
     )
 
-    composite_prop = composite(CompositeFullName, first_name, last_name, doc="Composite")
+    composite_prop = composite(
+        CompositeFullName, first_name, last_name, doc="Composite"
+    )
 
 
 articles_tags_table = Table(
@@ -140,7 +154,7 @@ class Article(Base):
     )
 
     # one-to-one relationship with image
-    image_id = Column(Integer(), ForeignKey('images.id'), unique=True)
+    image_id = Column(Integer(), ForeignKey("images.id"), unique=True)
     image = relationship("Image", backref=backref("articles", uselist=False))
 
     # many-to-many relationship with tags
@@ -187,7 +201,7 @@ class ShoppingCartItem(Base):
     id = Column(Integer(), primary_key=True)
 
     @hybrid_property
-    def hybrid_prop_shopping_cart(self) -> List['ShoppingCart']:
+    def hybrid_prop_shopping_cart(self) -> List["ShoppingCart"]:
         return [ShoppingCart(id=1)]
 
 
@@ -242,11 +256,17 @@ class ShoppingCart(Base):
 
     @hybrid_property
     def hybrid_prop_nested_list_int(self) -> List[List[int]]:
-        return [self.hybrid_prop_list_int, ]
+        return [
+            self.hybrid_prop_list_int,
+        ]
 
     @hybrid_property
     def hybrid_prop_deeply_nested_list_int(self) -> List[List[List[int]]]:
-        return [[self.hybrid_prop_list_int, ], ]
+        return [
+            [
+                self.hybrid_prop_list_int,
+            ],
+        ]
 
     # Other SQLAlchemy Instances
     @hybrid_property
@@ -266,17 +286,32 @@ class ShoppingCart(Base):
     # Self-references
 
     @hybrid_property
-    def hybrid_prop_self_referential(self) -> 'ShoppingCart':
+    def hybrid_prop_self_referential(self) -> "ShoppingCart":
         return ShoppingCart(id=1)
 
     @hybrid_property
-    def hybrid_prop_self_referential_list(self) -> List['ShoppingCart']:
+    def hybrid_prop_self_referential_list(self) -> List["ShoppingCart"]:
         return [ShoppingCart(id=1)]
 
     # Optional[T]
 
     @hybrid_property
-    def hybrid_prop_optional_self_referential(self) -> Optional['ShoppingCart']:
+    def hybrid_prop_optional_self_referential(self) -> Optional["ShoppingCart"]:
+        return None
+
+    # UUIDS
+    @hybrid_property
+    def hybrid_prop_uuid(self) -> uuid.UUID:
+        return uuid.uuid4()
+
+    @hybrid_property
+    def hybrid_prop_uuid_list(self) -> List[uuid.UUID]:
+        return [
+            uuid.uuid4(),
+        ]
+
+    @hybrid_property
+    def hybrid_prop_optional_uuid(self) -> Optional[uuid.UUID]:
         return None
 
 

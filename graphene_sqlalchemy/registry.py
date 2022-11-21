@@ -5,12 +5,14 @@ from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
 import graphene
 from graphene import Enum
-from graphene_sqlalchemy.filters import (FieldFilter, ObjectTypeFilter,
-                                         RelationshipFilter)
+from graphene_sqlalchemy.filters import (
+    FieldFilter,
+    ObjectTypeFilter,
+    RelationshipFilter,
+)
 
 
 class Registry(object):
-
     def __init__(self):
         self._registry = {}
         self._registry_models = {}
@@ -26,8 +28,9 @@ class Registry(object):
     def register(self, obj_type):
 
         from .types import SQLAlchemyObjectType
+
         if not isinstance(obj_type, type) or not issubclass(
-                obj_type, SQLAlchemyObjectType
+            obj_type, SQLAlchemyObjectType
         ):
             raise TypeError(
                 "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
@@ -46,7 +49,7 @@ class Registry(object):
         from .types import SQLAlchemyObjectType
 
         if not isinstance(obj_type, type) or not issubclass(
-                obj_type, SQLAlchemyObjectType
+            obj_type, SQLAlchemyObjectType
         ):
             raise TypeError(
                 "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
@@ -82,8 +85,9 @@ class Registry(object):
     def register_sort_enum(self, obj_type, sort_enum: Enum):
 
         from .types import SQLAlchemyObjectType
+
         if not isinstance(obj_type, type) or not issubclass(
-                obj_type, SQLAlchemyObjectType
+            obj_type, SQLAlchemyObjectType
         ):
             raise TypeError(
                 "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
@@ -95,11 +99,11 @@ class Registry(object):
     def get_sort_enum_for_object_type(self, obj_type: graphene.ObjectType):
         return self._registry_sort_enums.get(obj_type)
 
-    def register_union_type(self, union: graphene.Union, obj_types: List[Type[graphene.ObjectType]]):
+    def register_union_type(
+        self, union: graphene.Union, obj_types: List[Type[graphene.ObjectType]]
+    ):
         if not isinstance(union, graphene.Union):
-            raise TypeError(
-                "Expected graphene.Union, but got: {!r}".format(union)
-            )
+            raise TypeError("Expected graphene.Union, but got: {!r}".format(union))
 
         for obj_type in obj_types:
             if not isinstance(obj_type, type(graphene.ObjectType)):
@@ -113,45 +117,44 @@ class Registry(object):
         return self._registry_unions.get(frozenset(obj_types))
 
     # Filter Scalar Fields of Object Types
-    def register_filter_for_scalar_type(self, scalar_type: Type[graphene.Scalar], filter_obj: Type[FieldFilter]):
+    def register_filter_for_scalar_type(
+        self, scalar_type: Type[graphene.Scalar], filter_obj: Type[FieldFilter]
+    ):
         if not isinstance(scalar_type, type(graphene.Scalar)):
-            raise TypeError(
-                "Expected Scalar, but got: {!r}".format(scalar_type)
-            )
+            raise TypeError("Expected Scalar, but got: {!r}".format(scalar_type))
 
         if not isinstance(filter_obj, type(FieldFilter)):
-            raise TypeError(
-                "Expected ScalarFilter, but got: {!r}".format(filter_obj)
-            )
+            raise TypeError("Expected ScalarFilter, but got: {!r}".format(filter_obj))
         self._registry_scalar_filters[scalar_type] = filter_obj
 
-    def get_filter_for_scalar_type(self, scalar_type: Type[graphene.Scalar]) -> Type[FieldFilter]:
+    def get_filter_for_scalar_type(
+        self, scalar_type: Type[graphene.Scalar]
+    ) -> Type[FieldFilter]:
 
         return self._registry_scalar_filters.get(scalar_type)
 
     # TODO register enums automatically
-    def register_filter_for_enum_type(self, enum_type: Type[graphene.Enum], filter_obj: Type[FieldFilter]):
+    def register_filter_for_enum_type(
+        self, enum_type: Type[graphene.Enum], filter_obj: Type[FieldFilter]
+    ):
         if not isinstance(enum_type, type(graphene.Enum)):
-            raise TypeError(
-                "Expected Enum, but got: {!r}".format(enum_type)
-            )
+            raise TypeError("Expected Enum, but got: {!r}".format(enum_type))
 
         if not isinstance(filter_obj, type(FieldFilter)):
-            raise TypeError(
-                "Expected FieldFilter, but got: {!r}".format(filter_obj)
-            )
+            raise TypeError("Expected FieldFilter, but got: {!r}".format(filter_obj))
         self._registry_scalar_filters[enum_type] = filter_obj
 
-    def get_filter_for_enum_type(self, enum_type: Type[graphene.Enum]) -> Type[FieldFilter]:
+    def get_filter_for_enum_type(
+        self, enum_type: Type[graphene.Enum]
+    ) -> Type[FieldFilter]:
         return self._registry_enum_type_filters.get(enum_type)
 
     # Filter Object Types
-    def register_filter_for_object_type(self, object_type: Type[graphene.ObjectType],
-                                        filter_obj: Type[ObjectTypeFilter]):
+    def register_filter_for_object_type(
+        self, object_type: Type[graphene.ObjectType], filter_obj: Type[ObjectTypeFilter]
+    ):
         if not isinstance(object_type, type(graphene.ObjectType)):
-            raise TypeError(
-                "Expected Object Type, but got: {!r}".format(object_type)
-            )
+            raise TypeError("Expected Object Type, but got: {!r}".format(object_type))
 
         if not isinstance(filter_obj, type(FieldFilter)):
             raise TypeError(
@@ -163,12 +166,11 @@ class Registry(object):
         return self._registry_object_type_filters.get(object_type)
 
     # Filter Relationships between object types
-    def register_relationship_filter_for_object_type(self, object_type: graphene.ObjectType,
-                                                     filter_obj: RelationshipFilter):
+    def register_relationship_filter_for_object_type(
+        self, object_type: graphene.ObjectType, filter_obj: RelationshipFilter
+    ):
         if not isinstance(object_type, type(graphene.ObjectType)):
-            raise TypeError(
-                "Expected Object Type, but got: {!r}".format(object_type)
-            )
+            raise TypeError("Expected Object Type, but got: {!r}".format(object_type))
 
         if not isinstance(filter_obj, type(FieldFilter)):
             raise TypeError(
@@ -176,7 +178,9 @@ class Registry(object):
             )
         self._registry_relationship_filters[object_type] = filter_obj
 
-    def get_relationship_filter_for_object_type(self, object_type: Type[graphene.ObjectType]) -> RelationshipFilter:
+    def get_relationship_filter_for_object_type(
+        self, object_type: Type[graphene.ObjectType]
+    ) -> RelationshipFilter:
         return self._registry_relationship_filters.get(object_type)
 
 
