@@ -211,16 +211,16 @@ class RelationshipFilter(graphene.InputObjectType):
     def contains_filter(cls, query, field, val: List[AbstractType]):
         clauses = []
         for v in val:
-            query, _clauses = v.execute_filters(query, dict(v))
-            clauses += _clauses
+            query, clauses = v.execute_filters(query, dict(v))
+            clauses += clauses
         return clauses
 
     @classmethod
     def contains_exactly_filter(cls, query, field, val: List[AbstractType]):
         clauses = []
         for v in val:
-            query, _clauses = v.execute_filters(query, dict(v))
-            clauses += _clauses
+            query, clauses = v.execute_filters(query, dict(v))
+            clauses += clauses
         return clauses
 
     @classmethod
