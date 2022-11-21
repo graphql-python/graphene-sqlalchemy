@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Tuple, Type, TypeVar, Union, get_type_hints
 
-from sqlalchemy import not_
+from sqlalchemy import and_, not_, or_
 from sqlalchemy.orm import Query, aliased
 
 import graphene
@@ -13,16 +13,23 @@ from graphene_sqlalchemy.utils import is_list
 
 class AbstractType:
     """Dummy class for generic filters"""
+
     pass
 
 
 class ObjectTypeFilter(graphene.InputObjectType):
     @classmethod
-    def __init_subclass_with_meta__(cls, filter_fields=None, model=None, _meta=None, **options):
+    def __init_subclass_with_meta__(
+        cls, filter_fields=None, model=None, _meta=None, **options
+    ):
 
         # Init meta options class if it doesn't exist already
         if not _meta:
             _meta = InputObjectTypeOptions(cls)
+
+        # TODO do this dynamically based off the field name, but also value type
+        filter_fields["and"] = graphene.InputField(graphene.List(cls))
+        filter_fields["or"] = graphene.InputField(graphene.List(cls))
 
         # Add all fields to the meta options. graphene.InputObjectType will take care of the rest
         if _meta.fields:
@@ -35,12 +42,57 @@ class ObjectTypeFilter(graphene.InputObjectType):
         super(ObjectTypeFilter, cls).__init_subclass_with_meta__(_meta=_meta, **options)
 
     @classmethod
-    def and_logic(cls, query, field, val: list["ObjectTypeFilter"]):
-        # TODO
-        pass
+    def and_logic(
+        cls,
+        query,
+        filter_type: ObjectTypeFilter,
+        vals: graphene.List["ObjectTypeFilter"],
+    ):
+        # # Get the model to join on the Filter Query
+        # joined_model = filter_type._meta.model
+        # # Always alias the model
+        # joined_model_alias = aliased(joined_model)
+
+        clauses = []
+        for val in vals:
+            # # Join the aliased model onto the query
+            # query = query.join(model_field.of_type(joined_model_alias))
+
+            query, _clauses = filter_type.execute_filters(
+                query, val
+            )  # , model_alias=joined_model_alias)
+            clauses += _clauses
+
+        return query, [and_(*clauses)]
 
     @classmethod
-    def execute_filters(cls: Type[FieldFilter], query, filter_dict: Dict, model_alias=None) -> Tuple[Query, List[Any]]:
+    def or_logic(
+        cls,
+        query,
+        filter_type: ObjectTypeFilter,
+        vals: graphene.List["ObjectTypeFilter"],
+    ):
+        # # Get the model to join on the Filter Query
+        # joined_model = filter_type._meta.model
+        # # Always alias the model
+        # joined_model_alias = aliased(joined_model)
+
+        clauses = []
+        for val in vals:
+            # # Join the aliased model onto the query
+            # query = query.join(model_field.of_type(joined_model_alias))
+
+            query, _clauses = filter_type.execute_filters(
+                query, val
+            )  # , model_alias=joined_model_alias)
+            clauses += _clauses
+
+        return query, [or_(*clauses)]
+
+    @classmethod
+    def execute_filters(
+        cls: Type[FieldFilter], query, filter_dict: Dict, model_alias=None
+    ) -> Tuple[Query, List[Any]]:
         model = cls._meta.model
         if model_alias:
             model = model_alias
@@ -58,34 +110,53 @@ class ObjectTypeFilter(graphene.InputObjectType):
             # raise Exception
             # TODO we need to save the relationship props in the meta fields array
             #  to conduct joins and alias the joins (in case there are duplicate joins: A->B A->C B->C)
-            model_field = getattr(model, field)
-            if issubclass(field_filter_type, ObjectTypeFilter):
-                # Get the model to join on the Filter Query
-                joined_model = field_filter_type._meta.model
-                # Always alias the model
-                joined_model_alias = aliased(joined_model)
+            if field == "and":
+                query, _clauses = cls.and_logic(
+                    query, field_filter_type.of_type, filt_dict
+                )
+                clauses.extend(_clauses)
+            elif field == "or":
+                query, _clauses = cls.or_logic(
+                    query, field_filter_type.of_type, filt_dict
+                )
+                clauses.extend(_clauses)
+            else:
+                model_field = getattr(model, field)
+                if issubclass(field_filter_type, ObjectTypeFilter):
+                    # Get the model to join on the Filter Query
+                    joined_model = field_filter_type._meta.model
+                    # Always alias the model
+                    joined_model_alias = aliased(joined_model)
 
-                # Join the aliased model onto the query
-                query = query.join(model_field.of_type(joined_model_alias))
+                    # Join the aliased model onto the query
+                    query = query.join(model_field.of_type(joined_model_alias))
 
-                # Pass the joined query down to the next object type filter for processing
-                query, _clauses = field_filter_type.execute_filters(query, filt_dict, model_alias=joined_model_alias)
-                clauses.extend(_clauses)
-            if issubclass(field_filter_type, RelationshipFilter):
-                # TODO see above; not yet working
-                relationship_prop = field_filter_type._meta.model
-                query, _clauses = field_filter_type.execute_filters(query, model_field, filt_dict, relationship_prop)
-                clauses.extend(_clauses)
-            elif issubclass(field_filter_type, FieldFilter):
-                query, _clauses = field_filter_type.execute_filters(query, model_field, filt_dict)
-                clauses.extend(_clauses)
+                    # Pass the joined query down to the next object type filter for processing
+                    query, _clauses = field_filter_type.execute_filters(
+                        query, filt_dict, model_alias=joined_model_alias
+                    )
+                    clauses.extend(_clauses)
+                if issubclass(field_filter_type, RelationshipFilter):
+                    # TODO see above; not yet working
+                    relationship_prop = field_filter_type._meta.model
+                    query, _clauses = field_filter_type.execute_filters(
+                        query, model_field, filt_dict, relationship_prop
+                    )
+                    clauses.extend(_clauses)
+                elif issubclass(field_filter_type, FieldFilter):
+                    query, _clauses = field_filter_type.execute_filters(
+                        query, model_field, filt_dict
+                    )
+                    clauses.extend(_clauses)
 
         return query, clauses
 
 
 class RelationshipFilter(graphene.InputObjectType):
     @classmethod
-    def __init_subclass_with_meta__(cls, object_type_filter=None, model=None, _meta=None, **options):
+    def __init_subclass_with_meta__(
+        cls, object_type_filter=None, model=None, _meta=None, **options
+    ):
         if not object_type_filter:
             raise Exception("Relationship Filters must be specific to an object type")
         # Init meta options class if it doesn't exist already
@@ -103,18 +174,26 @@ class RelationshipFilter(graphene.InputObjectType):
             # Check if attribute is a function
             if callable(func_attr) and filter_function_regex.match(func):
                 # add function and attribute name to the list
-                filter_functions.append((re.sub("_filter$", "", func), get_type_hints(func_attr)))
+                filter_functions.append(
+                    (re.sub("_filter$", "", func), get_type_hints(func_attr))
+                )
 
         relationship_filters = {}
 
         # Generate Graphene Fields from the filter functions based on type hints
         for field_name, _annotations in filter_functions:
-            assert "val" in _annotations, "Each filter method must have a value field with valid type annotations"
+            assert (
+                "val" in _annotations
+            ), "Each filter method must have a value field with valid type annotations"
             # If type is generic, replace with actual type of filter class
             if is_list(_annotations["val"]):
-                relationship_filters.update({field_name: graphene.InputField(graphene.List(object_type_filter))})
+                relationship_filters.update(
+                    {field_name: graphene.InputField(graphene.List(object_type_filter))}
+                )
             else:
-                relationship_filters.update({field_name: graphene.InputField(object_type_filter)})
+                relationship_filters.update(
+                    {field_name: graphene.InputField(object_type_filter)}
+                )
 
         # Add all fields to the meta options. graphene.InputObjectType will take care of the rest
         if _meta.fields:
@@ -124,22 +203,24 @@ class RelationshipFilter(graphene.InputObjectType):
 
         _meta.model = model
 
-        super(RelationshipFilter, cls).__init_subclass_with_meta__(_meta=_meta, **options)
+        super(RelationshipFilter, cls).__init_subclass_with_meta__(
+            _meta=_meta, **options
+        )
 
     @classmethod
     def contains_filter(cls, query, field, val: List[AbstractType]):
         clauses = []
         for v in val:
-            query, clauses = v.execute_filters(query, dict(v))
-            clauses += clauses
+            query, _clauses = v.execute_filters(query, dict(v))
+            clauses += _clauses
         return clauses
 
     @classmethod
     def contains_exactly_filter(cls, query, field, val: List[AbstractType]):
         clauses = []
         for v in val:
-            query, clauses = v.execute_filters(query, dict(v))
-            clauses += clauses
+            query, _clauses = v.execute_filters(query, dict(v))
+            clauses += _clauses
         return clauses
 
     @classmethod
@@ -154,7 +235,7 @@ class RelationshipFilter(graphene.InputObjectType):
         return query.join(field), clauses
 
 
-any_field_filter = TypeVar('any_field_filter', bound="FieldFilter")
+any_field_filter = TypeVar("any_field_filter", bound="FieldFilter")
 
 
 class FieldFilter(graphene.InputObjectType):
@@ -177,8 +258,8 @@ class FieldFilter(graphene.InputObjectType):
             # Check if attribute is a function
             if callable(func_attr) and filter_function_regex.match(func):
                 # add function and attribute name to the list
-                filter_functions.append((
-                    re.sub("_filter$", "", func), func_attr.__annotations__)
+                filter_functions.append(
+                    (re.sub("_filter$", "", func), func_attr.__annotations__)
                 )
 
         # Init meta options class if it doesn't exist already
@@ -189,7 +270,9 @@ class FieldFilter(graphene.InputObjectType):
         print(f"Generating Fields for {cls.__name__} with type {type} ")
         # Generate Graphene Fields from the filter functions based on type hints
         for field_name, _annotations in filter_functions:
-            assert "val" in _annotations, "Each filter method must have a value field with valid type annotations"
+            assert (
+                "val" in _annotations
+            ), "Each filter method must have a value field with valid type annotations"
             # If type is generic, replace with actual type of filter class
             print(f"Field: {field_name} with annotation {_annotations['val']}")
             if _annotations["val"] == "AbstractType":
@@ -199,7 +282,9 @@ class FieldFilter(graphene.InputObjectType):
             else:
                 # TODO this is a place holder, we need to convert the type of val to a valid graphene
                 # type that we can pass to the InputField. We could re-use converter.convert_hybrid_property_return_type
-                new_filter_fields.update({field_name: graphene.InputField(graphene.String)})
+                new_filter_fields.update(
+                    {field_name: graphene.InputField(graphene.String)}
+                )
 
         # Add all fields to the meta options. graphene.InputbjectType will take care of the rest
         if _meta.fields:
@@ -212,15 +297,21 @@ class FieldFilter(graphene.InputObjectType):
 
     # Abstract methods can be marked using AbstractType. See comment on the init method
     @classmethod
-    def eq_filter(cls, query, field, val: AbstractType) -> Union[Tuple[Query, Any], Any]:
+    def eq_filter(
+        cls, query, field, val: AbstractType
+    ) -> Union[Tuple[Query, Any], Any]:
         return field == val
 
     @classmethod
-    def n_eq_filter(cls, query, field, val: AbstractType) -> Union[Tuple[Query, Any], Any]:
+    def n_eq_filter(
+        cls, query, field, val: AbstractType
+    ) -> Union[Tuple[Query, Any], Any]:
         return not_(field == val)
 
     @classmethod
-    def execute_filters(cls: Type[FieldFilter], query, field, filter_dict: any_field_filter) -> Tuple[Query, List[Any]]:
+    def execute_filters(
+        cls: Type[FieldFilter], query, field, filter_dict: any_field_filter
+    ) -> Tuple[Query, List[Any]]:
         clauses = []
         for filt, val in filter_dict.items():
             clause = getattr(cls, filt + "_filter")(query, field, val)
