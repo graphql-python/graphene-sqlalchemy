@@ -14,7 +14,7 @@ from the attributes of their underlying SQLAlchemy model:
 
 .. code:: python
 
-    from sqlalchemy import Column, DateTime, Integer, String
+    from sqlalchemy import Column, Date, Integer, String
     from sqlalchemy.ext.declarative import declarative_base
 
     import graphene
@@ -23,11 +23,11 @@ from the attributes of their underlying SQLAlchemy model:
 
     Base = declarative_base()
 
-    class PersonModel(Base):
-        id = Column(Integer, primary_key=True)
-        type = Column(String, nullable=False)
-        name = Column(String, nullable=False)
-        birth_date = Column(DateTime, nullable=False)
+    class Person(Base):
+        id = Column(Integer(), primary_key=True)
+        type = Column(String())
+        name = Column(String())
+        birth_date = Column(Date())
 
         __tablename__ = "person"
         __mapper_args__ = {
@@ -35,21 +35,21 @@ from the attributes of their underlying SQLAlchemy model:
             "polymorphic_identity": "person",
         }
 
-    class EmployeeModel(PersonModel):
-        hire_date = Column(DateTime, nullable=False)
+    class Employee(Person):
+        hire_date = Column(Date())
 
         __mapper_args__ = {
             "polymorphic_identity": "employee",
         }
 
-    class Person(SQLAlchemyInterface):
+    class PersonType(SQLAlchemyInterface):
         class Meta:
-            model = PersonModel
+            model = Person
 
-    class Employee(SQLAlchemyObjectType):
+    class EmployeeType(SQLAlchemyObjectType):
         class Meta:
-            model = EmployeeModel
-            interfaces = (relay.Node, Person)
+            model = Employee
+            interfaces = (relay.Node, PersonType)
 
 
 When querying on the base type, you can refer directly to common fields,
@@ -60,7 +60,7 @@ and fields on concrete implementations using the `... on` syntax:
     people {
         name
         birthDate
-        ... on Employee {
+        ... on EmployeeType {
             hireDate
         }
     }
@@ -71,4 +71,4 @@ class to the Schema constructor via the `types=` argument:
 
 .. code:: python
 
-    schema = graphene.Schema(..., types=[Person, Employee])
+    schema = graphene.Schema(..., types=[PersonType, EmployeeType])
