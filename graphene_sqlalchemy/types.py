@@ -214,6 +214,11 @@ def construct_fields(
 
 
 class SQLAlchemyBase(BaseType):
+    """
+    This class contains initialization code that is common to both ObjectTypes
+    and Interfaces.  You typically don't need to use it directly.
+    """
+
     @classmethod
     def __init_subclass_with_meta__(
         cls,
@@ -352,6 +357,22 @@ class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
 
 
 class SQLAlchemyObjectType(SQLAlchemyBase, ObjectType):
+    """
+    This type represents the GraphQL ObjectType. It reflects on the
+    given SQLAlchemy model, and automatically generates an ObjectType
+    using the column and relationship information defined there.
+
+    Usage:
+
+        class MyModel(Base):
+            id = Column(Integer(), primary_key=True)
+            name = Column(String())
+
+        class MyType(SQLAlchemyObjectType):
+            class Meta:
+                model = MyModel
+    """
+
     @classmethod
     def __init_subclass_with_meta__(cls, _meta=None, **options):
         if not _meta:
@@ -370,6 +391,41 @@ class SQLAlchemyInterfaceOptions(InterfaceOptions):
 
 
 class SQLAlchemyInterface(SQLAlchemyBase, Interface):
+    """
+    This type represents the GraphQL Interface. It reflects on the
+    given SQLAlchemy model, and automatically generates an Interface
+    using the column and relationship information defined there. This
+    is used to construct interface relationships based on polymorphic
+    inheritance hierarchies in SQLAlchemy.
+
+    Usage (using joined table inheritance):
+
+        class MyBaseModel(Base):
+            id = Column(Integer(), primary_key=True)
+            name = Column(String())
+
+        __mapper_args__ = {
+            "polymorphic_on": type,
+            "polymorphic_identity": "base",
+        }
+
+        class MyChildModel(Base):
+            date = Column(Date())
+
+        __mapper_args__ = {
+            "polymorphic_identity": "child",
+        }
+
+        class MyBaseType(SQLAlchemyInterface):
+            class Meta:
+                model = MyBaseModel
+
+        class MyChildType(SQLAlchemyObjectType):
+            class Meta:
+                model = MyChildModel
+                interfaces = (MyBaseType,)
+    """
+
     @classmethod
     def __init_subclass_with_meta__(cls, _meta=None, **options):
         if not _meta:
