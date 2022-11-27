@@ -29,8 +29,13 @@ from ..fields import (
     registerConnectionFieldFactory,
     unregisterConnectionFieldFactory,
 )
-from ..types import ORMField, SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
-from .models import Article, CompositeFullName, Pet, Reporter
+from ..types import (
+    ORMField,
+    SQLAlchemyInterface,
+    SQLAlchemyObjectType,
+    SQLAlchemyObjectTypeOptions,
+)
+from .models import Article, CompositeFullName, Employee, Person, Pet, Reporter
 
 
 def test_should_raise_if_no_model():
@@ -507,6 +512,30 @@ def test_objecttype_with_custom_options():
     assert issubclass(ReporterWithCustomOptions, ObjectType)
     assert ReporterWithCustomOptions._meta.model == Reporter
     assert ReporterWithCustomOptions._meta.custom_option == "custom_option"
+
+
+def test_interface_inherited_fields():
+    class PersonType(SQLAlchemyInterface):
+        class Meta:
+            model = Person
+
+    class EmployeeType(SQLAlchemyObjectType):
+        class Meta:
+            model = Employee
+            interfaces = (Node, PersonType)
+
+    assert PersonType in EmployeeType._meta.interfaces
+
+    name_field = EmployeeType._meta.fields["name"]
+    assert name_field.type == String
+
+    assert list(EmployeeType._meta.fields.keys()) == [
+        "id",
+        "type",
+        "name",
+        "birth_date",
+        "hire_date",
+    ]
 
 
 # Tests for connection_field_factory

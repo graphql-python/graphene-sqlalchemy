@@ -288,3 +288,29 @@ class KeyedModel(Base):
     __tablename__ = "test330"
     id = Column(Integer(), primary_key=True)
     reporter_number = Column("% reporter_number", Numeric, key="reporter_number")
+
+
+############################################
+# For interfaces
+############################################
+
+
+class Person(Base):
+    id = Column(Integer(), primary_key=True)
+    type = Column(String())
+    name = Column(String())
+    birth_date = Column(Date())
+
+    __tablename__ = "person"
+    __mapper_args__ = {
+        "polymorphic_on": type,
+        "polymorphic_identity": "person",
+    }
+
+
+class Employee(Person):
+    hire_date = Column(Date())
+
+    __mapper_args__ = {
+        "polymorphic_identity": "employee",
+    }
