@@ -428,7 +428,6 @@ class SQLAlchemyInterface(SQLAlchemyBase, Interface):
 
         __mapper_args__ = {
             "polymorphic_on": type,
-            "polymorphic_identity": "base",
         }
 
         class MyChildModel(Base):
@@ -456,3 +455,12 @@ class SQLAlchemyInterface(SQLAlchemyBase, Interface):
         super(SQLAlchemyInterface, cls).__init_subclass_with_meta__(
             _meta=_meta, **options
         )
+
+        # make sure that the model doesn't have a polymorphic_identity defined
+        if hasattr(_meta.model, "__mapper__"):
+            polymorphic_identity = _meta.model.__mapper__.polymorphic_identity
+            assert (
+                polymorphic_identity is None
+            ), 'An interface cannot map to a concrete type (polymorphic_identity is "{}")'.format(
+                polymorphic_identity
+            )

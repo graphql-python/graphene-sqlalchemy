@@ -304,7 +304,6 @@ class Person(Base):
     __tablename__ = "person"
     __mapper_args__ = {
         "polymorphic_on": type,
-        "polymorphic_identity": "person",
     }
 
 
