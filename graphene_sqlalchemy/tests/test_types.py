@@ -529,9 +529,10 @@ def test_interface_inherited_fields():
     name_field = EmployeeType._meta.fields["name"]
     assert name_field.type == String
 
+    # `type` should *not* be in this list because it's the polymorphic_on
+    # discriminator for Person
     assert list(EmployeeType._meta.fields.keys()) == [
         "id",
-        "type",
         "name",
         "birth_date",
         "hire_date",

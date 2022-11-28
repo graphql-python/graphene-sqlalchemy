@@ -96,6 +96,18 @@ class ORMField(OrderedType):
         self.kwargs.update(common_kwargs)
 
 
+def get_polymorphic_on(model):
+    """
+    Check whether this model is a polymorphic type, and if so return the name
+    of the discriminator field (`polymorphic_on`), so that it won't be automatically
+    generated as an ORMField.
+    """
+    if hasattr(model, "__mapper__") and model.__mapper__.polymorphic_on is not None:
+        polymorphic_on = model.__mapper__.polymorphic_on
+        if isinstance(polymorphic_on, sqlalchemy.Column):
+            return polymorphic_on.name
+
+
 def construct_fields(
     obj_type,
     model,
@@ -135,10 +147,13 @@ def construct_fields(
     )
 
     # Filter out excluded fields
+    polymorphic_on = get_polymorphic_on(model)
     auto_orm_field_names = []
     for attr_name, attr in all_model_attrs.items():
-        if (only_fields and attr_name not in only_fields) or (
-            attr_name in exclude_fields
+        if (
+            (only_fields and attr_name not in only_fields)
+            or (attr_name in exclude_fields)
+            or attr_name == polymorphic_on
         ):
             continue
         auto_orm_field_names.append(attr_name)
@@ -398,10 +413,17 @@ class SQLAlchemyInterface(SQLAlchemyBase, Interface):
     is used to construct interface relationships based on polymorphic
     inheritance hierarchies in SQLAlchemy.
 
+    Please note that by default, the "polymorphic_on" column is *not*
+    generated as a field on types that use polymorphic inheritance, as
+    this is considered an implentation detail. The idiomatic way to
+    retrieve the concrete GraphQL type of an object is to query for the
+    `__typename` field.
+
     Usage (using joined table inheritance):
 
         class MyBaseModel(Base):
             id = Column(Integer(), primary_key=True)
+            type = Column(String())
             name = Column(String())
 
         __mapper_args__ = {
