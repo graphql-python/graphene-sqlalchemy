@@ -1,10 +1,21 @@
+from datetime import date
+
 import graphene
 from graphene.relay import Node
 
 from ..converter import convert_sqlalchemy_composite
 from ..fields import SQLAlchemyConnectionField
-from ..types import ORMField, SQLAlchemyObjectType
-from .models import Article, CompositeFullName, Editor, HairKind, Pet, Reporter
+from ..types import ORMField, SQLAlchemyInterface, SQLAlchemyObjectType
+from .models import (
+    Article,
+    CompositeFullName,
+    Editor,
+    Employee,
+    HairKind,
+    Person,
+    Pet,
+    Reporter,
+)
 from .utils import to_std_dicts
 
 
@@ -334,3 +345,55 @@ def test_mutation(session):
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
+
+
+def add_person_data(session):
+    bob = Employee(name="Bob", birth_date=date(1990, 1, 1), hire_date=date(2015, 1, 1))
+    session.add(bob)
+    joe = Employee(name="Joe", birth_date=date(1980, 1, 1), hire_date=date(2010, 1, 1))
+    session.add(joe)
+    jen = Employee(name="Jen", birth_date=date(1995, 1, 1), hire_date=date(2020, 1, 1))
+    session.add(jen)
+    session.commit()
+
+
+def test_interface_query_on_base_type(session):
+    add_person_data(session)
+
+    class PersonType(SQLAlchemyInterface):
+        class Meta:
+            model = Person
+
+    class EmployeeType(SQLAlchemyObjectType):
+        class Meta:
+            model = Employee
+            interfaces = (Node, PersonType)
+
+    class Query(graphene.ObjectType):
+        people = graphene.Field(graphene.List(PersonType))
+
+        def resolve_people(self, _info):
+            return session.query(Person).all()
+
+    schema = graphene.Schema(query=Query, types=[PersonType, EmployeeType])
+    result = schema.execute(
+        """
+        query {
+            people {
+                __typename
+                name
+                birthDate
+                ... on EmployeeType {
+                    hireDate
+                }
+            }
+        }
+        """
+    )
+
+    assert not result.errors
+    assert len(result.data["people"]) == 3
+    assert result.data["people"][0]["__typename"] == "EmployeeType"
+    assert result.data["people"][0]["name"] == "Bob"
+    assert result.data["people"][0]["birthDate"] == "1990-01-01"
+    assert result.data["people"][0]["hireDate"] == "2015-01-01"

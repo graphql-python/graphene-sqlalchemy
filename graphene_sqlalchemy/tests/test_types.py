@@ -1,9 +1,9 @@
+import re
 from unittest import mock
 
 import pytest
 import sqlalchemy.exc
 import sqlalchemy.orm.exc
-
 from graphene import (
     Boolean,
     Dynamic,
@@ -20,6 +20,7 @@ from graphene import (
 )
 from graphene.relay import Connection
 
+from .models import Article, CompositeFullName, Employee, Person, Pet, Reporter, NonAbstractPerson
 from .. import utils
 from ..converter import convert_sqlalchemy_composite
 from ..fields import (
@@ -29,14 +30,17 @@ from ..fields import (
     registerConnectionFieldFactory,
     unregisterConnectionFieldFactory,
 )
-from ..types import ORMField, SQLAlchemyObjectType, SQLAlchemyObjectTypeOptions
-from .models import Article, CompositeFullName, Pet, Reporter
+from ..types import (
+    ORMField,
+    SQLAlchemyInterface,
+    SQLAlchemyObjectType,
+    SQLAlchemyObjectTypeOptions,
+)
 
 
 def test_should_raise_if_no_model():
     re_err = r"valid SQLAlchemy Model"
     with pytest.raises(Exception, match=re_err):
-
         class Character1(SQLAlchemyObjectType):
             pass
 
@@ -44,7 +48,6 @@ def test_should_raise_if_no_model():
 def test_should_raise_if_model_is_invalid():
     re_err = r"valid SQLAlchemy Model"
     with pytest.raises(Exception, match=re_err):
-
         class Character(SQLAlchemyObjectType):
             class Meta:
                 model = 1
@@ -317,7 +320,6 @@ def test_invalid_model_attr():
         "Cannot map ORMField to a model attribute.\n" "Field: 'ReporterType.first_name'"
     )
     with pytest.raises(ValueError, match=err_msg):
-
         class ReporterType(SQLAlchemyObjectType):
             class Meta:
                 model = Reporter
@@ -371,7 +373,6 @@ def test_exclude_fields():
 def test_only_and_exclude_fields():
     re_err = r"'only_fields' and 'exclude_fields' cannot be both set"
     with pytest.raises(Exception, match=re_err):
-
         class ReporterType(SQLAlchemyObjectType):
             class Meta:
                 model = Reporter
@@ -507,6 +508,95 @@ def test_objecttype_with_custom_options():
     assert issubclass(ReporterWithCustomOptions, ObjectType)
     assert ReporterWithCustomOptions._meta.model == Reporter
     assert ReporterWithCustomOptions._meta.custom_option == "custom_option"
+
+
+def test_interface_with_polymorphic_identity():
+    with pytest.raises(AssertionError,
+                       match=re.escape('PersonType: An interface cannot map to a concrete type (polymorphic_identity is "person")')):
+        class PersonType(SQLAlchemyInterface):
+            class Meta:
+                model = NonAbstractPerson
+
+
+def test_interface_inherited_fields():
+    class PersonType(SQLAlchemyInterface):
+        class Meta:
+            model = Person
+
+    class EmployeeType(SQLAlchemyObjectType):
+        class Meta:
+            model = Employee
+            interfaces = (Node, PersonType)
+
+    assert PersonType in EmployeeType._meta.interfaces
+
+    name_field = EmployeeType._meta.fields["name"]
+    assert name_field.type == String
+
+    # `type` should *not* be in this list because it's the polymorphic_on
+    # discriminator for Person
+    assert list(EmployeeType._meta.fields.keys()) == [
+        "id",
+        "name",
+        "birth_date",
+        "hire_date",
+    ]
+
+
+def test_interface_type_field_orm_override():
+    class PersonType(SQLAlchemyInterface):
+        class Meta:
+            model = Person
+
+        type = ORMField()
+
+    class EmployeeType(SQLAlchemyObjectType):
+        class Meta:
+            model = Employee
+            interfaces = (Node, PersonType)
+
+    assert PersonType in EmployeeType._meta.interfaces
+
+    name_field = EmployeeType._meta.fields["name"]
+    assert name_field.type == String
+
+    # type should be in this list because we used ORMField
+    # to force its presence on the model
+    assert sorted(list(EmployeeType._meta.fields.keys())) == sorted([
+        "id",
+        "name",
+        "type",
+        "birth_date",
+        "hire_date",
+    ])
+
+
+def test_interface_custom_resolver():
+    class PersonType(SQLAlchemyInterface):
+        class Meta:
+            model = Person
+
+        custom_field = Field(String)
+
+    class EmployeeType(SQLAlchemyObjectType):
+        class Meta:
+            model = Employee
+            interfaces = (Node, PersonType)
+
+    assert PersonType in EmployeeType._meta.interfaces
+
+    name_field = EmployeeType._meta.fields["name"]
+    assert name_field.type == String
+
+    # type should be in this list because we used ORMField
+    # to force its presence on the model
+    assert sorted(list(EmployeeType._meta.fields.keys())) == sorted([
+        "id",
+        "name",
+        "custom_field",
+        "birth_date",
+        "hire_date",
+    ])
 
 
 # Tests for connection_field_factory
