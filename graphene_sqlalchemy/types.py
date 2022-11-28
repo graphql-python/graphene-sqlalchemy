@@ -461,6 +461,6 @@ class SQLAlchemyInterface(SQLAlchemyBase, Interface):
             polymorphic_identity = _meta.model.__mapper__.polymorphic_identity
             assert (
                 polymorphic_identity is None
-            ), 'An interface cannot map to a concrete type (polymorphic_identity is "{}")'.format(
-                polymorphic_identity
+            ), '{}: An interface cannot map to a concrete type (polymorphic_identity is "{}")'.format(
+                cls.__name__, polymorphic_identity
             )
