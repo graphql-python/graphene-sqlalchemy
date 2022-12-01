@@ -1,6 +1,6 @@
 import warnings
 from collections import OrderedDict
-from typing import Type, Union
+from typing import Optional, Type, Union
 
 import sqlalchemy
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -8,9 +8,10 @@ from sqlalchemy.orm import ColumnProperty, CompositeProperty, RelationshipProper
 from sqlalchemy.orm.exc import NoResultFound
 
 import graphene
-from graphene import Field
+from graphene import Field, InputField
 from graphene.relay import Connection, Node
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
+from graphene.types.unmountedtype import UnmountedType
 from graphene.types.utils import yank_fields_from_attrs
 from graphene.utils.orderedtype import OrderedType
 
@@ -48,6 +49,8 @@ class ORMField(OrderedType):
         description=None,
         deprecation_reason=None,
         batching=None,
+        create_filter=None,
+        filter_type: Optional[Type] = None,
         _creation_counter=None,
         **field_kwargs,
     ):
@@ -86,6 +89,12 @@ class ORMField(OrderedType):
             Same behavior as in graphene.Field. Defaults to None.
         :param bool batching:
             Toggle SQL batching. Defaults to None, that is `SQLAlchemyObjectType.meta.batching`.
+        :param bool create_filter:
+            Create a filter for this field. Defaults to True.
+        :param Type filter_type:
+            Override for the filter of this field with a custom filter type.
+            Default behavior is to get a matching filter type for this field from the registry.
+            Create_filter needs to be true
         :param int _creation_counter:
             Same behavior as in graphene.Field.
         """
@@ -97,6 +106,8 @@ class ORMField(OrderedType):
             "required": required,
             "description": description,
             "deprecation_reason": deprecation_reason,
+            "create_filter": create_filter,
+            "filter_type": filter_type,
             "batching": batching,
         }
         common_kwargs = {
@@ -126,9 +137,20 @@ def get_or_create_relationship_filter(
 
 
 def filter_field_from_type_field(
-    field: Union[graphene.Field, graphene.Dynamic], registry: Registry
-) -> Union[graphene.InputField, graphene.Dynamic]:
-    if isinstance(field.type, graphene.List):
+    field: Union[graphene.Field, graphene.Dynamic, Type[UnmountedType]],
+    registry: Registry,
+    filter_type: Optional[Type],
+) -> Optional[Union[graphene.InputField, graphene.Dynamic]]:
+    # If a custom filter type was set for this field, use it here
+    print(field)
+    if filter_type:
+        return graphene.InputField(filter_type)
+    # fixme one test case fails where, find out why
+    if issubclass(type(field), graphene.Scalar):
+        filter_class = registry.get_filter_for_scalar_type(type(field))
+        return graphene.InputField(filter_class)
+
+    elif isinstance(field.type, graphene.List):
         pass
     elif isinstance(field.type, graphene.Dynamic):
         pass
@@ -146,11 +168,14 @@ def filter_field_from_type_field(
                 type_, UnsortedSQLAlchemyConnectionField
             ):
                 inner_type = get_nullable_type(type_.type.Edge.node._type)
-                return graphene.InputField(
-                    get_or_create_relationship_filter(inner_type, registry)
-                )
+                reg_res = get_or_create_relationship_filter(inner_type, registry)
+                if not reg_res:
+                    print("filter class was none!!!")
+                    print(type_)
+                return graphene.InputField(reg_res)
             elif isinstance(type_, Field):
                 reg_res = registry.get_filter_for_object_type(type_.type)
+
                 return graphene.InputField(reg_res)
             else:
                 warnings.warn(f"Unexpected Dynamic Type: {type_}")  # Investigate
@@ -173,13 +198,14 @@ def filter_field_from_type_field(
         )
 
 
-def construct_fields(
+def construct_fields_and_filters(
     obj_type,
     model,
     registry,
     only_fields,
     exclude_fields,
     batching,
+    create_filters,
     connection_field_factory,
 ):
     """
@@ -195,6 +221,7 @@ def construct_fields(
     :param tuple[string] only_fields:
     :param tuple[string] exclude_fields:
     :param bool batching:
+    :param bool create_filters: Enable filter generation for this type
     :param function|None connection_field_factory:
     :rtype: OrderedDict[str, graphene.Field]
     """
@@ -250,7 +277,12 @@ def construct_fields(
 
     # Build all the field dictionary
     fields = OrderedDict()
+    filters = OrderedDict()
     for orm_field_name, orm_field in orm_fields.items():
+        filtering_enabled_for_field = orm_field.kwargs.pop(
+            "create_filter", create_filters
+        )
+        filter_type = orm_field.kwargs.pop("filter_type", None)
         attr_name = orm_field.kwargs.pop("model_attr")
         attr = all_model_attrs[attr_name]
         resolver = get_custom_resolver(obj_type, orm_field_name) or get_attr_resolver(
@@ -286,8 +318,12 @@ def construct_fields(
 
         registry.register_orm_field(obj_type, orm_field_name, attr)
         fields[orm_field_name] = field
+        if filtering_enabled_for_field:
+            filters[orm_field_name] = filter_field_from_type_field(
+                field, registry, filter_type
+            )
 
-    return fields
+    return fields, filters
 
 
 class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
@@ -351,16 +387,19 @@ class SQLAlchemyObjectType(ObjectType):
                 "The options 'only_fields' and 'exclude_fields' cannot be both set on the same type."
             )
 
+        fields, filters = construct_fields_and_filters(
+            obj_type=cls,
+            model=model,
+            registry=registry,
+            only_fields=only_fields,
+            exclude_fields=exclude_fields,
+            batching=batching,
+            create_filters=True,
+            connection_field_factory=connection_field_factory,
+        )
+
         sqla_fields = yank_fields_from_attrs(
-            construct_fields(
-                obj_type=cls,
-                model=model,
-                registry=registry,
-                only_fields=only_fields,
-                exclude_fields=exclude_fields,
-                batching=batching,
-                connection_field_factory=connection_field_factory,
-            ),
+            fields,
             _as=Field,
             sort=False,
         )
@@ -397,16 +436,14 @@ class SQLAlchemyObjectType(ObjectType):
 
         # Save Generated filter class in Meta Class
         if not _meta.filter_class:
-            filters = OrderedDict()
             # Map graphene fields to filters
             # TODO we might need to pass the ORMFields containing the SQLAlchemy models
             #  to the scalar filters here (to generate expressions from the model)
-            for fieldname, field in sqla_fields.items():
-                field_filter = filter_field_from_type_field(field, registry)
-                if field_filter:
-                    filters[fieldname] = field_filter
+
+            filter_fields = yank_fields_from_attrs(filters, _as=InputField, sort=False)
+
             _meta.filter_class = ObjectTypeFilter.create_type(
-                f"{cls.__name__}Filter", filter_fields=filters, model=model
+                f"{cls.__name__}Filter", filter_fields=filter_fields, model=model
             )
             registry.register_filter_for_object_type(cls, _meta.filter_class)
 

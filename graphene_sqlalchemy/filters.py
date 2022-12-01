@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import re
 from typing import Any, Dict, List, Tuple, Type, TypeVar, Union, get_type_hints
 
@@ -7,14 +5,34 @@ from sqlalchemy import and_, not_, or_
 from sqlalchemy.orm import Query, aliased
 
 import graphene
-from graphene.types.inputobjecttype import InputObjectTypeOptions
+from graphene.types.inputobjecttype import (
+    InputObjectTypeContainer,
+    InputObjectTypeOptions,
+)
 from graphene_sqlalchemy.utils import is_list
 
+ObjectTypeFilterSelf = TypeVar(
+    "ObjectTypeFilterSelf", Dict[str, Any], InputObjectTypeContainer
+)
 
-class AbstractType:
-    """Dummy class for generic filters"""
 
-    pass
+def _get_functions_by_regex(
+    regex: str, subtract_regex: str, class_: Type
+) -> list[Tuple[str, dict[str, Any]]]:
+    function_regex = re.compile(regex)
+
+    matching_functions = []
+
+    # Search the entire class for functions matching the filter regex
+    for func in dir(class_):
+        func_attr = getattr(class_, func)
+        # Check if attribute is a function
+        if callable(func_attr) and function_regex.match(func):
+            # add function and attribute name to the list
+            matching_functions.append(
+                (re.sub(subtract_regex, "", func), func_attr.__annotations__)
+            )
+    return matching_functions
 
 
 class ObjectTypeFilter(graphene.InputObjectType):
@@ -22,20 +40,38 @@ class ObjectTypeFilter(graphene.InputObjectType):
     def __init_subclass_with_meta__(
         cls, filter_fields=None, model=None, _meta=None, **options
     ):
+        from graphene_sqlalchemy.converter import (
+            convert_sqlalchemy_hybrid_property_type,
+        )
 
         # Init meta options class if it doesn't exist already
         if not _meta:
             _meta = InputObjectTypeOptions(cls)
 
-        # TODO do this dynamically based off the field name, but also value type
-        filter_fields["and"] = graphene.InputField(graphene.List(cls))
-        filter_fields["or"] = graphene.InputField(graphene.List(cls))
+        logic_functions = _get_functions_by_regex(".+_logic$", "_logic$", cls)
 
+        new_filter_fields = {}
+        print(f"Generating Filter for {cls.__name__} with model {model} ")
+        # Generate Graphene Fields from the filter functions based on type hints
+        for field_name, _annotations in logic_functions:
+            assert (
+                "val" in _annotations
+            ), "Each filter method must have a value field with valid type annotations"
+            # If type is generic, replace with actual type of filter class
+
+            replace_type_vars = {ObjectTypeFilterSelf: cls}
+
+            field_type = convert_sqlalchemy_hybrid_property_type(
+                _annotations.get("val", str), replace_type_vars=replace_type_vars
+            )
+            new_filter_fields.update({field_name: graphene.InputField(field_type)})
         # Add all fields to the meta options. graphene.InputObjectType will take care of the rest
+
         if _meta.fields:
             _meta.fields.update(filter_fields)
         else:
             _meta.fields = filter_fields
+        _meta.fields.update(new_filter_fields)
 
         _meta.model = model
 
@@ -45,8 +81,8 @@ class ObjectTypeFilter(graphene.InputObjectType):
     def and_logic(
         cls,
         query,
-        filter_type: ObjectTypeFilter,
-        vals: graphene.List["ObjectTypeFilter"],
+        filter_type: "ObjectTypeFilter",
+        val: List[ObjectTypeFilterSelf],
     ):
         # # Get the model to join on the Filter Query
         # joined_model = filter_type._meta.model
@@ -54,12 +90,12 @@ class ObjectTypeFilter(graphene.InputObjectType):
         # joined_model_alias = aliased(joined_model)
 
         clauses = []
-        for val in vals:
+        for value in val:
             # # Join the aliased model onto the query
             # query = query.join(model_field.of_type(joined_model_alias))
 
             query, _clauses = filter_type.execute_filters(
-                query, val
+                query, value
             )  # , model_alias=joined_model_alias)
             clauses += _clauses
 
@@ -69,8 +105,8 @@ class ObjectTypeFilter(graphene.InputObjectType):
     def or_logic(
         cls,
         query,
-        filter_type: ObjectTypeFilter,
-        vals: graphene.List["ObjectTypeFilter"],
+        filter_type: "ObjectTypeFilter",
+        val: List[ObjectTypeFilterSelf],
     ):
         # # Get the model to join on the Filter Query
         # joined_model = filter_type._meta.model
@@ -78,12 +114,12 @@ class ObjectTypeFilter(graphene.InputObjectType):
         # joined_model_alias = aliased(joined_model)
 
         clauses = []
-        for val in vals:
+        for value in val:
             # # Join the aliased model onto the query
             # query = query.join(model_field.of_type(joined_model_alias))
 
             query, _clauses = filter_type.execute_filters(
-                query, val
+                query, value
             )  # , model_alias=joined_model_alias)
             clauses += _clauses
 
@@ -91,14 +127,15 @@ class ObjectTypeFilter(graphene.InputObjectType):
 
     @classmethod
     def execute_filters(
-        cls: Type[FieldFilter], query, filter_dict: Dict, model_alias=None
+        cls, query, filter_dict: Dict[str, Any], model_alias=None
     ) -> Tuple[Query, List[Any]]:
         model = cls._meta.model
         if model_alias:
             model = model_alias
 
         clauses = []
-        for field, filt_dict in filter_dict.items():
+
+        for field, field_filters in filter_dict.items():
             # Relationships are Dynamic, we need to resolve them fist
             # Maybe we can cache these dynamics to improve efficiency
             # Check with a profiler is required to determine necessity
@@ -112,12 +149,12 @@ class ObjectTypeFilter(graphene.InputObjectType):
             #  to conduct joins and alias the joins (in case there are duplicate joins: A->B A->C B->C)
             if field == "and":
                 query, _clauses = cls.and_logic(
-                    query, field_filter_type.of_type, filt_dict
+                    query, field_filter_type.of_type, field_filters
                 )
                 clauses.extend(_clauses)
             elif field == "or":
                 query, _clauses = cls.or_logic(
-                    query, field_filter_type.of_type, filt_dict
+                    query, field_filter_type.of_type, field_filters
                 )
                 clauses.extend(_clauses)
             else:
@@ -133,23 +170,170 @@ class ObjectTypeFilter(graphene.InputObjectType):
 
                     # Pass the joined query down to the next object type filter for processing
                     query, _clauses = field_filter_type.execute_filters(
-                        query, filt_dict, model_alias=joined_model_alias
+                        query, field_filters, model_alias=joined_model_alias
                     )
                     clauses.extend(_clauses)
                 if issubclass(field_filter_type, RelationshipFilter):
                     # TODO see above; not yet working
                     relationship_prop = field_filter_type._meta.model
                     query, _clauses = field_filter_type.execute_filters(
-                        query, model_field, filt_dict, relationship_prop
+                        query, model_field, field_filters, relationship_prop
                     )
                     clauses.extend(_clauses)
                 elif issubclass(field_filter_type, FieldFilter):
                     query, _clauses = field_filter_type.execute_filters(
-                        query, model_field, filt_dict
+                        query, model_field, field_filters
                     )
                     clauses.extend(_clauses)
 
         return query, clauses
+
+
+ScalarFilterInputType = TypeVar("ScalarFilterInputType")
+
+
+class FieldFilterOptions(InputObjectTypeOptions):
+    graphene_type: Type = None
+
+
+class FieldFilter(graphene.InputObjectType):
+    """Basic Filter for Scalars in Graphene.
+    We want this filter to use Dynamic fields so it provides the base
+    filtering methods ("eq, nEq") for different types of scalars.
+    The Dynamic fields will resolve to Meta.filtered_type"""
+
+    @classmethod
+    def __init_subclass_with_meta__(cls, graphene_type=None, _meta=None, **options):
+        from .converter import convert_sqlalchemy_hybrid_property_type
+
+        # get all filter functions
+
+        filter_functions = _get_functions_by_regex(".+_filter$", "_filter$", cls)
+
+        # Init meta options class if it doesn't exist already
+        if not _meta:
+            _meta = FieldFilterOptions(cls)
+
+        if not _meta.graphene_type:
+            _meta.graphene_type = graphene_type
+
+        new_filter_fields = {}
+        # Generate Graphene Fields from the filter functions based on type hints
+        for field_name, _annotations in filter_functions:
+            assert (
+                "val" in _annotations
+            ), "Each filter method must have a value field with valid type annotations"
+            # If type is generic, replace with actual type of filter class
+            replace_type_vars = {ScalarFilterInputType: _meta.graphene_type}
+            field_type = convert_sqlalchemy_hybrid_property_type(
+                _annotations.get("val", str), replace_type_vars=replace_type_vars
+            )
+            new_filter_fields.update({field_name: graphene.InputField(field_type)})
+
+        # Add all fields to the meta options. graphene.InputbjectType will take care of the rest
+        if _meta.fields:
+            _meta.fields.update(new_filter_fields)
+        else:
+            _meta.fields = new_filter_fields
+
+        # Pass modified meta to the super class
+        super(FieldFilter, cls).__init_subclass_with_meta__(_meta=_meta, **options)
+
+    # Abstract methods can be marked using ScalarFilterInputType. See comment on the init method
+    @classmethod
+    def eq_filter(
+        cls, query, field, val: ScalarFilterInputType
+    ) -> Union[Tuple[Query, Any], Any]:
+        return field == val
+
+    @classmethod
+    def n_eq_filter(
+        cls, query, field, val: ScalarFilterInputType
+    ) -> Union[Tuple[Query, Any], Any]:
+        return not_(field == val)
+
+    @classmethod
+    def in_filter(cls, query, field, val: List[ScalarFilterInputType]):
+        return field.in_(val)
+
+    @classmethod
+    def not_in_filter(cls, query, field, val: List[ScalarFilterInputType]):
+        return field.not_int(val)
+
+    @classmethod
+    def execute_filters(
+        cls, query, field, filter_dict: dict[str, any]
+    ) -> Tuple[Query, List[Any]]:
+        clauses = []
+        for filt, val in filter_dict.items():
+            clause = getattr(cls, filt + "_filter")(query, field, val)
+            if isinstance(clause, tuple):
+                query, clause = clause
+            clauses.append(clause)
+
+        return query, clauses
+
+
+class StringFilter(FieldFilter):
+    class Meta:
+        graphene_type = graphene.String
+
+
+class BooleanFilter(FieldFilter):
+    class Meta:
+        graphene_type = graphene.Boolean
+
+
+class OrderedFilter(FieldFilter):
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def gt_filter(cls, query, field, val: ScalarFilterInputType) -> bool:
+        return field > val
+
+    @classmethod
+    def gte_filter(cls, query, field, val: ScalarFilterInputType) -> bool:
+        return field >= val
+
+    @classmethod
+    def lt_filter(cls, query, field, val: ScalarFilterInputType) -> bool:
+        return field < val
+
+    @classmethod
+    def lte_filter(cls, query, field, val: ScalarFilterInputType) -> bool:
+        return field <= val
+
+
+class NumberFilter(OrderedFilter):
+    """Intermediate Filter class since all Numbers are in an order relationship (support <, > etc)"""
+
+    class Meta:
+        abstract = True
+
+
+class FloatFilter(NumberFilter):
+    """Concrete Filter Class which specifies a type for all the abstract filter methods defined in the super classes"""
+
+    class Meta:
+        graphene_type = graphene.Float
+
+
+class IntFilter(NumberFilter):
+    class Meta:
+        graphene_type = graphene.Int
+
+
+class DateFilter(OrderedFilter):
+    """Concrete Filter Class which specifies a type for all the abstract filter methods defined in the super classes"""
+
+    class Meta:
+        graphene_type = graphene.Date
+
+
+class IdFilter(FieldFilter):
+    class Meta:
+        graphene_type = graphene.ID
 
 
 class RelationshipFilter(graphene.InputObjectType):
@@ -208,7 +392,7 @@ class RelationshipFilter(graphene.InputObjectType):
         )
 
     @classmethod
-    def contains_filter(cls, query, field, val: List[AbstractType]):
+    def contains_filter(cls, query, field, val: List[ScalarFilterInputType]):
         clauses = []
         for v in val:
             query, clauses = v.execute_filters(query, dict(v))
@@ -216,7 +400,7 @@ class RelationshipFilter(graphene.InputObjectType):
         return clauses
 
     @classmethod
-    def contains_exactly_filter(cls, query, field, val: List[AbstractType]):
+    def contains_exactly_filter(cls, query, field, val: List[ScalarFilterInputType]):
         clauses = []
         for v in val:
             query, clauses = v.execute_filters(query, dict(v))
@@ -233,152 +417,3 @@ class RelationshipFilter(graphene.InputObjectType):
             clauses += getattr(cls, filt + "_filter")(query, field, val)
 
         return query.join(field), clauses
-
-
-any_field_filter = TypeVar("any_field_filter", bound="FieldFilter")
-
-
-class FieldFilter(graphene.InputObjectType):
-    """Basic Filter for Scalars in Graphene.
-    We want this filter to use Dynamic fields so it provides the base
-    filtering methods ("eq, nEq") for different types of scalars.
-    The Dynamic fields will resolve to Meta.filtered_type"""
-
-    @classmethod
-    def __init_subclass_with_meta__(cls, type=None, _meta=None, **options):
-
-        # get all filter functions
-        filter_function_regex = re.compile(".+_filter$")
-
-        filter_functions = []
-
-        # Search the entire class for functions matching the filter regex
-        for func in dir(cls):
-            func_attr = getattr(cls, func)
-            # Check if attribute is a function
-            if callable(func_attr) and filter_function_regex.match(func):
-                # add function and attribute name to the list
-                filter_functions.append(
-                    (re.sub("_filter$", "", func), func_attr.__annotations__)
-                )
-
-        # Init meta options class if it doesn't exist already
-        if not _meta:
-            _meta = InputObjectTypeOptions(cls)
-
-        new_filter_fields = {}
-        print(f"Generating Fields for {cls.__name__} with type {type} ")
-        # Generate Graphene Fields from the filter functions based on type hints
-        for field_name, _annotations in filter_functions:
-            assert (
-                "val" in _annotations
-            ), "Each filter method must have a value field with valid type annotations"
-            # If type is generic, replace with actual type of filter class
-            print(f"Field: {field_name} with annotation {_annotations['val']}")
-            if _annotations["val"] == "AbstractType":
-                # TODO Maybe there is an existing class or a more elegant way to solve this
-                # One option would be to only annotate non-abstract filters
-                new_filter_fields.update({field_name: graphene.InputField(type)})
-            else:
-                # TODO this is a place holder, we need to convert the type of val to a valid graphene
-                # type that we can pass to the InputField. We could re-use converter.convert_hybrid_property_return_type
-                new_filter_fields.update(
-                    {field_name: graphene.InputField(graphene.String)}
-                )
-
-        # Add all fields to the meta options. graphene.InputbjectType will take care of the rest
-        if _meta.fields:
-            _meta.fields.update(new_filter_fields)
-        else:
-            _meta.fields = new_filter_fields
-
-        # Pass modified meta to the super class
-        super(FieldFilter, cls).__init_subclass_with_meta__(_meta=_meta, **options)
-
-    # Abstract methods can be marked using AbstractType. See comment on the init method
-    @classmethod
-    def eq_filter(
-        cls, query, field, val: AbstractType
-    ) -> Union[Tuple[Query, Any], Any]:
-        return field == val
-
-    @classmethod
-    def n_eq_filter(
-        cls, query, field, val: AbstractType
-    ) -> Union[Tuple[Query, Any], Any]:
-        return not_(field == val)
-
-    @classmethod
-    def execute_filters(
-        cls: Type[FieldFilter], query, field, filter_dict: any_field_filter
-    ) -> Tuple[Query, List[Any]]:
-        clauses = []
-        for filt, val in filter_dict.items():
-            clause = getattr(cls, filt + "_filter")(query, field, val)
-            if isinstance(clause, tuple):
-                query, clause = clause
-            clauses.append(clause)
-
-        return query, clauses
-
-
-class StringFilter(FieldFilter):
-    class Meta:
-        type = graphene.String
-
-
-class BooleanFilter(FieldFilter):
-    class Meta:
-        type = graphene.Boolean
-
-
-class OrderedFilter(FieldFilter):
-    class Meta:
-        abstract = True
-
-    @classmethod
-    def gt_filter(cls, query, field, val: AbstractType) -> bool:
-        return field > val
-
-    @classmethod
-    def gte_filter(cls, query, field, val: AbstractType) -> bool:
-        return field >= val
-
-    @classmethod
-    def lt_filter(cls, query, field, val: AbstractType) -> bool:
-        return field < val
-
-    @classmethod
-    def lte_filter(cls, query, field, val: AbstractType) -> bool:
-        return field <= val
-
-
-class NumberFilter(OrderedFilter):
-    """Intermediate Filter class since all Numbers are in an order relationship (support <, > etc)"""
-
-    class Meta:
-        abstract = True
-
-
-class FloatFilter(NumberFilter):
-    """Concrete Filter Class which specifies a type for all the abstract filter methods defined in the super classes"""
-
-    class Meta:
-        type = graphene.Float
-
-
-class IntFilter(NumberFilter):
-    class Meta:
-        type = graphene.Int
-
-
-class DateFilter(OrderedFilter):
-    """Concrete Filter Class which specifies a type for all the abstract filter methods defined in the super classes"""
-
-    class Meta:
-        type = graphene.Date
-
-
-class IdFilter(FieldFilter):
-    class Meta:
-        type = graphene.ID

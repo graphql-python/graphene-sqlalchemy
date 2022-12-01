@@ -1,11 +1,12 @@
 import pytest
+from sqlalchemy.sql.operators import is_
 
 import graphene
 from graphene import Connection, relay
 
 from ..fields import SQLAlchemyConnectionField
 from ..filters import FloatFilter
-from ..types import SQLAlchemyObjectType
+from ..types import ORMField, SQLAlchemyObjectType
 from .models import Article, Editor, HairKind, Image, Pet, Reporter, Tag
 from .utils import to_std_dicts
 
@@ -15,32 +16,39 @@ from .utils import to_std_dicts
 
 
 def add_test_data(session):
-    reporter = Reporter(
-        first_name='John', last_name='Doe', favorite_pet_kind='cat')
+
+    reporter = Reporter(first_name="John", last_name="Doe", favorite_pet_kind="cat")
     session.add(reporter)
-    pet = Pet(name='Garfield', pet_kind='cat', hair_kind=HairKind.SHORT)
+
+    pet = Pet(name="Garfield", pet_kind="cat", hair_kind=HairKind.SHORT)
     pet.reporter = reporter
     session.add(pet)
-    pet = Pet(name='Snoopy', pet_kind='dog', hair_kind=HairKind.SHORT)
+
+    pet = Pet(name="Snoopy", pet_kind="dog", hair_kind=HairKind.SHORT, legs=3)
     pet.reporter = reporter
     session.add(pet)
-    reporter = Reporter(
-        first_name='John', last_name='Woe', favorite_pet_kind='cat')
+
+    reporter = Reporter(first_name="John", last_name="Woe", favorite_pet_kind="cat")
     session.add(reporter)
-    article = Article(headline='Hi!')
+
+    article = Article(headline="Hi!")
     article.reporter = reporter
     session.add(article)
-    article = Article(headline='Hello!')
+
+    article = Article(headline="Hello!")
     article.reporter = reporter
     session.add(article)
-    reporter = Reporter(
-        first_name='Jane', last_name='Roe', favorite_pet_kind='dog')
+
+    reporter = Reporter(first_name="Jane", last_name="Roe", favorite_pet_kind="dog")
     session.add(reporter)
-    pet = Pet(name='Lassie', pet_kind='dog', hair_kind=HairKind.LONG)
+
+    pet = Pet(name="Lassie", pet_kind="dog", hair_kind=HairKind.LONG)
     pet.reporter = reporter
     session.add(pet)
+
     editor = Editor(name="Jack")
     session.add(editor)
+
     session.commit()
 
 
@@ -116,25 +124,23 @@ def test_filter_simple(session):
         "reporters": {"edges": [{"node": {"firstName": "Jane"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={'session': session})
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
 # Test a custom filter type
-@pytest.mark.xfail
 def test_filter_custom_type(session):
     add_test_data(session)
-    Query = create_schema(session)
 
     class MathFilter(FloatFilter):
         class Meta:
-            type = graphene.Float
+            graphene_type = graphene.Float
 
         @classmethod
-        def divisible_by(cls, query, field, val: graphene.Float) -> bool:
-            return field % val == 0.
+        def divisible_by_filter(cls, query, field, val: int) -> bool:
+            return is_(field % val, 0)
 
     class PetType(SQLAlchemyObjectType):
         class Meta:
@@ -143,28 +149,31 @@ def test_filter_custom_type(session):
             interfaces = (relay.Node,)
             connection_class = Connection
 
-    class ExtraQuery:
-        pets = SQLAlchemyConnectionField(
-            PetType.connection, filter=MathFilter()
-        )
+        legs = ORMField(filter_type=MathFilter)
 
-    class CustomQuery(Query, ExtraQuery):
-        pass
+    class Query(graphene.ObjectType):
+        pets = SQLAlchemyConnectionField(PetType.connection)
 
     query = """
         query {
           pets (filter: {
             legs: {divisibleBy: 2}
           }) {
-            name
+            edges {
+                node {
+                    name
+                }
+            }
           }
         }
     """
     expected = {
-        "pets": [{"name": "Garfield"}, {"name": "Lassie"}],
+        "pets": {
+            "edges": [{"node": {"name": "Garfield"}}, {"node": {"name": "Lassie"}}]
+        },
     }
-    schema = graphene.Schema(query=CustomQuery)
-    result = schema.execute(query, context_value={'session': session})
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -172,7 +181,7 @@ def test_filter_custom_type(session):
 
 # Test a 1:1 relationship
 def test_filter_relationship_one_to_one(session):
-    article = Article(headline='Hi!')
+    article = Article(headline="Hi!")
     image = Image(external_id=1, description="A beautiful image.")
     article.image = image
     session.add(article)
@@ -198,7 +207,7 @@ def test_filter_relationship_one_to_one(session):
         "articles": {"edges": [{"node": {"headline": "Hi!"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={'session': session})
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -229,7 +238,7 @@ def test_filter_relationship_one_to_many(session):
         "reporters": {"edges": [{"node": {"lastName": "Woe"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={'session': session})
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -258,7 +267,7 @@ def test_filter_relationship_one_to_many(session):
         "reporters": {"edges": [{"node": {"firstName": "John", "lastName": "Woe"}}]}
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={'session': session})
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -267,8 +276,8 @@ def test_filter_relationship_one_to_many(session):
 # Test a n:m relationship
 @pytest.mark.xfail
 def test_filter_relationship_many_to_many(session):
-    article1 = Article(headline='Article! Look!')
-    article2 = Article(headline='Woah! Another!')
+    article1 = Article(headline="Article! Look!")
+    article2 = Article(headline="Woah! Another!")
     tag1 = Tag(name="sensational")
     tag2 = Tag(name="eye-grabbing")
     article1.tags.append(tag1)
@@ -302,7 +311,7 @@ def test_filter_relationship_many_to_many(session):
         ],
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={'session': session})
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -347,7 +356,7 @@ def test_filter_relationship_many_to_many(session):
         "articles": [{"headline": "Article! Look!"}],
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={'session': session})
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -377,12 +386,14 @@ def test_filter_logic_and(session):
         }
     """
     expected = {
-        "reporters": {"edges": [{"node": {"lastName": "Doe"}}, {"node": {"lastName": "Woe"}}]},
+        "reporters": {
+            "edges": [{"node": {"lastName": "Doe"}}, {"node": {"lastName": "Woe"}}]
+        },
     }
     schema = graphene.Schema(query=Query)
-    with open('schema.gql', 'w') as fp:
+    with open("schema.gql", "w") as fp:
         fp.write(str(schema))
-    result = schema.execute(query, context_value={'session': session})
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -421,7 +432,7 @@ def test_filter_logic_or(session):
         }
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={'session': session})
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -463,7 +474,7 @@ def test_filter_logic_and_or(session):
         }
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={'session': session})
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected

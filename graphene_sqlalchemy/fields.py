@@ -38,30 +38,35 @@ class SQLAlchemyConnectionField(ConnectionField):
     def __init__(self, type_, *args, **kwargs):
         nullable_type = get_nullable_type(type_)
         # Handle Sorting and Filtering
-        if nullable_type and issubclass(nullable_type, Connection):
-            if "sort" not in kwargs:
-                # Let super class raise if type is not a Connection
-                try:
-                    kwargs.setdefault(
-                        "sort", nullable_type.Edge.node._type.sort_argument()
+        if (
+            nullable_type
+            and issubclass(nullable_type, Connection)
+            and "sort" not in kwargs
+        ):
+            # Let super class raise if type is not a Connection
+            try:
+                kwargs.setdefault("sort", nullable_type.Edge.node._type.sort_argument())
+            except (AttributeError, TypeError):
+                raise TypeError(
+                    'Cannot create sort argument for {}. A model is required. Set the "sort" argument'
+                    " to None to disabling the creation of the sort query argument".format(
+                        nullable_type.__name__
                     )
-                except (AttributeError, TypeError):
-                    raise TypeError(
-                        'Cannot create sort argument for {}. A model is required. Set the "sort" argument'
-                        " to None to disabling the creation of the sort query argument".format(
-                            nullable_type.__name__
-                        )
-                    )
-            elif "sort" in kwargs and kwargs["sort"] is None:
-                del kwargs["sort"]
+                )
+        elif "sort" in kwargs and kwargs["sort"] is None:
+            del kwargs["sort"]
 
-            if "filter" not in kwargs:
-                # Only add filtering if a filter argument exists on the object type
-                filter_argument = nullable_type.Edge.node._type.get_filter_argument()
-                if filter_argument:
-                    kwargs.setdefault("filter", filter_argument)
-            elif "filter" in kwargs and kwargs["filter"] is None:
-                del kwargs["filter"]
+        if (
+            nullable_type
+            and issubclass(nullable_type, Connection)
+            and "filter" not in kwargs
+        ):
+            # Only add filtering if a filter argument exists on the object type
+            filter_argument = nullable_type.Edge.node._type.get_filter_argument()
+            if filter_argument:
+                kwargs.setdefault("filter", filter_argument)
+        elif "filter" in kwargs and kwargs["filter"] is None:
+            del kwargs["filter"]
 
         super(SQLAlchemyConnectionField, self).__init__(type_, *args, **kwargs)
 

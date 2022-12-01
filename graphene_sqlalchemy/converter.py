@@ -16,7 +16,6 @@ from graphene.types.json import JSONString
 
 from .batching import get_batch_resolver
 from .enums import enum_for_sa_enum
-from .fields import BatchSQLAlchemyConnectionField, default_connection_field_factory
 from .registry import get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (
@@ -141,10 +140,11 @@ def _convert_o2m_or_m2m_relationship(
     :param dict field_kwargs:
     :rtype: Field
     """
+    from .fields import BatchSQLAlchemyConnectionField, default_connection_field_factory
+
     child_type = obj_type._meta.registry.get_type_for_model(
         relationship_prop.mapper.entity
     )
-
     if not child_type._meta.connection:
         return graphene.Field(graphene.List(child_type), **field_kwargs)
 
@@ -337,7 +337,9 @@ def convert_variant_to_impl_type(type, column, registry=None):
 
 
 @singledispatchbymatchfunction
-def convert_sqlalchemy_hybrid_property_type(arg: Any):
+def convert_sqlalchemy_hybrid_property_type(
+    arg: Any, replace_type_vars: typing.Dict[str, Any] = None
+):
     existing_graphql_type = get_global_registry().get_type_for_model(arg)
     if existing_graphql_type:
         return existing_graphql_type
@@ -345,8 +347,14 @@ def convert_sqlalchemy_hybrid_property_type(arg: Any):
     if isinstance(arg, type(graphene.ObjectType)):
         return arg
 
+    if isinstance(arg, type(graphene.InputObjectType)):
+        return arg
+
     if isinstance(arg, type(graphene.Scalar)):
         return arg
+
+    if replace_type_vars and arg in replace_type_vars:
+        return replace_type_vars[arg]
 
     # No valid type found, warn and fall back to graphene.String
     warnings.warn(
@@ -357,22 +365,22 @@ def convert_sqlalchemy_hybrid_property_type(arg: Any):
 
 
 @convert_sqlalchemy_hybrid_property_type.register(value_equals(str))
-def convert_sqlalchemy_hybrid_property_type_str(arg):
+def convert_sqlalchemy_hybrid_property_type_str(arg, *args, **kwargs):
     return graphene.String
 
 
 @convert_sqlalchemy_hybrid_property_type.register(value_equals(int))
-def convert_sqlalchemy_hybrid_property_type_int(arg):
+def convert_sqlalchemy_hybrid_property_type_int(arg, *args, **kwargs):
     return graphene.Int
 
 
 @convert_sqlalchemy_hybrid_property_type.register(value_equals(float))
-def convert_sqlalchemy_hybrid_property_type_float(arg):
+def convert_sqlalchemy_hybrid_property_type_float(arg, *args, **kwargs):
     return graphene.Float
 
 
 @convert_sqlalchemy_hybrid_property_type.register(value_equals(Decimal))
-def convert_sqlalchemy_hybrid_property_type_decimal(arg):
+def convert_sqlalchemy_hybrid_property_type_decimal(arg, *args, **kwargs):
     # The reason Decimal should be serialized as a String is because this is a
     # base10 type used in things like money, and string allows it to not
     # lose precision (which would happen if we downcasted to a Float, for example)
@@ -380,27 +388,27 @@ def convert_sqlalchemy_hybrid_property_type_decimal(arg):
 
 
 @convert_sqlalchemy_hybrid_property_type.register(value_equals(bool))
-def convert_sqlalchemy_hybrid_property_type_bool(arg):
+def convert_sqlalchemy_hybrid_property_type_bool(arg, *args, **kwargs):
     return graphene.Boolean
 
 
 @convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.datetime))
-def convert_sqlalchemy_hybrid_property_type_datetime(arg):
+def convert_sqlalchemy_hybrid_property_type_datetime(arg, *args, **kwargs):
     return graphene.DateTime
 
 
 @convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.date))
-def convert_sqlalchemy_hybrid_property_type_date(arg):
+def convert_sqlalchemy_hybrid_property_type_date(arg, *args, **kwargs):
     return graphene.Date
 
 
 @convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.time))
-def convert_sqlalchemy_hybrid_property_type_time(arg):
+def convert_sqlalchemy_hybrid_property_type_time(arg, *args, **kwargs):
     return graphene.Time
 
 
 @convert_sqlalchemy_hybrid_property_type.register(value_equals(uuid.UUID))
-def convert_sqlalchemy_hybrid_property_type_uuid(arg):
+def convert_sqlalchemy_hybrid_property_type_uuid(arg, *args, **kwargs):
     return graphene.UUID
 
 
@@ -428,7 +436,7 @@ def graphene_union_for_py_union(
 
 
 @convert_sqlalchemy_hybrid_property_type.register(is_union)
-def convert_sqlalchemy_hybrid_property_union(arg):
+def convert_sqlalchemy_hybrid_property_union(arg, *args, **kwargs):
     """
     Converts Unions (Union[X,Y], or X | Y for python > 3.10) to the corresponding graphene schema object.
     Since Optionals are internally represented as Union[T, <class NoneType>], they are handled here as well.
@@ -446,6 +454,7 @@ def convert_sqlalchemy_hybrid_property_union(arg):
     # Just get the T out of the list of arguments by filtering out the NoneType
     nested_types = list(filter(lambda x: not type(None) == x, arg.__args__))
 
+    # TODO redo this for , *args, **kwargs
     # Map the graphene types to the nested types.
     # We use convert_sqlalchemy_hybrid_property_type instead of the registry to account for ForwardRefs, Lists,...
     graphene_types = list(map(convert_sqlalchemy_hybrid_property_type, nested_types))
@@ -471,20 +480,24 @@ def convert_sqlalchemy_hybrid_property_union(arg):
     )
 
 
-@convert_sqlalchemy_hybrid_property_type.register(
-    lambda x: getattr(x, "__origin__", None) in [list, typing.List]
-)
-def convert_sqlalchemy_hybrid_property_type_list_t(arg):
+def is_list(x):
+    return getattr(x, "__origin__", None) in [list, typing.List]
+
+
+@convert_sqlalchemy_hybrid_property_type.register(is_list)
+def convert_sqlalchemy_hybrid_property_type_list_t(arg, *args, **kwargs):
     # type is either list[T] or List[T], generic argument at __args__[0]
     internal_type = arg.__args__[0]
 
-    graphql_internal_type = convert_sqlalchemy_hybrid_property_type(internal_type)
+    graphql_internal_type = convert_sqlalchemy_hybrid_property_type(
+        internal_type, *args, **kwargs
+    )
 
     return graphene.List(graphql_internal_type)
 
 
 @convert_sqlalchemy_hybrid_property_type.register(safe_isinstance(ForwardRef))
-def convert_sqlalchemy_hybrid_property_forwardref(arg):
+def convert_sqlalchemy_hybrid_property_forwardref(arg, *args, **kwargs):
     """
     Generate a lambda that will resolve the type at runtime
     This takes care of self-references
@@ -502,12 +515,11 @@ def convert_sqlalchemy_hybrid_property_forwardref(arg):
 
 
 @convert_sqlalchemy_hybrid_property_type.register(safe_isinstance(str))
-def convert_sqlalchemy_hybrid_property_bare_str(arg):
+def convert_sqlalchemy_hybrid_property_bare_str(arg, *args, **kwargs):
     """
     Convert Bare String into a ForwardRef
     """
-
-    return convert_sqlalchemy_hybrid_property_type(ForwardRef(arg))
+    return convert_sqlalchemy_hybrid_property_type(ForwardRef(arg), *args, **kwargs)
 
 
 def convert_hybrid_property_return_type(hybrid_prop):
