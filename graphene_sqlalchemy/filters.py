@@ -18,7 +18,7 @@ ObjectTypeFilterSelf = TypeVar(
 
 def _get_functions_by_regex(
     regex: str, subtract_regex: str, class_: Type
-) -> list[Tuple[str, dict[str, Any]]]:
+) -> List[Tuple[str, Dict[str, Any]]]:
     function_regex = re.compile(regex)
 
     matching_functions = []
@@ -262,7 +262,7 @@ class FieldFilter(graphene.InputObjectType):
 
     @classmethod
     def execute_filters(
-        cls, query, field, filter_dict: dict[str, any]
+        cls, query, field, filter_dict: Dict[str, any]
     ) -> Tuple[Query, List[Any]]:
         clauses = []
         for filt, val in filter_dict.items():
