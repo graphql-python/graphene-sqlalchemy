@@ -469,19 +469,20 @@ async def test_mutation(session, session_factory):
     assert result == expected
 
 
-def add_person_data(session):
+async def add_person_data(session):
     bob = Employee(name="Bob", birth_date=date(1990, 1, 1), hire_date=date(2015, 1, 1))
     session.add(bob)
     joe = Employee(name="Joe", birth_date=date(1980, 1, 1), hire_date=date(2010, 1, 1))
     session.add(joe)
     jen = Employee(name="Jen", birth_date=date(1995, 1, 1), hire_date=date(2020, 1, 1))
     session.add(jen)
-    session.commit()
+    await eventually_await_session(session, "commit")
 
 
-def test_interface_query_on_base_type(sync_session_factory):
-    session = sync_session_factory()
-    add_person_data(session)
+@pytest.mark.asyncio
+async def test_interface_query_on_base_type(session_factory):
+    session = session_factory()
+    await add_person_data(session)
 
     class PersonType(SQLAlchemyInterface):
         class Meta:
@@ -495,11 +496,13 @@ def test_interface_query_on_base_type(sync_session_factory):
     class Query(graphene.ObjectType):
         people = graphene.Field(graphene.List(PersonType))
 
-        def resolve_people(self, _info):
+        async def resolve_people(self, _info):
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
+                return (await session.scalars(select(Person))).all()
             return session.query(Person).all()
 
     schema = graphene.Schema(query=Query, types=[PersonType, EmployeeType])
-    result = schema.execute(
+    result = await schema.execute_async(
         """
         query {
             people {

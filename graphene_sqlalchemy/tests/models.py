@@ -310,6 +310,7 @@ class Person(Base):
     __tablename__ = "person"
     __mapper_args__ = {
         "polymorphic_on": type,
+        "with_polymorphic": "*",  # needed for eager loading in async session
     }
 
 
