@@ -18,15 +18,10 @@ class Registry(object):
         self._registry_unions = {}
 
     def register(self, obj_type):
+        from .types import SQLAlchemyBase
 
-        from .types import SQLAlchemyObjectType
-
-        if not isinstance(obj_type, type) or not issubclass(
-            obj_type, SQLAlchemyObjectType
-        ):
-            raise TypeError(
-                "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
-            )
+        if not isinstance(obj_type, type) or not issubclass(obj_type, SQLAlchemyBase):
+            raise TypeError("Expected SQLAlchemyBase, but got: {!r}".format(obj_type))
         assert obj_type._meta.registry == self, "Registry for a Model have to match."
         # assert self.get_type_for_model(cls._meta.model) in [None, cls], (
         #     'SQLAlchemy model "{}" already associated with '
@@ -38,14 +33,10 @@ class Registry(object):
         return self._registry.get(model)
 
     def register_orm_field(self, obj_type, field_name, orm_field):
-        from .types import SQLAlchemyObjectType
+        from .types import SQLAlchemyBase
 
-        if not isinstance(obj_type, type) or not issubclass(
-            obj_type, SQLAlchemyObjectType
-        ):
-            raise TypeError(
-                "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
-            )
+        if not isinstance(obj_type, type) or not issubclass(obj_type, SQLAlchemyBase):
+            raise TypeError("Expected SQLAlchemyBase, but got: {!r}".format(obj_type))
         if not field_name or not isinstance(field_name, str):
             raise TypeError("Expected a field name, but got: {!r}".format(field_name))
         self._registry_orm_fields[obj_type][field_name] = orm_field

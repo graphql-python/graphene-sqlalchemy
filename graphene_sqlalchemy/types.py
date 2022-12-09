@@ -9,6 +9,8 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from graphene import Field
 from graphene.relay import Connection, Node
+from graphene.types.base import BaseType
+from graphene.types.interface import Interface, InterfaceOptions
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
 from graphene.utils.orderedtype import OrderedType
@@ -105,6 +107,18 @@ class ORMField(OrderedType):
         self.kwargs.update(common_kwargs)
 
 
+def get_polymorphic_on(model):
+    """
+    Check whether this model is a polymorphic type, and if so return the name
+    of the discriminator field (`polymorphic_on`), so that it won't be automatically
+    generated as an ORMField.
+    """
+    if hasattr(model, "__mapper__") and model.__mapper__.polymorphic_on is not None:
+        polymorphic_on = model.__mapper__.polymorphic_on
+        if isinstance(polymorphic_on, sqlalchemy.Column):
+            return polymorphic_on.name
+
+
 def construct_fields(
     obj_type,
     model,
@@ -144,10 +158,13 @@ def construct_fields(
     )
 
     # Filter out excluded fields
+    polymorphic_on = get_polymorphic_on(model)
     auto_orm_field_names = []
     for attr_name, attr in all_model_attrs.items():
-        if (only_fields and attr_name not in only_fields) or (
-            attr_name in exclude_fields
+        if (
+            (only_fields and attr_name not in only_fields)
+            or (attr_name in exclude_fields)
+            or attr_name == polymorphic_on
         ):
             continue
         auto_orm_field_names.append(attr_name)
@@ -222,14 +239,12 @@ def construct_fields(
     return fields
 
 
-class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
-    model = None  # type: sqlalchemy.Model
-    registry = None  # type: sqlalchemy.Registry
-    connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
-    id = None  # type: str
+class SQLAlchemyBase(BaseType):
+    """
+    This class contains initialization code that is common to both ObjectTypes
+    and Interfaces.  You typically don't need to use it directly.
+    """
 
-
-class SQLAlchemyObjectType(ObjectType):
     @classmethod
     def __init_subclass_with_meta__(
         cls,
@@ -248,6 +263,11 @@ class SQLAlchemyObjectType(ObjectType):
         _meta=None,
         **options
     ):
+        # We always want to bypass this hook unless we're defining a concrete
+        # `SQLAlchemyObjectType` or `SQLAlchemyInterface`.
+        if not _meta:
+            return
+
         # Make sure model is a valid SQLAlchemy model
         if not is_mapped_class(model):
             raise ValueError(
@@ -301,9 +321,6 @@ class SQLAlchemyObjectType(ObjectType):
                 "The connection must be a Connection. Received {}"
             ).format(connection.__name__)
 
-        if not _meta:
-            _meta = SQLAlchemyObjectTypeOptions(cls)
-
         _meta.model = model
         _meta.registry = registry
 
@@ -317,7 +334,7 @@ class SQLAlchemyObjectType(ObjectType):
 
         cls.connection = connection  # Public way to get the connection
 
-        super(SQLAlchemyObjectType, cls).__init_subclass_with_meta__(
+        super(SQLAlchemyBase, cls).__init_subclass_with_meta__(
             _meta=_meta, interfaces=interfaces, **options
         )
 
@@ -374,3 +391,105 @@ class SQLAlchemyObjectType(ObjectType):
     sort_enum = classmethod(sort_enum_for_object_type)
 
     sort_argument = classmethod(sort_argument_for_object_type)
+
+
+class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
+    model = None  # type: sqlalchemy.Model
+    registry = None  # type: sqlalchemy.Registry
+    connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
+    id = None  # type: str
+
+
+class SQLAlchemyObjectType(SQLAlchemyBase, ObjectType):
+    """
+    This type represents the GraphQL ObjectType. It reflects on the
+    given SQLAlchemy model, and automatically generates an ObjectType
+    using the column and relationship information defined there.
+
+    Usage:
+
+        class MyModel(Base):
+            id = Column(Integer(), primary_key=True)
+            name = Column(String())
+
+        class MyType(SQLAlchemyObjectType):
+            class Meta:
+                model = MyModel
+    """
+
+    @classmethod
+    def __init_subclass_with_meta__(cls, _meta=None, **options):
+        if not _meta:
+            _meta = SQLAlchemyObjectTypeOptions(cls)
+
+        super(SQLAlchemyObjectType, cls).__init_subclass_with_meta__(
+            _meta=_meta, **options
+        )
+
+
+class SQLAlchemyInterfaceOptions(InterfaceOptions):
+    model = None  # type: sqlalchemy.Model
+    registry = None  # type: sqlalchemy.Registry
+    connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
+    id = None  # type: str
+
+
+class SQLAlchemyInterface(SQLAlchemyBase, Interface):
+    """
+    This type represents the GraphQL Interface. It reflects on the
+    given SQLAlchemy model, and automatically generates an Interface
+    using the column and relationship information defined there. This
+    is used to construct interface relationships based on polymorphic
+    inheritance hierarchies in SQLAlchemy.
+
+    Please note that by default, the "polymorphic_on" column is *not*
+    generated as a field on types that use polymorphic inheritance, as
+    this is considered an implentation detail. The idiomatic way to
+    retrieve the concrete GraphQL type of an object is to query for the
+    `__typename` field.
+
+    Usage (using joined table inheritance):
+
+        class MyBaseModel(Base):
+            id = Column(Integer(), primary_key=True)
+            type = Column(String())
+            name = Column(String())
+
+        __mapper_args__ = {
+            "polymorphic_on": type,
+        }
+
+        class MyChildModel(Base):
+            date = Column(Date())
+
+        __mapper_args__ = {
+            "polymorphic_identity": "child",
+        }
+
+        class MyBaseType(SQLAlchemyInterface):
+            class Meta:
+                model = MyBaseModel
+
+        class MyChildType(SQLAlchemyObjectType):
+            class Meta:
+                model = MyChildModel
+                interfaces = (MyBaseType,)
+    """
+
+    @classmethod
+    def __init_subclass_with_meta__(cls, _meta=None, **options):
+        if not _meta:
+            _meta = SQLAlchemyInterfaceOptions(cls)
+
+        super(SQLAlchemyInterface, cls).__init_subclass_with_meta__(
+            _meta=_meta, **options
+        )
+
+        # make sure that the model doesn't have a polymorphic_identity defined
+        if hasattr(_meta.model, "__mapper__"):
+            polymorphic_identity = _meta.model.__mapper__.polymorphic_identity
+            assert (
+                polymorphic_identity is None
+            ), '{}: An interface cannot map to a concrete type (polymorphic_identity is "{}")'.format(
+                cls.__name__, polymorphic_identity
+            )
