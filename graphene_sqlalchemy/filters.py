@@ -60,7 +60,6 @@ class ObjectTypeFilter(graphene.InputObjectType):
             # If type is generic, replace with actual type of filter class
 
             replace_type_vars = {ObjectTypeFilterSelf: cls}
-
             field_type = convert_sqlalchemy_hybrid_property_type(
                 _annotations.get("val", str), replace_type_vars=replace_type_vars
             )
@@ -72,6 +71,9 @@ class ObjectTypeFilter(graphene.InputObjectType):
         else:
             _meta.fields = filter_fields
         _meta.fields.update(new_filter_fields)
+
+        for field in _meta.fields:
+            print(f"Added field {field} of type {_meta.fields[field].type}")
 
         _meta.model = model
 
@@ -164,10 +166,15 @@ class ObjectTypeFilter(graphene.InputObjectType):
                     joined_model = field_filter_type._meta.model
                     # Always alias the model
                     joined_model_alias = aliased(joined_model)
-
                     # Join the aliased model onto the query
                     query = query.join(model_field.of_type(joined_model_alias))
 
+                    if model_alias:
+                        print("=======================")
+                        print(
+                            f"joining model {joined_model} on {model_alias} with alias {joined_model_alias}"
+                        )
+                        print(str(query))
                     # Pass the joined query down to the next object type filter for processing
                     query, _clauses = field_filter_type.execute_filters(
                         query, field_filters, model_alias=joined_model_alias
@@ -176,6 +183,13 @@ class ObjectTypeFilter(graphene.InputObjectType):
                 if issubclass(field_filter_type, RelationshipFilter):
                     # TODO see above; not yet working
                     relationship_prop = field_filter_type._meta.model
+                    # Always alias the model
+                    # joined_model_alias = aliased(relationship_prop)
+
+                    # Join the aliased model onto the query
+                    # query = query.join(model_field.of_type(joined_model_alias))
+                    # todo should we use selectinload here instead of join for large lists?
+
                     query, _clauses = field_filter_type.execute_filters(
                         query, model_field, field_filters, relationship_prop
                     )
@@ -184,6 +198,7 @@ class ObjectTypeFilter(graphene.InputObjectType):
                     query, _clauses = field_filter_type.execute_filters(
                         query, model_field, field_filters
                     )
+                    print([str(cla) for cla in _clauses])
                     clauses.extend(_clauses)
 
         return query, clauses
@@ -386,26 +401,42 @@ class RelationshipFilter(graphene.InputObjectType):
             _meta.fields = relationship_filters
 
         _meta.model = model
-
+        _meta.object_type_filter = object_type_filter
         super(RelationshipFilter, cls).__init_subclass_with_meta__(
             _meta=_meta, **options
         )
 
     @classmethod
-    def contains_filter(cls, query, field, val: List[ScalarFilterInputType]):
+    def contains_filter(
+        cls, query, field, relationship_prop, val: List[ScalarFilterInputType]
+    ):
         clauses = []
         for v in val:
-            query, clauses = v.execute_filters(query, dict(v))
-            clauses += clauses
-        return clauses
+            print("executing contains filter", v)
+            # Always alias the model
+            joined_model_alias = aliased(relationship_prop)
+
+            # Join the aliased model onto the query
+            query = query.join(field.of_type(joined_model_alias))
+            print("Joined model", relationship_prop)
+            print(query)
+            # pass the alias so group can join group
+            query, _clauses = cls._meta.object_type_filter.execute_filters(
+                query, v, model_alias=joined_model_alias
+            )
+            # print(query)
+            clauses += _clauses
+        return query, clauses
 
     @classmethod
-    def contains_exactly_filter(cls, query, field, val: List[ScalarFilterInputType]):
+    def contains_exactly_filter(
+        cls, query, field, relationship_prop, val: List[ScalarFilterInputType]
+    ):
         clauses = []
         for v in val:
-            query, clauses = v.execute_filters(query, dict(v))
-            clauses += clauses
-        return clauses
+            query, _clauses = v.execute_filters(query, dict(v))
+            clauses += _clauses
+        return query, clauses
 
     @classmethod
     def execute_filters(
@@ -414,6 +445,9 @@ class RelationshipFilter(graphene.InputObjectType):
         query, clauses = (query, [])
 
         for filt, val in filter_dict.items():
-            clauses += getattr(cls, filt + "_filter")(query, field, val)
+            query, _clauses = getattr(cls, filt + "_filter")(
+                query, field, relationship_prop, val
+            )
+            clauses += _clauses
 
-        return query.join(field), clauses
+        return query, clauses

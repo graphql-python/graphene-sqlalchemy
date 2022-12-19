@@ -96,9 +96,11 @@ class SQLAlchemyConnectionField(ConnectionField):
             assert isinstance(filter, dict)
             filter_type: ObjectTypeFilter = type(filter)
             query, clauses = filter_type.execute_filters(query, filter)
-
+            print("Query before filter")
+            print(query)
+            print([str(cla) for cla in clauses])
             query = query.filter(*clauses)
-
+        print(query)
         return query
 
     @classmethod

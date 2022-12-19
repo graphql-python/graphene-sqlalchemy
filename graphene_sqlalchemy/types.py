@@ -142,7 +142,7 @@ def filter_field_from_type_field(
     filter_type: Optional[Type],
 ) -> Optional[Union[graphene.InputField, graphene.Dynamic]]:
     # If a custom filter type was set for this field, use it here
-    print(field)
+    # print(field)
     if filter_type:
         return graphene.InputField(filter_type)
     # fixme one test case fails where, find out why
@@ -151,6 +151,10 @@ def filter_field_from_type_field(
         return graphene.InputField(filter_class)
 
     elif isinstance(field.type, graphene.List):
+        print("got field with list type")
+        pass
+    elif isinstance(field, graphene.List):
+        print("Got list")
         pass
     elif isinstance(field.type, graphene.Dynamic):
         pass
@@ -174,6 +178,13 @@ def filter_field_from_type_field(
                     print(type_)
                 return graphene.InputField(reg_res)
             elif isinstance(type_, Field):
+                if isinstance(type_.type, graphene.List):
+                    inner_type = get_nullable_type(type_.type.of_type)
+                    reg_res = get_or_create_relationship_filter(inner_type, registry)
+                    if not reg_res:
+                        print("filter class was none!!!")
+                        print(type_)
+                    return graphene.InputField(reg_res)
                 reg_res = registry.get_filter_for_object_type(type_.type)
 
                 return graphene.InputField(reg_res)
@@ -185,6 +196,10 @@ def filter_field_from_type_field(
 
     elif isinstance(field, graphene.Field):
         type_ = get_nullable_type(field.type)
+        # Field might be a SQLAlchemyObjectType, due to hybrid properties
+        if issubclass(type_, SQLAlchemyObjectType):
+            filter_class = registry.get_filter_for_object_type(type_)
+            return graphene.InputField(filter_class)
         filter_class = registry.get_filter_for_scalar_type(type_)
         if not filter_class:
             warnings.warn(
