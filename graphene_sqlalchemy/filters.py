@@ -414,8 +414,8 @@ class RelationshipFilter(graphene.InputObjectType):
             query, _clauses = cls._meta.object_type_filter.execute_filters(
                 query, v, model_alias=joined_model_alias
             )
-            clauses += _clauses
-        return query, clauses
+            clauses.append(and_(*_clauses))
+        return query, [or_(*clauses)]
 
     @classmethod
     def contains_exactly_filter(
@@ -428,8 +428,8 @@ class RelationshipFilter(graphene.InputObjectType):
         for v in val:
             # vals.append(dict(v))
             # print(dict(v))
-            query, clauses = v.execute_filters(query, dict(v))
-            clauses += clauses
+            query, _clauses = v.execute_filters(query, dict(v))
+            clauses += _clauses
         # query, clauses = v.execute_filters(query, all_(vals))
         # clauses = [or_(*clauses)]
         # print(query)
