@@ -70,5 +70,8 @@ target/
 *.sqlite3
 .vscode
 
+# Schema
+*.gql
+
 # mypy cache
 .mypy_cache/

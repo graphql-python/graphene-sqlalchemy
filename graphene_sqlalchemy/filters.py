@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, List, Tuple, Type, TypeVar, Union, get_type_hints
+from typing import Any, Dict, List, Tuple, Type, TypeVar, Union
 
 from sqlalchemy import and_, not_, or_
 from sqlalchemy.orm import Query, aliased
@@ -182,6 +182,8 @@ class ObjectTypeFilter(graphene.InputObjectType):
                     clauses.extend(_clauses)
                 if issubclass(field_filter_type, RelationshipFilter):
                     # TODO see above; not yet working
+                    print("ObjectType execute_filters: ", query, field_filters)
+                    print(model_field, field_filter_type)
                     relationship_prop = field_filter_type._meta.model
                     # Always alias the model
                     # joined_model_alias = aliased(relationship_prop)
@@ -363,19 +365,7 @@ class RelationshipFilter(graphene.InputObjectType):
             _meta = InputObjectTypeOptions(cls)
 
         # get all filter functions
-        filter_function_regex = re.compile(".+_filter$")
-
-        filter_functions = []
-
-        # Search the entire class for functions matching the filter regex
-        for func in dir(cls):
-            func_attr = getattr(cls, func)
-            # Check if attribute is a function
-            if callable(func_attr) and filter_function_regex.match(func):
-                # add function and attribute name to the list
-                filter_functions.append(
-                    (re.sub("_filter$", "", func), get_type_hints(func_attr))
-                )
+        filter_functions = _get_functions_by_regex(".+_filter$", "_filter$", cls)
 
         relationship_filters = {}
 
@@ -424,7 +414,6 @@ class RelationshipFilter(graphene.InputObjectType):
             query, _clauses = cls._meta.object_type_filter.execute_filters(
                 query, v, model_alias=joined_model_alias
             )
-            # print(query)
             clauses += _clauses
         return query, clauses
 
@@ -433,9 +422,18 @@ class RelationshipFilter(graphene.InputObjectType):
         cls, query, field, relationship_prop, val: List[ScalarFilterInputType]
     ):
         clauses = []
+        print("Contains exactly: ", query, val)
+        # query, clauses = v.execute_filters(query, all_(val(items)))
+        # vals = []
         for v in val:
-            query, _clauses = v.execute_filters(query, dict(v))
-            clauses += _clauses
+            # vals.append(dict(v))
+            # print(dict(v))
+            query, clauses = v.execute_filters(query, dict(v))
+            clauses += clauses
+        # query, clauses = v.execute_filters(query, all_(vals))
+        # clauses = [or_(*clauses)]
+        # print(query)
+        # print(clauses)
         return query, clauses
 
     @classmethod

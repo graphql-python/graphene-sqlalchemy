@@ -142,7 +142,6 @@ def filter_field_from_type_field(
     filter_type: Optional[Type],
 ) -> Optional[Union[graphene.InputField, graphene.Dynamic]]:
     # If a custom filter type was set for this field, use it here
-    # print(field)
     if filter_type:
         return graphene.InputField(filter_type)
     # fixme one test case fails where, find out why

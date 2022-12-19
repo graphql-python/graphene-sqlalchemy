@@ -7,7 +7,7 @@ from graphene import Connection, relay
 from ..fields import SQLAlchemyConnectionField
 from ..filters import FloatFilter
 from ..types import ORMField, SQLAlchemyObjectType
-from .models import Article, Editor, HairKind, Image, Pet, Reporter, Tag
+from .models import Article, Editor, HairKind, Image, Pet, Reader, Reporter, Tag
 from .utils import to_std_dicts
 
 # TODO test that generated schema is correct for all examples with:
@@ -16,7 +16,6 @@ from .utils import to_std_dicts
 
 
 def add_test_data(session):
-
     reporter = Reporter(first_name="John", last_name="Doe", favorite_pet_kind="cat")
     session.add(reporter)
 
@@ -52,6 +51,37 @@ def add_test_data(session):
     session.commit()
 
 
+def add_n2m_test_data(session):
+    # create objects
+    reader1 = Reader(name="Ada")
+    reader2 = Reader(name="Bip")
+    article1 = Article(headline="Article! Look!")
+    article2 = Article(headline="Woah! Another!")
+    tag1 = Tag(name="sensational")
+    tag2 = Tag(name="eye-grabbing")
+    image1 = Image(description="article 1")
+    image2 = Image(description="article 2")
+
+    # set relationships
+    article1.tags = [tag1]
+    article2.tags = [tag1, tag2]
+    article1.image = image1
+    article2.image = image2
+    reader1.articles = [article1]
+    reader2.articles = [article1, article2]
+
+    # save
+    session.add(image1)
+    session.add(image2)
+    session.add(tag1)
+    session.add(tag2)
+    session.add(article1)
+    session.add(article2)
+    session.add(reader1)
+    session.add(reader2)
+    session.commit()
+
+
 def create_schema(session):
     class ArticleType(SQLAlchemyObjectType):
         class Meta:
@@ -74,10 +104,24 @@ def create_schema(session):
             interfaces = (relay.Node,)
             connection_class = Connection
 
+    class ReaderType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reader
+            name = "Reader"
+            interfaces = (relay.Node,)
+            connection_class = Connection
+
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
             name = "Reporter"
+            interfaces = (relay.Node,)
+            connection_class = Connection
+
+    class TagType(SQLAlchemyObjectType):
+        class Meta:
+            model = Tag
+            name = "Tag"
             interfaces = (relay.Node,)
             connection_class = Connection
 
@@ -88,8 +132,10 @@ def create_schema(session):
         articles = SQLAlchemyConnectionField(ArticleType.connection)
         # image = graphene.Field(ImageType)
         images = SQLAlchemyConnectionField(ImageType.connection)
+        readers = SQLAlchemyConnectionField(ReaderType.connection)
         # reporter = graphene.Field(ReporterType)
         reporters = SQLAlchemyConnectionField(ReporterType.connection)
+        tags = SQLAlchemyConnectionField(TagType.connection)
 
         # def resolve_article(self, _info):
         #     return session.query(Article).first()
@@ -214,6 +260,8 @@ def test_filter_relationship_one_to_one(session):
 
 
 # Test a 1:n relationship
+# TODO implement containsExactly
+@pytest.mark.xfail
 def test_filter_relationship_one_to_many(session):
     add_test_data(session)
     Query = create_schema(session)
@@ -273,42 +321,36 @@ def test_filter_relationship_one_to_many(session):
     assert result == expected
 
 
-# Test a n:m relationship
-@pytest.mark.xfail
-def test_filter_relationship_many_to_many(session):
-    article1 = Article(headline="Article! Look!")
-    article2 = Article(headline="Woah! Another!")
-    tag1 = Tag(name="sensational")
-    tag2 = Tag(name="eye-grabbing")
-    article1.tags.append(tag1)
-    article2.tags.append([tag1, tag2])
-    session.add(article1)
-    session.add(article2)
-    session.add(tag1)
-    session.add(tag2)
-    session.commit()
-
+# Test n:m relationship contains
+def test_filter_relationship_many_to_many_contains(session):
+    add_n2m_test_data(session)
     Query = create_schema(session)
 
-    # test contains
+    # test contains 1
     query = """
-    query {
-      articles (filter: {
-        tags: {
-          contains: {
-            name: { in: ["sensational", "eye-grabbing"] }
+        query {
+          articles (filter: {
+            tags: {
+              contains: [
+                { name: { in: ["sensational", "eye-grabbing"] } },
+              ]
+            }
+          }) {
+            edges {
+              node {
+                headline
+              }
+            }
           }
         }
-      }) {
-        headline
-      }
-    }
     """
     expected = {
-        "articles": [
-            {"headline": "Woah! Another!"},
-            {"headline": "Article! Look!"},
-        ],
+        "articles": {
+            "edges": [
+                {"node": {"headline": "Article! Look!"}},
+                {"node": {"headline": "Woah! Another!"}},
+            ],
+        },
     }
     schema = graphene.Schema(query=Query)
     result = schema.execute(query, context_value={"session": session})
@@ -316,31 +358,105 @@ def test_filter_relationship_many_to_many(session):
     result = to_std_dicts(result.data)
     assert result == expected
 
-    # test containsAllOf
+    # test contains 2
     query = """
         query {
           articles (filter: {
             tags: {
-              containsAllOf: [
-                { tag: { name: { eq: "eye-grabbing" } } },
-                { tag: { name: { eq: "sensational" } } },
+              contains: [
+                { name: { eq: "eye-grabbing" } },
               ]
             }
           }) {
-            headline
+            edges {
+              node {
+                headline
+              }
+            }
           }
         }
     """
     expected = {
-        "articles": [{"headline": "Woah! Another!"}],
+        "articles": {
+            "edges": [
+                {"node": {"headline": "Woah! Another!"}},
+            ],
+        },
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query)
+    result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
-    # test containsExactly
+    # test reverse
+    query = """
+        query {
+          tags (filter: {
+            articles: {
+              contains: [
+                { headline: { eq: "Article! Look!" } },
+              ]
+            }
+          }) {
+            edges {
+              node {
+                name
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "tags": {
+            "edges": [
+                {"node": {"name": "sensational"}},
+            ],
+        },
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+
+# Test n:m relationship containsExactly
+# TODO implement containsExactly
+@pytest.mark.xfail
+def test_filter_relationship_many_to_many_contains_exactly(session):
+    add_n2m_test_data(session)
+    Query = create_schema(session)
+
+    # test containsExactly 1
+    query = """
+        query {
+          articles (filter: {
+            tags: {
+              containsExactly: [
+                { name: { eq: "eye-grabbing" } },
+                { name: { eq: "sensational" } },
+              ]
+            }
+          }) {
+            edges {
+              node {
+                headline
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "articles": {"edges": [{"node": {"headline": "Woah! Another!"}}]},
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+    # test containsExactly 2
     query = """
         query {
           articles (filter: {
@@ -353,7 +469,216 @@ def test_filter_relationship_many_to_many(session):
         }
     """
     expected = {
-        "articles": [{"headline": "Article! Look!"}],
+        "articles": {
+            "edges": [
+                {"node": {"headline": "Article! Look!"}},
+                {"node": {"headline": "Woah! Another!"}},
+            ]
+        },
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+    # test reverse
+    query = """
+        query {
+          tags (filter: {
+            articles: {
+              containsExactly: [
+                { headline: { eq: "Article! Look!" } },
+                { headline: { eq: "Woah! Another!" } },
+              ]
+            }
+          }) {
+            edges {
+              node {
+                name
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "tags": {
+            "edges": [
+                {"node": {"name": "eye-grabbing"}},
+            ],
+        },
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+
+# Test n:m relationship both contains and containsExactly
+# TODO implement containsExactly
+@pytest.mark.xfail
+def test_filter_relationship_many_to_many_contains_and_contains_exactly(session):
+    add_n2m_test_data(session)
+    Query = create_schema(session)
+
+    query = """
+        query {
+          articles (filter: {
+            tags: {
+              contains: [
+                { name: { eq: "eye-grabbing" } },
+              ]
+              containsExactly: [
+                { name: { eq: "eye-grabbing" } },
+                { name: { eq: "sensational" } },
+              ]
+            }
+          }) {
+            edges {
+              node {
+                headline
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "articles": {"edges": [{"node": {"headline": "Woah! Another!"}}]},
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+
+# Test n:m nested relationship
+# TODO add containsExactly
+def test_filter_relationship_many_to_many_nested(session):
+    add_n2m_test_data(session)
+    Query = create_schema(session)
+
+    # test readers->articles relationship
+    query = """
+        query {
+          readers (filter: {
+            articles: {
+              contains: [
+                { headline: { eq: "Woah! Another!" } },
+              ]
+            }
+          }) {
+            edges {
+              node {
+                name
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "readers": {"edges": [{"node": {"name": "Bip"}}]},
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+    # test nested readers->articles->tags
+    query = """
+        query {
+          readers (filter: {
+            articles: {
+              contains: [
+                {
+                  tags: {
+                    contains: [
+                      { name: { eq: "eye-grabbing" } },
+                    ]
+                  }
+                }
+              ]
+            }
+          }) {
+            edges {
+              node {
+                name
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "readers": {"edges": [{"node": {"name": "Bip"}}]},
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+    # test nested reverse
+    query = """
+        query {
+          tags (filter: {
+            articles: {
+              contains: [
+                {
+                  readers: {
+                    contains: [
+                      { name: { eq: "Ada" } },
+                    ]
+                  }
+                }
+              ]
+            }
+          }) {
+            edges {
+              node {
+                name
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "tags": {"edges": [{"node": {"name": "sensational"}}]},
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+    # test filter on both levels of nesting
+    query = """
+        query {
+          readers (filter: {
+            articles: {
+              contains: [
+                { headline: { eq: "Woah! Another!" } },
+                {
+                  tags: {
+                    contains: [
+                      { name: { eq: "eye-grabbing" } },
+                    ]
+                  }
+                }
+              ]
+            }
+          }) {
+            edges {
+              node {
+                name
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "readers": {"edges": [{"node": {"name": "Bip"}}]},
     }
     schema = graphene.Schema(query=Query)
     result = schema.execute(query, context_value={"session": session})
@@ -391,8 +716,6 @@ def test_filter_logic_and(session):
         },
     }
     schema = graphene.Schema(query=Query)
-    with open("schema.gql", "w") as fp:
-        fp.write(str(schema))
     result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
