@@ -21,10 +21,13 @@ requirements = [
 
 tests_require = [
     "pytest>=6.2.0,<7.0",
-    "pytest-asyncio>=0.15.1",
+    "pytest-asyncio>=0.18.3",
     "pytest-cov>=2.11.0,<3.0",
     "sqlalchemy_utils>=0.37.0,<1.0",
     "pytest-benchmark>=3.4.0,<4.0",
+    "aiosqlite>=0.17.0",
+    "nest-asyncio",
+    "greenlet",
 ]
 
 setup(

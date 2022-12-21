@@ -4,6 +4,9 @@ from unittest import mock
 import pytest
 import sqlalchemy.exc
 import sqlalchemy.orm.exc
+from graphql.pyutils import is_awaitable
+from sqlalchemy import select
+
 from graphene import (
     Boolean,
     Dynamic,
@@ -20,7 +23,6 @@ from graphene import (
 )
 from graphene.relay import Connection
 
-from .models import Article, CompositeFullName, Employee, Person, Pet, Reporter, NonAbstractPerson
 from .. import utils
 from ..converter import convert_sqlalchemy_composite
 from ..fields import (
@@ -36,11 +38,26 @@ from ..types import (
     SQLAlchemyObjectType,
     SQLAlchemyObjectTypeOptions,
 )
+from ..utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4
+from .models import (
+    Article,
+    CompositeFullName,
+    Employee,
+    NonAbstractPerson,
+    Person,
+    Pet,
+    Reporter,
+)
+from .utils import eventually_await_session
+
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def test_should_raise_if_no_model():
     re_err = r"valid SQLAlchemy Model"
     with pytest.raises(Exception, match=re_err):
+
         class Character1(SQLAlchemyObjectType):
             pass
 
@@ -48,12 +65,14 @@ def test_should_raise_if_no_model():
 def test_should_raise_if_model_is_invalid():
     re_err = r"valid SQLAlchemy Model"
     with pytest.raises(Exception, match=re_err):
+
         class Character(SQLAlchemyObjectType):
             class Meta:
                 model = 1
 
 
-def test_sqlalchemy_node(session):
+@pytest.mark.asyncio
+async def test_sqlalchemy_node(session):
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
@@ -64,9 +83,11 @@ def test_sqlalchemy_node(session):
 
     reporter = Reporter()
     session.add(reporter)
-    session.commit()
+    await eventually_await_session(session, "commit")
     info = mock.Mock(context={"session": session})
     reporter_node = ReporterType.get_node(info, reporter.id)
+    if is_awaitable(reporter_node):
+        reporter_node = await reporter_node
     assert reporter == reporter_node
 
 
@@ -97,7 +118,7 @@ def test_sqlalchemy_default_fields():
     assert sorted(list(ReporterType._meta.fields.keys())) == sorted(
         [
             # Columns
-            "column_prop",
+            "column_prop",  # SQLAlchemy retuns column properties first
             "id",
             "first_name",
             "last_name",
@@ -320,6 +341,7 @@ def test_invalid_model_attr():
         "Cannot map ORMField to a model attribute.\n" "Field: 'ReporterType.first_name'"
     )
     with pytest.raises(ValueError, match=err_msg):
+
         class ReporterType(SQLAlchemyObjectType):
             class Meta:
                 model = Reporter
@@ -373,6 +395,7 @@ def test_exclude_fields():
 def test_only_and_exclude_fields():
     re_err = r"'only_fields' and 'exclude_fields' cannot be both set"
     with pytest.raises(Exception, match=re_err):
+
         class ReporterType(SQLAlchemyObjectType):
             class Meta:
                 model = Reporter
@@ -392,8 +415,18 @@ def test_sqlalchemy_redefine_field():
     assert first_name_field.type == Int
 
 
-def test_resolvers(session):
+@pytest.mark.asyncio
+async def test_resolvers(session):
     """Test that the correct resolver functions are called"""
+
+    reporter = Reporter(
+        first_name="first_name",
+        last_name="last_name",
+        email="email",
+        favorite_pet_kind="cat",
+    )
+    session.add(reporter)
+    await eventually_await_session(session, "commit")
 
     class ReporterMixin(object):
         def resolve_id(root, _info):
@@ -420,20 +453,14 @@ def test_resolvers(session):
     class Query(ObjectType):
         reporter = Field(ReporterType)
 
-        def resolve_reporter(self, _info):
+        async def resolve_reporter(self, _info):
+            session = utils.get_session(_info.context)
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
+                return (await session.scalars(select(Reporter))).unique().first()
             return session.query(Reporter).first()
 
-    reporter = Reporter(
-        first_name="first_name",
-        last_name="last_name",
-        email="email",
-        favorite_pet_kind="cat",
-    )
-    session.add(reporter)
-    session.commit()
-
     schema = Schema(query=Query)
-    result = schema.execute(
+    result = await schema.execute_async(
         """
         query {
             reporter {
@@ -446,7 +473,8 @@ def test_resolvers(session):
                 favoritePetKindV2
             }
         }
-    """
+    """,
+        context_value={"session": session},
     )
 
     assert not result.errors
@@ -511,8 +539,13 @@ def test_objecttype_with_custom_options():
 
 
 def test_interface_with_polymorphic_identity():
-    with pytest.raises(AssertionError,
-                       match=re.escape('PersonType: An interface cannot map to a concrete type (polymorphic_identity is "person")')):
+    with pytest.raises(
+        AssertionError,
+        match=re.escape(
+            'PersonType: An interface cannot map to a concrete type (polymorphic_identity is "person")'
+        ),
+    ):
+
         class PersonType(SQLAlchemyInterface):
             class Meta:
                 model = NonAbstractPerson
@@ -562,13 +595,15 @@ def test_interface_type_field_orm_override():
 
     # type should be in this list because we used ORMField
     # to force its presence on the model
-    assert sorted(list(EmployeeType._meta.fields.keys())) == sorted([
-        "id",
-        "name",
-        "type",
-        "birth_date",
-        "hire_date",
-    ])
+    assert sorted(list(EmployeeType._meta.fields.keys())) == sorted(
+        [
+            "id",
+            "name",
+            "type",
+            "birth_date",
+            "hire_date",
+        ]
+    )
 
 
 def test_interface_custom_resolver():
@@ -590,13 +625,15 @@ def test_interface_custom_resolver():
 
     # type should be in this list because we used ORMField
     # to force its presence on the model
-    assert sorted(list(EmployeeType._meta.fields.keys())) == sorted([
-        "id",
-        "name",
-        "custom_field",
-        "birth_date",
-        "hire_date",
-    ])
+    assert sorted(list(EmployeeType._meta.fields.keys())) == sorted(
+        [
+            "id",
+            "name",
+            "custom_field",
+            "birth_date",
+            "hire_date",
+        ]
+    )
 
 
 # Tests for connection_field_factory

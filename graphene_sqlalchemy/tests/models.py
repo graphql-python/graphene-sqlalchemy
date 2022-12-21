@@ -20,7 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import column_property, composite, mapper, relationship
+from sqlalchemy.orm import backref, column_property, composite, mapper, relationship
 
 PetKind = Enum("cat", "dog", name="pet_kind")
 
@@ -76,10 +76,16 @@ class Reporter(Base):
     email = Column(String(), doc="Email")
     favorite_pet_kind = Column(PetKind)
     pets = relationship(
-        "Pet", secondary=association_table, backref="reporters", order_by="Pet.id"
+        "Pet",
+        secondary=association_table,
+        backref="reporters",
+        order_by="Pet.id",
+        lazy="selectin",
     )
-    articles = relationship("Article", backref="reporter")
-    favorite_article = relationship("Article", uselist=False)
+    articles = relationship(
+        "Article", backref=backref("reporter", lazy="selectin"), lazy="selectin"
+    )
+    favorite_article = relationship("Article", uselist=False, lazy="selectin")
 
     @hybrid_property
     def hybrid_prop_with_doc(self):
@@ -304,7 +310,9 @@ class Person(Base):
     __tablename__ = "person"
     __mapper_args__ = {
         "polymorphic_on": type,
+        "with_polymorphic": "*",  # needed for eager loading in async session
     }
+
 
 class NonAbstractPerson(Base):
     id = Column(Integer(), primary_key=True)
@@ -317,6 +325,7 @@ class NonAbstractPerson(Base):
         "polymorphic_on": type,
         "polymorphic_identity": "person",
     }
+
 
 class Employee(Person):
     hire_date = Column(Date())

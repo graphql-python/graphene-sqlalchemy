@@ -4,9 +4,32 @@ from collections import OrderedDict
 from typing import Any, Callable, Dict, Optional
 
 import pkg_resources
+from sqlalchemy import select
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
+
+
+def is_sqlalchemy_version_less_than(version_string):
+    """Check the installed SQLAlchemy version"""
+    return pkg_resources.get_distribution(
+        "SQLAlchemy"
+    ).parsed_version < pkg_resources.parse_version(version_string)
+
+
+def is_graphene_version_less_than(version_string):  # pragma: no cover
+    """Check the installed graphene version"""
+    return pkg_resources.get_distribution(
+        "graphene"
+    ).parsed_version < pkg_resources.parse_version(version_string)
+
+
+SQL_VERSION_HIGHER_EQUAL_THAN_1_4 = False
+
+if not is_sqlalchemy_version_less_than("1.4"):
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4 = True
 
 
 def get_session(context):
@@ -22,6 +45,8 @@ def get_query(model, context):
                 "A query in the model Base or a session in the schema is required for querying.\n"
                 "Read more http://docs.graphene-python.org/projects/sqlalchemy/en/latest/tips/#querying"
             )
+        if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
+            return select(model)
         query = session.query(model)
     return query
 
@@ -149,20 +174,6 @@ def sort_argument_for_model(cls, has_default=True):
         enum.default = None
 
     return Argument(List(enum), default_value=enum.default)
-
-
-def is_sqlalchemy_version_less_than(version_string):  # pragma: no cover
-    """Check the installed SQLAlchemy version"""
-    return pkg_resources.get_distribution(
-        "SQLAlchemy"
-    ).parsed_version < pkg_resources.parse_version(version_string)
-
-
-def is_graphene_version_less_than(version_string):  # pragma: no cover
-    """Check the installed graphene version"""
-    return pkg_resources.get_distribution(
-        "graphene"
-    ).parsed_version < pkg_resources.parse_version(version_string)
 
 
 class singledispatchbymatchfunction:

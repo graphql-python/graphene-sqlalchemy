@@ -9,16 +9,17 @@ from ..types import SQLAlchemyObjectType
 from ..utils import to_type_name
 from .models import Base, HairKind, KeyedModel, Pet
 from .test_query import to_std_dicts
+from .utils import eventually_await_session
 
 
-def add_pets(session):
+async def add_pets(session):
     pets = [
         Pet(id=1, name="Lassie", pet_kind="dog", hair_kind=HairKind.LONG),
         Pet(id=2, name="Barf", pet_kind="dog", hair_kind=HairKind.LONG),
         Pet(id=3, name="Alf", pet_kind="cat", hair_kind=HairKind.LONG),
     ]
     session.add_all(pets)
-    session.commit()
+    await eventually_await_session(session, "commit")
 
 
 def test_sort_enum():
@@ -241,8 +242,9 @@ def test_sort_argument_with_custom_symbol_names():
     assert sort_arg.default_value == ["IdUp"]
 
 
-def test_sort_query(session):
-    add_pets(session)
+@pytest.mark.asyncio
+async def test_sort_query(session):
+    await add_pets(session)
 
     class PetNode(SQLAlchemyObjectType):
         class Meta:
@@ -336,7 +338,7 @@ def test_sort_query(session):
     }  # yapf: disable
 
     schema = Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -352,7 +354,7 @@ def test_sort_query(session):
             }
         }
     """
-    result = schema.execute(queryError, context_value={"session": session})
+    result = await schema.execute_async(queryError, context_value={"session": session})
     assert result.errors is not None
     assert "cannot represent non-enum value" in result.errors[0].message
 
@@ -375,7 +377,7 @@ def test_sort_query(session):
         }
     """
 
-    result = schema.execute(queryNoSort, context_value={"session": session})
+    result = await schema.execute_async(queryNoSort, context_value={"session": session})
     assert not result.errors
     # TODO: SQLite usually returns the results ordered by primary key,
     # so we cannot test this way whether sorting actually happens or not.

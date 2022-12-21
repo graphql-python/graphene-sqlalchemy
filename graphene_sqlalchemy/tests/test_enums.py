@@ -85,7 +85,10 @@ def test_enum_for_field():
     assert enum._meta.name == "PetKind"
     assert [
         (key, value.value) for key, value in enum._meta.enum.__members__.items()
-    ] == [("CAT", "cat"), ("DOG", "dog")]
+    ] == [
+        ("CAT", "cat"),
+        ("DOG", "dog"),
+    ]
     enum2 = enum_for_field(PetType, "pet_kind")
     assert enum2 is enum
     enum2 = PetType.enum_for_field("pet_kind")

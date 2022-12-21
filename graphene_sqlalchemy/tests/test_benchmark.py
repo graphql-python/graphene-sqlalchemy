@@ -1,14 +1,59 @@
+import asyncio
+
 import pytest
+from sqlalchemy import select
 
 import graphene
 from graphene import relay
 
 from ..types import SQLAlchemyObjectType
-from ..utils import is_sqlalchemy_version_less_than
+from ..utils import (
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4,
+    get_session,
+    is_sqlalchemy_version_less_than,
+)
 from .models import Article, HairKind, Pet, Reporter
+from .utils import eventually_await_session
 
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+    from sqlalchemy.ext.asyncio import AsyncSession
 if is_sqlalchemy_version_less_than("1.2"):
     pytest.skip("SQL batching only works for SQLAlchemy 1.2+", allow_module_level=True)
+
+
+def get_async_schema():
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            interfaces = (relay.Node,)
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            interfaces = (relay.Node,)
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            interfaces = (relay.Node,)
+
+    class Query(graphene.ObjectType):
+        articles = graphene.Field(graphene.List(ArticleType))
+        reporters = graphene.Field(graphene.List(ReporterType))
+
+        async def resolve_articles(self, info):
+            session = get_session(info.context)
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
+                return (await session.scalars(select(Article))).all()
+            return session.query(Article).all()
+
+        async def resolve_reporters(self, info):
+            session = get_session(info.context)
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
+                return (await session.scalars(select(Reporter))).all()
+            return session.query(Reporter).all()
+
+    return graphene.Schema(query=Query)
 
 
 def get_schema():
@@ -40,20 +85,30 @@ def get_schema():
     return graphene.Schema(query=Query)
 
 
-def benchmark_query(session_factory, benchmark, query):
-    schema = get_schema()
+async def benchmark_query(session, benchmark, schema, query):
+    import nest_asyncio
 
-    @benchmark
-    def execute_query():
-        result = schema.execute(
-            query,
-            context_value={"session": session_factory()},
+    nest_asyncio.apply()
+    loop = asyncio.get_event_loop()
+    result = benchmark(
+        lambda: loop.run_until_complete(
+            schema.execute_async(query, context_value={"session": session})
         )
-        assert not result.errors
+    )
+    assert not result.errors
 
 
-def test_one_to_one(session_factory, benchmark):
+@pytest.fixture(params=[get_schema, get_async_schema])
+def schema_provider(request, async_session):
+    if async_session and request.param == get_schema:
+        pytest.skip("Cannot test sync schema with async sessions")
+    return request.param
+
+
+@pytest.mark.asyncio
+async def test_one_to_one(session_factory, benchmark, schema_provider):
     session = session_factory()
+    schema = schema_provider()
 
     reporter_1 = Reporter(
         first_name="Reporter_1",
@@ -72,12 +127,13 @@ def test_one_to_one(session_factory, benchmark):
     article_2.reporter = reporter_2
     session.add(article_2)
 
-    session.commit()
-    session.close()
+    await eventually_await_session(session, "commit")
+    await eventually_await_session(session, "close")
 
-    benchmark_query(
-        session_factory,
+    await benchmark_query(
+        session,
         benchmark,
+        schema,
         """
       query {
         reporters {
@@ -91,9 +147,10 @@ def test_one_to_one(session_factory, benchmark):
     )
 
 
-def test_many_to_one(session_factory, benchmark):
+@pytest.mark.asyncio
+async def test_many_to_one(session_factory, benchmark, schema_provider):
     session = session_factory()
-
+    schema = schema_provider()
     reporter_1 = Reporter(
         first_name="Reporter_1",
     )
@@ -110,13 +167,14 @@ def test_many_to_one(session_factory, benchmark):
     article_2 = Article(headline="Article_2")
     article_2.reporter = reporter_2
     session.add(article_2)
+    await eventually_await_session(session, "flush")
+    await eventually_await_session(session, "commit")
+    await eventually_await_session(session, "close")
 
-    session.commit()
-    session.close()
-
-    benchmark_query(
-        session_factory,
+    await benchmark_query(
+        session,
         benchmark,
+        schema,
         """
       query {
         articles {
@@ -130,8 +188,10 @@ def test_many_to_one(session_factory, benchmark):
     )
 
 
-def test_one_to_many(session_factory, benchmark):
+@pytest.mark.asyncio
+async def test_one_to_many(session_factory, benchmark, schema_provider):
     session = session_factory()
+    schema = schema_provider()
 
     reporter_1 = Reporter(
         first_name="Reporter_1",
@@ -158,12 +218,13 @@ def test_one_to_many(session_factory, benchmark):
     article_4.reporter = reporter_2
     session.add(article_4)
 
-    session.commit()
-    session.close()
+    await eventually_await_session(session, "commit")
+    await eventually_await_session(session, "close")
 
-    benchmark_query(
-        session_factory,
+    await benchmark_query(
+        session,
         benchmark,
+        schema,
         """
       query {
         reporters {
@@ -181,9 +242,10 @@ def test_one_to_many(session_factory, benchmark):
     )
 
 
-def test_many_to_many(session_factory, benchmark):
+@pytest.mark.asyncio
+async def test_many_to_many(session_factory, benchmark, schema_provider):
     session = session_factory()
-
+    schema = schema_provider()
     reporter_1 = Reporter(
         first_name="Reporter_1",
     )
@@ -211,12 +273,13 @@ def test_many_to_many(session_factory, benchmark):
     reporter_2.pets.append(pet_3)
     reporter_2.pets.append(pet_4)
 
-    session.commit()
-    session.close()
+    await eventually_await_session(session, "commit")
+    await eventually_await_session(session, "close")
 
-    benchmark_query(
-        session_factory,
+    await benchmark_query(
+        session,
         benchmark,
+        schema,
         """
       query {
         reporters {

@@ -11,7 +11,10 @@ from graphene.relay.connection import connection_adapter, page_info_adapter
 from graphql_relay import connection_from_array_slice
 
 from .batching import get_batch_resolver
-from .utils import EnumValue, get_query
+from .utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4, EnumValue, get_query, get_session
+
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class SQLAlchemyConnectionField(ConnectionField):
@@ -81,8 +84,49 @@ class SQLAlchemyConnectionField(ConnectionField):
 
     @classmethod
     def resolve_connection(cls, connection_type, model, info, args, resolved):
+        session = get_session(info.context)
         if resolved is None:
-            resolved = cls.get_query(model, info, **args)
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
+
+                async def get_result():
+                    return await cls.resolve_connection_async(
+                        connection_type, model, info, args, resolved
+                    )
+
+                return get_result()
+
+            else:
+                resolved = cls.get_query(model, info, **args)
+        if isinstance(resolved, Query):
+            _len = resolved.count()
+        else:
+            _len = len(resolved)
+
+        def adjusted_connection_adapter(edges, pageInfo):
+            return connection_adapter(connection_type, edges, pageInfo)
+
+        connection = connection_from_array_slice(
+            array_slice=resolved,
+            args=args,
+            slice_start=0,
+            array_length=_len,
+            array_slice_length=_len,
+            connection_type=adjusted_connection_adapter,
+            edge_type=connection_type.Edge,
+            page_info_type=page_info_adapter,
+        )
+        connection.iterable = resolved
+        connection.length = _len
+        return connection
+
+    @classmethod
+    async def resolve_connection_async(
+        cls, connection_type, model, info, args, resolved
+    ):
+        session = get_session(info.context)
+        if resolved is None:
+            query = cls.get_query(model, info, **args)
+            resolved = (await session.scalars(query)).all()
         if isinstance(resolved, Query):
             _len = resolved.count()
         else:
@@ -179,7 +223,7 @@ class BatchSQLAlchemyConnectionField(SQLAlchemyConnectionField):
         return cls(
             model_type.connection,
             resolver=get_batch_resolver(relationship),
-            **field_kwargs
+            **field_kwargs,
         )
 
 

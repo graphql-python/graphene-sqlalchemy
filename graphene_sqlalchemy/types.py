@@ -1,4 +1,6 @@
 from collections import OrderedDict
+from inspect import isawaitable
+from typing import Any
 
 import sqlalchemy
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -26,7 +28,16 @@ from .enums import (
 )
 from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
-from .utils import get_query, is_mapped_class, is_mapped_instance
+from .utils import (
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4,
+    get_query,
+    get_session,
+    is_mapped_class,
+    is_mapped_instance,
+)
+
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class ORMField(OrderedType):
@@ -334,6 +345,11 @@ class SQLAlchemyBase(BaseType):
     def is_type_of(cls, root, info):
         if isinstance(root, cls):
             return True
+        if isawaitable(root):
+            raise Exception(
+                "Received coroutine instead of sql alchemy model. "
+                "You seem to use an async engine with synchronous schema execution"
+            )
         if not is_mapped_instance(root):
             raise Exception(('Received incompatible instance "{}".').format(root))
         return isinstance(root, cls._meta.model)
@@ -345,6 +361,19 @@ class SQLAlchemyBase(BaseType):
 
     @classmethod
     def get_node(cls, info, id):
+        if not SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+            try:
+                return cls.get_query(info).get(id)
+            except NoResultFound:
+                return None
+
+        session = get_session(info.context)
+        if isinstance(session, AsyncSession):
+
+            async def get_result() -> Any:
+                return await session.get(cls._meta.model, id)
+
+            return get_result()
         try:
             return cls.get_query(info).get(id)
         except NoResultFound:
