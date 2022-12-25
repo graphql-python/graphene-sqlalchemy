@@ -8,7 +8,7 @@ from typing import Any, Optional, Union, cast
 from sqlalchemy import types as sqa_types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import MapperProperty, interfaces, strategies
+from sqlalchemy.orm import interfaces, strategies
 
 import graphene
 from graphene.types.json import JSONString
@@ -26,6 +26,13 @@ from .utils import (
     value_equals,
     value_equals_strict,
 )
+
+# We just use MapperProperties for type hints, they don't exist in sqlalchemy < 1.4
+try:
+    from sqlalchemy import MapperProperty
+except ImportError:
+    # sqlalchemy < 1.4
+    MapperProperty = Any
 
 try:
     from typing import ForwardRef
