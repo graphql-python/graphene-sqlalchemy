@@ -163,7 +163,8 @@ def test_should_union_work_310():
     field_type_1 = get_hybrid_property_type(prop_method).type
     field_type_2 = get_hybrid_property_type(prop_method_2).type
 
-    assert isinstance(field_type_1, graphene.Union)
+    assert issubclass(field_type_1, graphene.Union)
+    assert field_type_1._meta.types == [PetType, ShoppingCartType]
     assert field_type_1 is field_type_2
 
 
