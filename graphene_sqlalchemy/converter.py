@@ -2,14 +2,13 @@ import datetime
 import sys
 import typing
 import uuid
-import warnings
 from decimal import Decimal
-from functools import singledispatch
-from typing import Any, cast
+from typing import Any, Optional, Union, cast
 
 from sqlalchemy import types as sqa_types
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.orm import interfaces, strategies
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import MapperProperty, interfaces, strategies
 
 import graphene
 from graphene.types.json import JSONString
@@ -17,7 +16,7 @@ from graphene.types.json import JSONString
 from .batching import get_batch_resolver
 from .enums import enum_for_sa_enum
 from .fields import BatchSQLAlchemyConnectionField, default_connection_field_factory
-from .registry import get_global_registry
+from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (
     DummyImport,
@@ -25,6 +24,7 @@ from .utils import (
     safe_isinstance,
     singledispatchbymatchfunction,
     value_equals,
+    value_equals_strict,
 )
 
 try:
@@ -210,7 +210,9 @@ def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
 
     field_kwargs.setdefault(
         "type_",
-        convert_sqlalchemy_type(getattr(column, "type", None), column, registry),
+        convert_sqlalchemy_type(
+            getattr(column, "type", None), column=column, registry=registry
+        ),
     )
     field_kwargs.setdefault("required", not is_column_nullable(column))
     field_kwargs.setdefault("description", get_column_doc(column))
@@ -218,86 +220,148 @@ def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
     return graphene.Field(resolver=resolver, **field_kwargs)
 
 
-@singledispatch
-def convert_sqlalchemy_type(type, column, registry=None):
+@singledispatchbymatchfunction
+def convert_sqlalchemy_type(
+    type_arg: Any,
+    column: Optional[Union[MapperProperty, hybrid_property]] = None,
+    registry: Registry = None,
+    **kwargs,
+):
+    existing_graphql_type = get_global_registry().get_type_for_model(type_arg)
+    if existing_graphql_type:
+        return existing_graphql_type
+
+    if isinstance(type_arg, type(graphene.ObjectType)):
+        return type_arg
+
+    if isinstance(type_arg, type(graphene.Scalar)):
+        return type_arg
+
+    # No valid type found, warn and fall back to graphene.String
     raise Exception(
-        "Don't know how to convert the SQLAlchemy field %s (%s)"
-        % (column, column.__class__)
+        "Don't know how to convert the SQLAlchemy field %s (%s, %s)"
+        % (column, column.__class__ or "no column provided", type_arg)
     )
 
 
-@convert_sqlalchemy_type.register(sqa_types.String)
-@convert_sqlalchemy_type.register(sqa_types.Text)
-@convert_sqlalchemy_type.register(sqa_types.Unicode)
-@convert_sqlalchemy_type.register(sqa_types.UnicodeText)
-@convert_sqlalchemy_type.register(postgresql.INET)
-@convert_sqlalchemy_type.register(postgresql.CIDR)
-@convert_sqlalchemy_type.register(sqa_utils.TSVectorType)
-@convert_sqlalchemy_type.register(sqa_utils.EmailType)
-@convert_sqlalchemy_type.register(sqa_utils.URLType)
-@convert_sqlalchemy_type.register(sqa_utils.IPAddressType)
-def convert_column_to_string(type, column, registry=None):
+@convert_sqlalchemy_type.register(value_equals_strict(str))
+@convert_sqlalchemy_type.register(value_equals(sqa_types.String))
+@convert_sqlalchemy_type.register(value_equals(sqa_types.Text))
+@convert_sqlalchemy_type.register(value_equals(sqa_types.Unicode))
+@convert_sqlalchemy_type.register(value_equals(sqa_types.UnicodeText))
+@convert_sqlalchemy_type.register(value_equals(postgresql.INET))
+@convert_sqlalchemy_type.register(value_equals(postgresql.CIDR))
+@convert_sqlalchemy_type.register(value_equals(sqa_utils.TSVectorType))
+@convert_sqlalchemy_type.register(value_equals(sqa_utils.EmailType))
+@convert_sqlalchemy_type.register(value_equals(sqa_utils.URLType))
+@convert_sqlalchemy_type.register(value_equals(sqa_utils.IPAddressType))
+def convert_column_to_string(type_arg: Any, **kwargs):
     return graphene.String
 
 
-@convert_sqlalchemy_type.register(postgresql.UUID)
-@convert_sqlalchemy_type.register(sqa_utils.UUIDType)
-def convert_column_to_uuid(type, column, registry=None):
+@convert_sqlalchemy_type.register(value_equals(postgresql.UUID))
+@convert_sqlalchemy_type.register(value_equals(sqa_utils.UUIDType))
+@convert_sqlalchemy_type.register(value_equals(uuid.UUID))
+def convert_column_to_uuid(
+    type_arg: Any,
+    **kwargs,
+):
     return graphene.UUID
 
 
-@convert_sqlalchemy_type.register(sqa_types.DateTime)
-def convert_column_to_datetime(type, column, registry=None):
+@convert_sqlalchemy_type.register(value_equals(sqa_types.DateTime))
+@convert_sqlalchemy_type.register(value_equals(datetime.datetime))
+def convert_column_to_datetime(
+    type_arg: Any,
+    **kwargs,
+):
     return graphene.DateTime
 
 
-@convert_sqlalchemy_type.register(sqa_types.Time)
-def convert_column_to_time(type, column, registry=None):
+@convert_sqlalchemy_type.register(value_equals(sqa_types.Time))
+@convert_sqlalchemy_type.register(value_equals(datetime.time))
+def convert_column_to_time(
+    type_arg: Any,
+    **kwargs,
+):
     return graphene.Time
 
 
-@convert_sqlalchemy_type.register(sqa_types.Date)
-def convert_column_to_date(type, column, registry=None):
+@convert_sqlalchemy_type.register(value_equals(sqa_types.Date))
+@convert_sqlalchemy_type.register(value_equals(datetime.date))
+def convert_column_to_date(
+    type_arg: Any,
+    **kwargs,
+):
     return graphene.Date
 
 
-@convert_sqlalchemy_type.register(sqa_types.SmallInteger)
-@convert_sqlalchemy_type.register(sqa_types.Integer)
-def convert_column_to_int_or_id(type, column, registry=None):
-    return graphene.ID if column.primary_key else graphene.Int
+@convert_sqlalchemy_type.register(value_equals(sqa_types.SmallInteger))
+@convert_sqlalchemy_type.register(value_equals(sqa_types.Integer))
+@convert_sqlalchemy_type.register(value_equals_strict(int))
+def convert_column_to_int_or_id(
+    type_arg: Any,
+    column: Optional[Union[MapperProperty, hybrid_property]] = None,
+    registry: Registry = None,
+    **kwargs,
+):
+    return (
+        graphene.ID if (column is not None) and column.primary_key else graphene.Int
+    )  # fixme drop the primary key processing in another pr
 
 
-@convert_sqlalchemy_type.register(sqa_types.Boolean)
-def convert_column_to_boolean(type, column, registry=None):
+@convert_sqlalchemy_type.register(value_equals(sqa_types.Boolean))
+@convert_sqlalchemy_type.register(value_equals_strict(bool))
+def convert_column_to_boolean(
+    type_arg: Any,
+    **kwargs,
+):
     return graphene.Boolean
 
 
-@convert_sqlalchemy_type.register(sqa_types.Float)
-@convert_sqlalchemy_type.register(sqa_types.Numeric)
-@convert_sqlalchemy_type.register(sqa_types.BigInteger)
-def convert_column_to_float(type, column, registry=None):
+@convert_sqlalchemy_type.register(value_equals_strict(float))
+@convert_sqlalchemy_type.register(value_equals(sqa_types.Float))
+@convert_sqlalchemy_type.register(value_equals(sqa_types.Numeric))
+@convert_sqlalchemy_type.register(value_equals(sqa_types.BigInteger))
+def convert_column_to_float(
+    type_arg: Any,
+    **kwargs,
+):
     return graphene.Float
 
 
-@convert_sqlalchemy_type.register(sqa_types.Enum)
-def convert_enum_to_enum(type, column, registry=None):
-    return lambda: enum_for_sa_enum(type, registry or get_global_registry())
+@convert_sqlalchemy_type.register(value_equals(postgresql.ENUM))
+@convert_sqlalchemy_type.register(value_equals(sqa_types.Enum))
+def convert_enum_to_enum(
+    type_arg: Any,
+    column: Optional[Union[MapperProperty, hybrid_property]] = None,
+    registry: Registry = None,
+    **kwargs,
+):
+    return lambda: enum_for_sa_enum(type_arg, registry or get_global_registry())
 
 
 # TODO Make ChoiceType conversion consistent with other enums
-@convert_sqlalchemy_type.register(sqa_utils.ChoiceType)
-def convert_choice_to_enum(type, column, registry=None):
+@convert_sqlalchemy_type.register(value_equals(sqa_utils.ChoiceType))
+def convert_choice_to_enum(
+    type_arg: sqa_utils.ChoiceType,
+    column: Optional[Union[MapperProperty, hybrid_property]] = None,
+    registry: Registry = None,
+):
     name = "{}_{}".format(column.table.name, column.key).upper()
-    if isinstance(type.type_impl, EnumTypeImpl):
+    if isinstance(type_arg.type_impl, EnumTypeImpl):
         # type.choices may be Enum/IntEnum, in ChoiceType both presented as EnumMeta
         # do not use from_enum here because we can have more than one enum column in table
-        return graphene.Enum(name, list((v.name, v.value) for v in type.choices))
+        return graphene.Enum(name, list((v.name, v.value) for v in type_arg.choices))
     else:
-        return graphene.Enum(name, type.choices)
+        return graphene.Enum(name, type_arg.choices)
 
 
-@convert_sqlalchemy_type.register(sqa_utils.ScalarListType)
-def convert_scalar_list_to_list(type, column, registry=None):
+@convert_sqlalchemy_type.register(value_equals(sqa_utils.ScalarListType))
+def convert_scalar_list_to_list(
+    type_arg: Any,
+    **kwargs,
+):
     return graphene.List(graphene.String)
 
 
@@ -309,108 +373,68 @@ def init_array_list_recursive(inner_type, n):
     )
 
 
-@convert_sqlalchemy_type.register(sqa_types.ARRAY)
-@convert_sqlalchemy_type.register(postgresql.ARRAY)
-def convert_array_to_list(_type, column, registry=None):
-    inner_type = convert_sqlalchemy_type(column.type.item_type, column)
+@convert_sqlalchemy_type.register(value_equals(sqa_types.ARRAY))
+@convert_sqlalchemy_type.register(value_equals(postgresql.ARRAY))
+def convert_array_to_list(
+    type_arg: Any,
+    column: Optional[Union[MapperProperty, hybrid_property]] = None,
+    registry: Registry = None,
+    **kwargs,
+):
+    inner_type = convert_sqlalchemy_type(
+        column.type.item_type, column=column, registry=registry, **kwargs
+    )
     return graphene.List(
         init_array_list_recursive(inner_type, (column.type.dimensions or 1) - 1)
     )
 
 
-@convert_sqlalchemy_type.register(postgresql.HSTORE)
-@convert_sqlalchemy_type.register(postgresql.JSON)
-@convert_sqlalchemy_type.register(postgresql.JSONB)
-def convert_json_to_string(type, column, registry=None):
+@convert_sqlalchemy_type.register(value_equals(postgresql.HSTORE))
+@convert_sqlalchemy_type.register(value_equals(postgresql.JSON))
+@convert_sqlalchemy_type.register(value_equals(postgresql.JSONB))
+def convert_json_to_string(
+    type_arg: Any,
+    **kwargs,
+):
     return JSONString
 
 
-@convert_sqlalchemy_type.register(sqa_utils.JSONType)
-@convert_sqlalchemy_type.register(sqa_types.JSON)
-def convert_json_type_to_string(type, column, registry=None):
+@convert_sqlalchemy_type.register(value_equals(sqa_utils.JSONType))
+@convert_sqlalchemy_type.register(value_equals(sqa_types.JSON))
+def convert_json_type_to_string(
+    type_arg: Any,
+    **kwargs,
+):
     return JSONString
 
 
-@convert_sqlalchemy_type.register(sqa_types.Variant)
-def convert_variant_to_impl_type(type, column, registry=None):
-    return convert_sqlalchemy_type(type.impl, column, registry=registry)
-
-
-@singledispatchbymatchfunction
-def convert_sqlalchemy_hybrid_property_type(arg: Any):
-    existing_graphql_type = get_global_registry().get_type_for_model(arg)
-    if existing_graphql_type:
-        return existing_graphql_type
-
-    if isinstance(arg, type(graphene.ObjectType)):
-        return arg
-
-    if isinstance(arg, type(graphene.Scalar)):
-        return arg
-
-    # No valid type found, warn and fall back to graphene.String
-    warnings.warn(
-        f'I don\'t know how to generate a GraphQL type out of a "{arg}" type.'
-        'Falling back to "graphene.String"'
+@convert_sqlalchemy_type.register(value_equals(sqa_types.Variant))
+def convert_variant_to_impl_type(
+    type_arg: sqa_types.Variant,
+    column: Optional[Union[MapperProperty, hybrid_property]] = None,
+    registry: Registry = None,
+    **kwargs,
+):
+    return convert_sqlalchemy_type(
+        type_arg.impl, column=column, registry=registry, **kwargs
     )
-    return graphene.String
 
 
-@convert_sqlalchemy_hybrid_property_type.register(value_equals(str))
-def convert_sqlalchemy_hybrid_property_type_str(arg):
-    return graphene.String
-
-
-@convert_sqlalchemy_hybrid_property_type.register(value_equals(int))
-def convert_sqlalchemy_hybrid_property_type_int(arg):
-    return graphene.Int
-
-
-@convert_sqlalchemy_hybrid_property_type.register(value_equals(float))
-def convert_sqlalchemy_hybrid_property_type_float(arg):
-    return graphene.Float
-
-
-@convert_sqlalchemy_hybrid_property_type.register(value_equals(Decimal))
-def convert_sqlalchemy_hybrid_property_type_decimal(arg):
+@convert_sqlalchemy_type.register(value_equals_strict(Decimal))
+def convert_sqlalchemy_hybrid_property_type_decimal(type_arg: Any, **kwargs):
     # The reason Decimal should be serialized as a String is because this is a
     # base10 type used in things like money, and string allows it to not
     # lose precision (which would happen if we downcasted to a Float, for example)
     return graphene.String
 
 
-@convert_sqlalchemy_hybrid_property_type.register(value_equals(bool))
-def convert_sqlalchemy_hybrid_property_type_bool(arg):
-    return graphene.Boolean
-
-
-@convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.datetime))
-def convert_sqlalchemy_hybrid_property_type_datetime(arg):
-    return graphene.DateTime
-
-
-@convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.date))
-def convert_sqlalchemy_hybrid_property_type_date(arg):
-    return graphene.Date
-
-
-@convert_sqlalchemy_hybrid_property_type.register(value_equals(datetime.time))
-def convert_sqlalchemy_hybrid_property_type_time(arg):
-    return graphene.Time
-
-
-@convert_sqlalchemy_hybrid_property_type.register(value_equals(uuid.UUID))
-def convert_sqlalchemy_hybrid_property_type_uuid(arg):
-    return graphene.UUID
-
-
-def is_union(arg) -> bool:
+def is_union(type_arg: Any, **kwargs) -> bool:
     if sys.version_info >= (3, 10):
         from types import UnionType
 
-        if isinstance(arg, UnionType):
+        if isinstance(type_arg, UnionType):
             return True
-    return getattr(arg, "__origin__", None) == typing.Union
+    return getattr(type_arg, "__origin__", None) == typing.Union
 
 
 def graphene_union_for_py_union(
@@ -421,14 +445,14 @@ def graphene_union_for_py_union(
     if union_type is None:
         # Union Name is name of the three
         union_name = "".join(sorted(obj_type._meta.name for obj_type in obj_types))
-        union_type = graphene.Union(union_name, obj_types)
+        union_type = graphene.Union.create_type(union_name, types=obj_types)
         registry.register_union_type(union_type, obj_types)
 
     return union_type
 
 
-@convert_sqlalchemy_hybrid_property_type.register(is_union)
-def convert_sqlalchemy_hybrid_property_union(arg):
+@convert_sqlalchemy_type.register(is_union)
+def convert_sqlalchemy_hybrid_property_union(type_arg: Any, **kwargs):
     """
     Converts Unions (Union[X,Y], or X | Y for python > 3.10) to the corresponding graphene schema object.
     Since Optionals are internally represented as Union[T, <class NoneType>], they are handled here as well.
@@ -444,11 +468,11 @@ def convert_sqlalchemy_hybrid_property_union(arg):
 
     # Option is actually Union[T, <class NoneType>]
     # Just get the T out of the list of arguments by filtering out the NoneType
-    nested_types = list(filter(lambda x: not type(None) == x, arg.__args__))
+    nested_types = list(filter(lambda x: not type(None) == x, type_arg.__args__))
 
     # Map the graphene types to the nested types.
     # We use convert_sqlalchemy_hybrid_property_type instead of the registry to account for ForwardRefs, Lists,...
-    graphene_types = list(map(convert_sqlalchemy_hybrid_property_type, nested_types))
+    graphene_types = list(map(convert_sqlalchemy_type, nested_types))
 
     # If only one type is left after filtering out NoneType, the Union was an Optional
     if len(graphene_types) == 1:
@@ -471,20 +495,20 @@ def convert_sqlalchemy_hybrid_property_union(arg):
     )
 
 
-@convert_sqlalchemy_hybrid_property_type.register(
+@convert_sqlalchemy_type.register(
     lambda x: getattr(x, "__origin__", None) in [list, typing.List]
 )
-def convert_sqlalchemy_hybrid_property_type_list_t(arg):
+def convert_sqlalchemy_hybrid_property_type_list_t(type_arg: Any, **kwargs):
     # type is either list[T] or List[T], generic argument at __args__[0]
-    internal_type = arg.__args__[0]
+    internal_type = type_arg.__args__[0]
 
-    graphql_internal_type = convert_sqlalchemy_hybrid_property_type(internal_type)
+    graphql_internal_type = convert_sqlalchemy_type(internal_type, **kwargs)
 
     return graphene.List(graphql_internal_type)
 
 
-@convert_sqlalchemy_hybrid_property_type.register(safe_isinstance(ForwardRef))
-def convert_sqlalchemy_hybrid_property_forwardref(arg):
+@convert_sqlalchemy_type.register(safe_isinstance(ForwardRef))
+def convert_sqlalchemy_hybrid_property_forwardref(type_arg: Any, **kwargs):
     """
     Generate a lambda that will resolve the type at runtime
     This takes care of self-references
@@ -492,7 +516,7 @@ def convert_sqlalchemy_hybrid_property_forwardref(arg):
     from .registry import get_global_registry
 
     def forward_reference_solver():
-        model = registry_sqlalchemy_model_from_str(arg.__forward_arg__)
+        model = registry_sqlalchemy_model_from_str(type_arg.__forward_arg__)
         if not model:
             return graphene.String
         # Always fall back to string if no ForwardRef type found.
@@ -501,17 +525,17 @@ def convert_sqlalchemy_hybrid_property_forwardref(arg):
     return forward_reference_solver
 
 
-@convert_sqlalchemy_hybrid_property_type.register(safe_isinstance(str))
-def convert_sqlalchemy_hybrid_property_bare_str(arg):
+@convert_sqlalchemy_type.register(safe_isinstance(str))
+def convert_sqlalchemy_hybrid_property_bare_str(type_arg: str, **kwargs):
     """
     Convert Bare String into a ForwardRef
     """
 
-    return convert_sqlalchemy_hybrid_property_type(ForwardRef(arg))
+    return convert_sqlalchemy_type(ForwardRef(type_arg), **kwargs)
 
 
 def convert_hybrid_property_return_type(hybrid_prop):
     # Grab the original method's return type annotations from inside the hybrid property
     return_type_annotation = hybrid_prop.fget.__annotations__.get("return", str)
 
-    return convert_sqlalchemy_hybrid_property_type(return_type_annotation)
+    return convert_sqlalchemy_type(return_type_annotation)

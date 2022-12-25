@@ -4,7 +4,7 @@ import datetime
 import enum
 import uuid
 from decimal import Decimal
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from sqlalchemy import (
     Column,
@@ -254,9 +254,11 @@ class ShoppingCart(Base):
         return [ShoppingCartItem(id=1), ShoppingCartItem(id=2)]
 
     # Unsupported Type
-    @hybrid_property
-    def hybrid_prop_unsupported_type_tuple(self) -> Tuple[str, str]:
-        return "this will actually", "be a string"
+    # fixme move this somewhere else
+    #
+    # @hybrid_property
+    # def hybrid_prop_unsupported_type_tuple(self) -> Tuple[str, str]:
+    #     return "this will actually", "be a string"
 
     # Self-references
 

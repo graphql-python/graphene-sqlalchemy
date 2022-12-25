@@ -196,18 +196,23 @@ class singledispatchbymatchfunction:
         # No match, using default.
         return self.default(*args, **kwargs)
 
-    def register(self, matcher_function: Callable[[Any], bool]):
-        def grab_function_from_outside(f):
-            self.registry[matcher_function] = f
-            return self
+    def register(self, matcher_function: Callable[[Any], bool], func=None):
+        if func is None:
+            return lambda f: self.register(matcher_function, f)
+        self.registry[matcher_function] = func
+        return func
 
-        return grab_function_from_outside
 
-
-def value_equals(value):
+def value_equals(value: Any) -> Callable[[Any], bool]:
     """A simple function that makes the equality based matcher functions for
     SingleDispatchByMatchFunction prettier"""
-    return lambda x: x == value
+    return lambda x: (x == value or type(x) is value)
+
+
+def value_equals_strict(value: Any) -> Callable[[Any], bool]:
+    """A simple function that makes the equality based matcher functions for
+    SingleDispatchByMatchFunction prettier"""
+    return lambda x: (x == value)
 
 
 def safe_isinstance(cls):

@@ -131,10 +131,9 @@ def test_should_union_work():
     field_type_1 = get_hybrid_property_type(prop_method).type
     field_type_2 = get_hybrid_property_type(prop_method_2).type
 
-    assert isinstance(field_type_1, graphene.Union)
+    assert issubclass(field_type_1, graphene.Union)
+    assert field_type_1._meta.types == [PetType, ShoppingCartType]
     assert field_type_1 is field_type_2
-
-    # TODO verify types of the union
 
 
 @pytest.mark.skipif(
@@ -667,7 +666,6 @@ def test_sqlalchemy_hybrid_property_type_inference():
         ),
         "hybrid_prop_first_shopping_cart_item": ShoppingCartItemType,
         "hybrid_prop_shopping_cart_item_list": graphene.List(ShoppingCartItemType),
-        "hybrid_prop_unsupported_type_tuple": graphene.String,
         # Self Referential List
         "hybrid_prop_self_referential": ShoppingCartType,
         "hybrid_prop_self_referential_list": graphene.List(ShoppingCartType),
