@@ -456,11 +456,17 @@ def test_filter_relationship_many_to_many_contains_exactly(session):
     query = """
         query {
           articles (filter: {
+            tags: {
               containsExactly: [
-                { tag: { name: { eq: "sensational" } } }
+                { name: { eq: "sensational" } }
               ]
+            }
           }) {
-            headline
+            edges {
+              node {
+                headline
+              }
+            }
           }
         }
     """
@@ -493,11 +499,7 @@ def test_filter_relationship_many_to_many_contains_exactly(session):
         }
     """
     expected = {
-        "tags": {
-            "edges": [
-                {"node": {"name": "eye-grabbing"}},
-            ],
-        },
+        "tags": {"edges": [{"node": {"name": "eye-grabbing"}}]},
     }
     schema = graphene.Schema(query=Query)
     result = schema.execute(query, context_value={"session": session})

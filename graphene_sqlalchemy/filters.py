@@ -2,7 +2,7 @@ import re
 from typing import Any, Dict, List, Tuple, Type, TypeVar, Union
 
 from sqlalchemy import and_, func, not_, or_
-from sqlalchemy.orm import Query, aliased, selectinload
+from sqlalchemy.orm import Query, aliased  # , selectinload
 
 import graphene
 from graphene.types.inputobjecttype import (
@@ -24,13 +24,13 @@ def _get_functions_by_regex(
     matching_functions = []
 
     # Search the entire class for functions matching the filter regex
-    for func in dir(class_):
-        func_attr = getattr(class_, func)
+    for fn in dir(class_):
+        func_attr = getattr(class_, fn)
         # Check if attribute is a function
-        if callable(func_attr) and function_regex.match(func):
+        if callable(func_attr) and function_regex.match(fn):
             # add function and attribute name to the list
             matching_functions.append(
-                (re.sub(subtract_regex, "", func), func_attr.__annotations__)
+                (re.sub(subtract_regex, "", fn), func_attr.__annotations__)
             )
     return matching_functions
 
@@ -191,7 +191,7 @@ class ObjectTypeFilter(graphene.InputObjectType):
                     # todo should we use selectinload here instead of join for large lists?
 
                     query, _clauses = field_filter_type.execute_filters(
-                        query, model_field, field_filters, relationship_prop
+                        query, model, model_field, field_filters, relationship_prop
                     )
                     clauses.extend(_clauses)
                 elif issubclass(field_filter_type, FieldFilter):
@@ -396,7 +396,12 @@ class RelationshipFilter(graphene.InputObjectType):
 
     @classmethod
     def contains_filter(
-        cls, query, field, relationship_prop, val: List[ScalarFilterInputType]
+        cls,
+        query,
+        parent_model,
+        field,
+        relationship_prop,
+        val: List[ScalarFilterInputType],
     ):
         clauses = []
         for v in val:
@@ -417,7 +422,12 @@ class RelationshipFilter(graphene.InputObjectType):
 
     @classmethod
     def contains_exactly_filter(
-        cls, query, field, relationship_prop, val: List[ScalarFilterInputType]
+        cls,
+        query,
+        parent_model,
+        field,
+        relationship_prop,
+        val: List[ScalarFilterInputType],
     ):
         print("Contains exactly called: ", query, val)
         session = query.session
@@ -447,33 +457,42 @@ class RelationshipFilter(graphene.InputObjectType):
             #     .having(func.count(joined_model_alias.id) == len(subquery_ids))
             # )
 
-        # Join the aliased model onto the query
-        query = query.join(relationship_prop)
+        # Join the relationship onto the query
+        # import pdb; pdb.set_trace()
+        joined_model_alias = aliased(relationship_prop)
+        query = query.join(field.of_type(joined_model_alias))
 
         # Define new query?
         # query = session.query(cls)
 
         # Construct clauses from child_model_ids
-        # from .tests.models import Reporter
-        import pdb; pdb.set_trace()
         query = (
-            query.filter(relationship_prop.id.in_(child_model_ids))
-            .group_by(Reporter)
-            .having(func.count(relationship_prop.id)==len(child_model_ids))
+            query.filter(joined_model_alias.id.in_(child_model_ids))
+            .group_by(parent_model)
+            .having(func.count(joined_model_alias.id) == len(child_model_ids))
         )
-        # query = query.filter(relationship_prop.id.in_(child_model_ids)).group_by(relationship_prop).having(func.count(field)==len(child_model_ids))
+        # query = (
+        #     query.filter(relationship_prop.id.in_(child_model_ids))
+        #     .group_by(relationship_prop)
+        #     .having(func.count(field)==len(child_model_ids)
+        # )
 
         return query, []
 
     @classmethod
     def execute_filters(
-        cls: Type[FieldFilter], query, field, filter_dict: Dict, relationship_prop
+        cls: Type[FieldFilter],
+        query,
+        parent_model,
+        field,
+        filter_dict: Dict,
+        relationship_prop,
     ) -> Tuple[Query, List[Any]]:
         query, clauses = (query, [])
 
         for filt, val in filter_dict.items():
             query, _clauses = getattr(cls, filt + "_filter")(
-                query, field, relationship_prop, val
+                query, parent_model, field, relationship_prop, val
             )
             clauses += _clauses
 
