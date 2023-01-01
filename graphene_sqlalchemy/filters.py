@@ -441,23 +441,26 @@ class RelationshipFilter(graphene.InputObjectType):
 
             child_model_ids.extend(subquery_ids)
 
-            # Join the aliased model onto the query
-            query = query.join(field.of_type(joined_model_alias))
-            query = (
-                query.filter(relationship_prop.id.in_(subquery_ids))
-                .group_by(joined_model_alias)
-                .having(func.count(joined_model_alias.id) == len(subquery_ids))
-            )
+            # query = (
+            #     query.filter(relationship_prop.id.in_(subquery_ids))
+            #     .group_by(joined_model_alias)
+            #     .having(func.count(joined_model_alias.id) == len(subquery_ids))
+            # )
+
+        # Join the aliased model onto the query
+        query = query.join(relationship_prop)
 
         # Define new query?
         # query = session.query(cls)
 
         # Construct clauses from child_model_ids
         # from .tests.models import Reporter
-        import pdb
-
-        pdb.set_trace()
-        # query = query.filter(relationship_prop.id.in_(child_model_ids)).group_by(Reporter).having(func.count(relationship_prop.id)==len(child_model_ids))
+        import pdb; pdb.set_trace()
+        query = (
+            query.filter(relationship_prop.id.in_(child_model_ids))
+            .group_by(Reporter)
+            .having(func.count(relationship_prop.id)==len(child_model_ids))
+        )
         # query = query.filter(relationship_prop.id.in_(child_model_ids)).group_by(relationship_prop).having(func.count(field)==len(child_model_ids))
 
         return query, []
