@@ -260,8 +260,6 @@ def test_filter_relationship_one_to_one(session):
 
 
 # Test a 1:n relationship
-# TODO implement containsExactly
-@pytest.mark.xfail
 def test_filter_relationship_one_to_many(session):
     add_test_data(session)
     Query = create_schema(session)
@@ -422,8 +420,6 @@ def test_filter_relationship_many_to_many_contains(session):
 
 
 # Test n:m relationship containsExactly
-# TODO implement containsExactly
-@pytest.mark.xfail
 def test_filter_relationship_many_to_many_contains_exactly(session):
     add_n2m_test_data(session)
     Query = create_schema(session)
@@ -469,12 +465,7 @@ def test_filter_relationship_many_to_many_contains_exactly(session):
         }
     """
     expected = {
-        "articles": {
-            "edges": [
-                {"node": {"headline": "Article! Look!"}},
-                {"node": {"headline": "Woah! Another!"}},
-            ]
-        },
+        "articles": {"edges": [{"node": {"headline": "Article! Look!"}}]},
     }
     schema = graphene.Schema(query=Query)
     result = schema.execute(query, context_value={"session": session})
@@ -516,8 +507,6 @@ def test_filter_relationship_many_to_many_contains_exactly(session):
 
 
 # Test n:m relationship both contains and containsExactly
-# TODO implement containsExactly
-@pytest.mark.xfail
 def test_filter_relationship_many_to_many_contains_and_contains_exactly(session):
     add_n2m_test_data(session)
     Query = create_schema(session)

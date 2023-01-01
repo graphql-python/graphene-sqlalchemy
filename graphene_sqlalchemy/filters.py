@@ -1,8 +1,8 @@
 import re
 from typing import Any, Dict, List, Tuple, Type, TypeVar, Union
 
-from sqlalchemy import and_, not_, or_
-from sqlalchemy.orm import Query, aliased
+from sqlalchemy import and_, func, not_, or_
+from sqlalchemy.orm import Query, aliased, selectinload
 
 import graphene
 from graphene.types.inputobjecttype import (
@@ -182,8 +182,6 @@ class ObjectTypeFilter(graphene.InputObjectType):
                     clauses.extend(_clauses)
                 if issubclass(field_filter_type, RelationshipFilter):
                     # TODO see above; not yet working
-                    print("ObjectType execute_filters: ", query, field_filters)
-                    print(model_field, field_filter_type)
                     relationship_prop = field_filter_type._meta.model
                     # Always alias the model
                     # joined_model_alias = aliased(relationship_prop)
@@ -421,20 +419,48 @@ class RelationshipFilter(graphene.InputObjectType):
     def contains_exactly_filter(
         cls, query, field, relationship_prop, val: List[ScalarFilterInputType]
     ):
-        clauses = []
-        print("Contains exactly: ", query, val)
-        # query, clauses = v.execute_filters(query, all_(val(items)))
-        # vals = []
+        print("Contains exactly called: ", query, val)
+        session = query.session
+        child_model_ids = []
         for v in val:
-            # vals.append(dict(v))
-            # print(dict(v))
-            query, _clauses = v.execute_filters(query, dict(v))
-            clauses += _clauses
-        # query, clauses = v.execute_filters(query, all_(vals))
-        # clauses = [or_(*clauses)]
-        # print(query)
-        # print(clauses)
-        return query, clauses
+            print("Contains exactly loop: ", v)
+
+            # Always alias the model
+            joined_model_alias = aliased(relationship_prop)
+
+            # Store list of child IDs to filter per attribute
+            # attr = field.of_type(joined_model_alias)
+            # if not child_model_ids.get(str(attr), None):
+            #     child_model_ids[str(attr)] = []
+
+            subquery = session.query(joined_model_alias.id)
+            subquery, _clauses = cls._meta.object_type_filter.execute_filters(
+                subquery, v, model_alias=joined_model_alias
+            )
+            subquery_ids = [s_id[0] for s_id in subquery.filter(and_(*_clauses)).all()]
+
+            child_model_ids.extend(subquery_ids)
+
+            # Join the aliased model onto the query
+            query = query.join(field.of_type(joined_model_alias))
+            query = (
+                query.filter(relationship_prop.id.in_(subquery_ids))
+                .group_by(joined_model_alias)
+                .having(func.count(joined_model_alias.id) == len(subquery_ids))
+            )
+
+        # Define new query?
+        # query = session.query(cls)
+
+        # Construct clauses from child_model_ids
+        # from .tests.models import Reporter
+        import pdb
+
+        pdb.set_trace()
+        # query = query.filter(relationship_prop.id.in_(child_model_ids)).group_by(Reporter).having(func.count(relationship_prop.id)==len(child_model_ids))
+        # query = query.filter(relationship_prop.id.in_(child_model_ids)).group_by(relationship_prop).having(func.count(field)==len(child_model_ids))
+
+        return query, []
 
     @classmethod
     def execute_filters(
