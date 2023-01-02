@@ -81,7 +81,7 @@ class RelationshipLoader(DataLoader):
             query_context = parent_mapper_query._compile_context()
         else:
             query_context = QueryContext(session.query(parent_mapper.entity))
-        if SQL_VERSION_HIGHER_EQUAL_THAN_2:
+        if SQL_VERSION_HIGHER_EQUAL_THAN_2:  # pragma: no cover
             self.selectin_loader._load_for_path(
                 query_context,
                 parent_mapper._path_registry,

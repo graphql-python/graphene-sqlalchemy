@@ -26,7 +26,7 @@ def is_graphene_version_less_than(version_string):  # pragma: no cover
 
 SQL_VERSION_HIGHER_EQUAL_THAN_1_4 = False
 
-if not is_sqlalchemy_version_less_than("1.4"):
+if not is_sqlalchemy_version_less_than("1.4"):  # pragma: no cover
     from sqlalchemy.ext.asyncio import AsyncSession
 
     SQL_VERSION_HIGHER_EQUAL_THAN_1_4 = True
@@ -34,7 +34,7 @@ if not is_sqlalchemy_version_less_than("1.4"):
 
 SQL_VERSION_HIGHER_EQUAL_THAN_2 = False
 
-if not is_sqlalchemy_version_less_than("2.0.0b1"):
+if not is_sqlalchemy_version_less_than("2.0.0b1"):  # pragma: no cover
     SQL_VERSION_HIGHER_EQUAL_THAN_2 = True
 
 
