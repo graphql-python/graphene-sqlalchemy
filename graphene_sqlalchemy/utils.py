@@ -4,11 +4,32 @@ from collections import OrderedDict
 from typing import Any, Callable, Dict, Optional
 
 import pkg_resources
+from sqlalchemy import select
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
 
-from graphene_sqlalchemy.registry import get_global_registry
+
+def is_sqlalchemy_version_less_than(version_string):
+    """Check the installed SQLAlchemy version"""
+    return pkg_resources.get_distribution(
+        "SQLAlchemy"
+    ).parsed_version < pkg_resources.parse_version(version_string)
+
+
+def is_graphene_version_less_than(version_string):  # pragma: no cover
+    """Check the installed graphene version"""
+    return pkg_resources.get_distribution(
+        "graphene"
+    ).parsed_version < pkg_resources.parse_version(version_string)
+
+
+SQL_VERSION_HIGHER_EQUAL_THAN_1_4 = False
+
+if not is_sqlalchemy_version_less_than("1.4"):
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4 = True
 
 
 def get_session(context):
@@ -24,6 +45,8 @@ def get_query(model, context):
                 "A query in the model Base or a session in the schema is required for querying.\n"
                 "Read more http://docs.graphene-python.org/projects/sqlalchemy/en/latest/tips/#querying"
             )
+        if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
+            return select(model)
         query = session.query(model)
     return query
 
@@ -140,6 +163,7 @@ def sort_argument_for_model(cls, has_default=True):
     )
 
     from graphene import Argument, List
+
     from .enums import sort_enum_for_object_type
 
     enum = sort_enum_for_object_type(
@@ -150,11 +174,6 @@ def sort_argument_for_model(cls, has_default=True):
         enum.default = None
 
     return Argument(List(enum), default_value=enum.default)
-
-
-def is_sqlalchemy_version_less_than(version_string):
-    """Check the installed SQLAlchemy version"""
-    return pkg_resources.get_distribution('SQLAlchemy').parsed_version < pkg_resources.parse_version(version_string)
 
 
 class singledispatchbymatchfunction:
@@ -178,7 +197,6 @@ class singledispatchbymatchfunction:
         return self.default(*args, **kwargs)
 
     def register(self, matcher_function: Callable[[Any], bool]):
-
         def grab_function_from_outside(f):
             self.registry[matcher_function] = f
             return self
@@ -188,7 +206,7 @@ class singledispatchbymatchfunction:
 
 def value_equals(value):
     """A simple function that makes the equality based matcher functions for
-     SingleDispatchByMatchFunction prettier"""
+    SingleDispatchByMatchFunction prettier"""
     return lambda x: x == value
 
 
@@ -198,11 +216,26 @@ def safe_isinstance(cls):
             return isinstance(arg, cls)
         except TypeError:
             pass
+
     return safe_isinstance_checker
 
 
 def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:
+    from graphene_sqlalchemy.registry import get_global_registry
+
     try:
-        return next(filter(lambda x: x.__name__ == model_name, list(get_global_registry()._registry.keys())))
+        return next(
+            filter(
+                lambda x: x.__name__ == model_name,
+                list(get_global_registry()._registry.keys()),
+            )
+        )
     except StopIteration:
         pass
+
+
+class DummyImport:
+    """The dummy module returns 'object' for a query for any member"""
+
+    def __getattr__(self, name):
+        return object

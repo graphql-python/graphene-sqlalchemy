@@ -2,22 +2,33 @@ from __future__ import absolute_import
 
 import datetime
 import enum
+import uuid
 from decimal import Decimal
 from typing import List, Optional, Tuple
 
-from sqlalchemy import (Column, Date, Enum, ForeignKey, Integer, String, Table,
-                        func, select)
+from sqlalchemy import (
+    Column,
+    Date,
+    Enum,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Table,
+    func,
+    select,
+)
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import column_property, composite, mapper, relationship
+from sqlalchemy.orm import backref, column_property, composite, mapper, relationship
 
 PetKind = Enum("cat", "dog", name="pet_kind")
 
 
 class HairKind(enum.Enum):
-    LONG = 'long'
-    SHORT = 'short'
+    LONG = "long"
+    SHORT = "short"
 
 
 Base = declarative_base()
@@ -65,9 +76,17 @@ class Reporter(Base):
     last_name = Column(String(30), doc="Last name")
     email = Column(String(), doc="Email")
     favorite_pet_kind = Column(PetKind)
-    pets = relationship("Pet", secondary=association_table, backref="reporters", order_by="Pet.id")
-    articles = relationship("Article", backref="reporter")
-    favorite_article = relationship("Article", uselist=False)
+    pets = relationship(
+        "Pet",
+        secondary=association_table,
+        backref="reporters",
+        order_by="Pet.id",
+        lazy="selectin",
+    )
+    articles = relationship(
+        "Article", backref=backref("reporter", lazy="selectin"), lazy="selectin"
+    )
+    favorite_article = relationship("Article", uselist=False, lazy="selectin")
 
     @hybrid_property
     def hybrid_prop_with_doc(self):
@@ -102,9 +121,11 @@ class Reporter(Base):
         select([func.cast(func.count(id), Integer)]), doc="Column property"
     )
 
-    composite_prop = composite(CompositeFullName, first_name, last_name, doc="Composite")
+    composite_prop = composite(
+        CompositeFullName, first_name, last_name, doc="Composite"
+    )
 
-    headlines = association_proxy('articles', 'headline')
+    headlines = association_proxy("articles", "headline")
 
 
 class Article(Base):
@@ -113,7 +134,25 @@ class Article(Base):
     headline = Column(String(100))
     pub_date = Column(Date())
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
-    recommended_reads = association_proxy('reporter', 'articles')
+    readers = relationship(
+        "Reader", secondary="articles_readers", back_populates="articles"
+    )
+    recommended_reads = association_proxy("reporter", "articles")
+
+
+class Reader(Base):
+    __tablename__ = "readers"
+    id = Column(Integer(), primary_key=True)
+    name = Column(String(100))
+    articles = relationship(
+        "Article", secondary="articles_readers", back_populates="readers"
+    )
+
+
+class ArticleReader(Base):
+    __tablename__ = "articles_readers"
+    article_id = Column(Integer(), ForeignKey("articles.id"), primary_key=True)
+    reader_id = Column(Integer(), ForeignKey("readers.id"), primary_key=True)
 
 
 class ReflectedEditor(type):
@@ -141,7 +180,7 @@ class ShoppingCartItem(Base):
     id = Column(Integer(), primary_key=True)
 
     @hybrid_property
-    def hybrid_prop_shopping_cart(self) -> List['ShoppingCart']:
+    def hybrid_prop_shopping_cart(self) -> List["ShoppingCart"]:
         return [ShoppingCart(id=1)]
 
 
@@ -196,11 +235,17 @@ class ShoppingCart(Base):
 
     @hybrid_property
     def hybrid_prop_nested_list_int(self) -> List[List[int]]:
-        return [self.hybrid_prop_list_int, ]
+        return [
+            self.hybrid_prop_list_int,
+        ]
 
     @hybrid_property
     def hybrid_prop_deeply_nested_list_int(self) -> List[List[List[int]]]:
-        return [[self.hybrid_prop_list_int, ], ]
+        return [
+            [
+                self.hybrid_prop_list_int,
+            ],
+        ]
 
     # Other SQLAlchemy Instances
     @hybrid_property
@@ -220,15 +265,75 @@ class ShoppingCart(Base):
     # Self-references
 
     @hybrid_property
-    def hybrid_prop_self_referential(self) -> 'ShoppingCart':
+    def hybrid_prop_self_referential(self) -> "ShoppingCart":
         return ShoppingCart(id=1)
 
     @hybrid_property
-    def hybrid_prop_self_referential_list(self) -> List['ShoppingCart']:
+    def hybrid_prop_self_referential_list(self) -> List["ShoppingCart"]:
         return [ShoppingCart(id=1)]
 
     # Optional[T]
 
     @hybrid_property
-    def hybrid_prop_optional_self_referential(self) -> Optional['ShoppingCart']:
+    def hybrid_prop_optional_self_referential(self) -> Optional["ShoppingCart"]:
         return None
+
+    # UUIDS
+    @hybrid_property
+    def hybrid_prop_uuid(self) -> uuid.UUID:
+        return uuid.uuid4()
+
+    @hybrid_property
+    def hybrid_prop_uuid_list(self) -> List[uuid.UUID]:
+        return [
+            uuid.uuid4(),
+        ]
+
+    @hybrid_property
+    def hybrid_prop_optional_uuid(self) -> Optional[uuid.UUID]:
+        return None
+
+
+class KeyedModel(Base):
+    __tablename__ = "test330"
+    id = Column(Integer(), primary_key=True)
+    reporter_number = Column("% reporter_number", Numeric, key="reporter_number")
+
+
+############################################
+# For interfaces
+############################################
+
+
+class Person(Base):
+    id = Column(Integer(), primary_key=True)
+    type = Column(String())
+    name = Column(String())
+    birth_date = Column(Date())
+
+    __tablename__ = "person"
+    __mapper_args__ = {
+        "polymorphic_on": type,
+        "with_polymorphic": "*",  # needed for eager loading in async session
+    }
+
+
+class NonAbstractPerson(Base):
+    id = Column(Integer(), primary_key=True)
+    type = Column(String())
+    name = Column(String())
+    birth_date = Column(Date())
+
+    __tablename__ = "non_abstract_person"
+    __mapper_args__ = {
+        "polymorphic_on": type,
+        "polymorphic_identity": "person",
+    }
+
+
+class Employee(Person):
+    hire_date = Column(Date())
+
+    __mapper_args__ = {
+        "polymorphic_identity": "employee",
+    }

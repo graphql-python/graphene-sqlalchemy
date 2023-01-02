@@ -21,10 +21,13 @@ requirements = [
 
 tests_require = [
     "pytest>=6.2.0,<7.0",
-    "pytest-asyncio>=0.15.1",
+    "pytest-asyncio>=0.18.3",
     "pytest-cov>=2.11.0,<3.0",
     "sqlalchemy_utils>=0.37.0,<1.0",
     "pytest-benchmark>=3.4.0,<4.0",
+    "aiosqlite>=0.17.0",
+    "nest-asyncio",
+    "greenlet",
 ]
 
 setup(
@@ -41,9 +44,10 @@ setup(
         "Intended Audience :: Developers",
         "Topic :: Software Development :: Libraries",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
     keywords="api graphql protocol rest relay graphene",
@@ -52,8 +56,8 @@ setup(
     extras_require={
         "dev": [
             "tox==3.7.0",  # Should be kept in sync with tox.ini
-            "pre-commit==1.14.4",
-            "flake8==3.7.9",
+            "pre-commit==2.19",
+            "flake8==4.0.0",
         ],
         "test": tests_require,
     },

@@ -1,9 +1,14 @@
-Please read [UPGRADE-v2.0.md](https://github.com/graphql-python/graphene/blob/master/UPGRADE-v2.0.md)
-to learn how to upgrade to Graphene `2.0`.
+Version 3.0 is in beta stage. Please read https://github.com/graphql-python/graphene-sqlalchemy/issues/348 to learn about progress and changes in upcoming
+beta releases.
 
 ---
 
-# ![Graphene Logo](http://graphene-python.org/favicon.png) Graphene-SQLAlchemy [![Build Status](https://travis-ci.org/graphql-python/graphene-sqlalchemy.svg?branch=master)](https://travis-ci.org/graphql-python/graphene-sqlalchemy) [![PyPI version](https://badge.fury.io/py/graphene-sqlalchemy.svg)](https://badge.fury.io/py/graphene-sqlalchemy) [![Coverage Status](https://coveralls.io/repos/graphql-python/graphene-sqlalchemy/badge.svg?branch=master&service=github)](https://coveralls.io/github/graphql-python/graphene-sqlalchemy?branch=master)
+# ![Graphene Logo](http://graphene-python.org/favicon.png) Graphene-SQLAlchemy 
+[![Build Status](https://github.com/graphql-python/graphene-sqlalchemy/workflows/Tests/badge.svg)](https://github.com/graphql-python/graphene-sqlalchemy/actions)
+[![PyPI version](https://badge.fury.io/py/graphene-sqlalchemy.svg)](https://badge.fury.io/py/graphene-sqlalchemy) 
+![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/graphql-python/graphene-sqlalchemy?color=green&include_prereleases&label=latest)
+[![codecov](https://codecov.io/gh/graphql-python/graphene-sqlalchemy/branch/master/graph/badge.svg?token=Zi5S1TikeN)](https://codecov.io/gh/graphql-python/graphene-sqlalchemy)
+
 
 
 A [SQLAlchemy](http://www.sqlalchemy.org/) integration for [Graphene](http://graphene-python.org/).
@@ -13,7 +18,7 @@ A [SQLAlchemy](http://www.sqlalchemy.org/) integration for [Graphene](http://gra
 For installing Graphene, just run this command in your shell.
 
 ```bash
-pip install "graphene-sqlalchemy>=2.0"
+pip install "graphene-sqlalchemy>=3"
 ```
 
 ## Examples

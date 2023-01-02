@@ -7,18 +7,19 @@ from graphene.relay import Node
 from ..fields import SQLAlchemyConnectionField
 from ..types import SQLAlchemyObjectType
 from ..utils import to_type_name
-from .models import Base, HairKind, Pet
+from .models import Base, HairKind, KeyedModel, Pet
 from .test_query import to_std_dicts
+from .utils import eventually_await_session
 
 
-def add_pets(session):
+async def add_pets(session):
     pets = [
         Pet(id=1, name="Lassie", pet_kind="dog", hair_kind=HairKind.LONG),
         Pet(id=2, name="Barf", pet_kind="dog", hair_kind=HairKind.LONG),
         Pet(id=3, name="Alf", pet_kind="cat", hair_kind=HairKind.LONG),
     ]
     session.add_all(pets)
-    session.commit()
+    await eventually_await_session(session, "commit")
 
 
 def test_sort_enum():
@@ -241,8 +242,9 @@ def test_sort_argument_with_custom_symbol_names():
     assert sort_arg.default_value == ["IdUp"]
 
 
-def test_sort_query(session):
-    add_pets(session)
+@pytest.mark.asyncio
+async def test_sort_query(session):
+    await add_pets(session)
 
     class PetNode(SQLAlchemyObjectType):
         class Meta:
@@ -336,7 +338,7 @@ def test_sort_query(session):
     }  # yapf: disable
 
     schema = Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -352,9 +354,9 @@ def test_sort_query(session):
             }
         }
     """
-    result = schema.execute(queryError, context_value={"session": session})
+    result = await schema.execute_async(queryError, context_value={"session": session})
     assert result.errors is not None
-    assert 'cannot represent non-enum value' in result.errors[0].message
+    assert "cannot represent non-enum value" in result.errors[0].message
 
     queryNoSort = """
         query sortTest {
@@ -375,7 +377,7 @@ def test_sort_query(session):
         }
     """
 
-    result = schema.execute(queryNoSort, context_value={"session": session})
+    result = await schema.execute_async(queryNoSort, context_value={"session": session})
     assert not result.errors
     # TODO: SQLite usually returns the results ordered by primary key,
     # so we cannot test this way whether sorting actually happens or not.
@@ -383,3 +385,32 @@ def test_sort_query(session):
     assert [node["node"]["name"] for node in result.data["noSort"]["edges"]] == [
         node["node"]["name"] for node in result.data["noDefaultSort"]["edges"]
     ]
+
+
+def test_sort_enum_from_key_issue_330():
+    """
+    Verifies that the sort enum name is generated from the column key instead of the name,
+    in case the column has an invalid enum name. See #330
+    """
+
+    class KeyedType(SQLAlchemyObjectType):
+        class Meta:
+            model = KeyedModel
+
+    sort_enum = KeyedType.sort_enum()
+    assert isinstance(sort_enum, type(Enum))
+    assert sort_enum._meta.name == "KeyedTypeSortEnum"
+    assert list(sort_enum._meta.enum.__members__) == [
+        "ID_ASC",
+        "ID_DESC",
+        "REPORTER_NUMBER_ASC",
+        "REPORTER_NUMBER_DESC",
+    ]
+    assert (
+        str(sort_enum.REPORTER_NUMBER_ASC.value.value)
+        == 'test330."% reporter_number" ASC'
+    )
+    assert (
+        str(sort_enum.REPORTER_NUMBER_DESC.value.value)
+        == 'test330."% reporter_number" DESC'
+    )
