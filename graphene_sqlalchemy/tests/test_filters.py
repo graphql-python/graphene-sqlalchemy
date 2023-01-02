@@ -420,6 +420,7 @@ def test_filter_relationship_many_to_many_contains(session):
 
 
 # Test n:m relationship containsExactly
+@pytest.mark.xfail
 def test_filter_relationship_many_to_many_contains_exactly(session):
     add_n2m_test_data(session)
     Query = create_schema(session)

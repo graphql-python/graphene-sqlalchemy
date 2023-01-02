@@ -438,44 +438,26 @@ class RelationshipFilter(graphene.InputObjectType):
             # Always alias the model
             joined_model_alias = aliased(relationship_prop)
 
-            # Store list of child IDs to filter per attribute
-            # attr = field.of_type(joined_model_alias)
-            # if not child_model_ids.get(str(attr), None):
-            #     child_model_ids[str(attr)] = []
-
             subquery = session.query(joined_model_alias.id)
             subquery, _clauses = cls._meta.object_type_filter.execute_filters(
                 subquery, v, model_alias=joined_model_alias
             )
             subquery_ids = [s_id[0] for s_id in subquery.filter(and_(*_clauses)).all()]
-
             child_model_ids.extend(subquery_ids)
 
-            # query = (
-            #     query.filter(relationship_prop.id.in_(subquery_ids))
-            #     .group_by(joined_model_alias)
-            #     .having(func.count(joined_model_alias.id) == len(subquery_ids))
-            # )
-
         # Join the relationship onto the query
-        # import pdb; pdb.set_trace()
         joined_model_alias = aliased(relationship_prop)
-        query = query.join(field.of_type(joined_model_alias))
-
-        # Define new query?
-        # query = session.query(cls)
+        joined_field = field.of_type(joined_model_alias)
+        query = query.join(joined_field)
 
         # Construct clauses from child_model_ids
         query = (
             query.filter(joined_model_alias.id.in_(child_model_ids))
             .group_by(parent_model)
-            .having(func.count(joined_model_alias.id) == len(child_model_ids))
+            .having(func.count(str(field)) == len(child_model_ids))
+            # TODO should filter on aliased field
+            # .having(func.count(joined_field) == len(child_model_ids))
         )
-        # query = (
-        #     query.filter(relationship_prop.id.in_(child_model_ids))
-        #     .group_by(relationship_prop)
-        #     .having(func.count(field)==len(child_model_ids)
-        # )
 
         return query, []
 
