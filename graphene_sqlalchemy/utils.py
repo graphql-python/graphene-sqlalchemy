@@ -32,6 +32,12 @@ if not is_sqlalchemy_version_less_than("1.4"):
     SQL_VERSION_HIGHER_EQUAL_THAN_1_4 = True
 
 
+SQL_VERSION_HIGHER_EQUAL_THAN_2 = False
+
+if not is_sqlalchemy_version_less_than("2.0.0b1"):
+    SQL_VERSION_HIGHER_EQUAL_THAN_2 = True
+
+
 def get_session(context):
     return context.get("session")
 

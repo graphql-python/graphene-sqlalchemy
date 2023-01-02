@@ -16,6 +16,8 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import column_property, relationship
 
+from graphene_sqlalchemy.utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4
+
 PetKind = Enum("cat", "dog", name="pet_kind")
 
 
@@ -60,9 +62,14 @@ class Reporter(Base):
     articles = relationship("Article", backref="reporter")
     favorite_article = relationship("Article", uselist=False)
 
-    column_prop = column_property(
-        select([func.cast(func.count(id), Integer)]), doc="Column property"
-    )
+    if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+        column_prop = column_property(
+            select(func.cast(func.count(id), Integer)), doc="Column property"
+        )
+    else:
+        column_prop = column_property(
+            select([func.cast(func.count(id), Integer)]), doc="Column property"
+        )
 
 
 class Article(Base):

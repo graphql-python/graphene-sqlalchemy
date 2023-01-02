@@ -22,6 +22,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import backref, column_property, composite, mapper, relationship
 
+from graphene_sqlalchemy.utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4
+
 PetKind = Enum("cat", "dog", name="pet_kind")
 
 
@@ -116,9 +118,15 @@ class Reporter(Base):
     def hybrid_prop_list(self) -> List[int]:
         return [1, 2, 3]
 
-    column_prop = column_property(
-        select([func.cast(func.count(id), Integer)]), doc="Column property"
-    )
+    # TODO Remove when switching min sqlalchemy version to SQLAlchemy 1.4
+    if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+        column_prop = column_property(
+            select(func.cast(func.count(id), Integer)), doc="Column property"
+        )
+    else:
+        column_prop = column_property(
+            select([func.cast(func.count(id), Integer)]), doc="Column property"
+        )
 
     composite_prop = composite(
         CompositeFullName, first_name, last_name, doc="Composite"
@@ -161,7 +169,11 @@ class ReflectedEditor(type):
 
 editor_table = Table("editors", Base.metadata, autoload=True)
 
-mapper(ReflectedEditor, editor_table)
+# TODO Remove when switching min sqlalchemy version to SQLAlchemy 1.4
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+    Base.registry.map_imperatively(ReflectedEditor, editor_table)
+else:
+    mapper(ReflectedEditor, editor_table)
 
 
 ############################################

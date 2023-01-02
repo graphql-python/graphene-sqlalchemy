@@ -24,6 +24,7 @@ from ..converter import (
 from ..fields import UnsortedSQLAlchemyConnectionField, default_connection_field_factory
 from ..registry import Registry, get_global_registry
 from ..types import ORMField, SQLAlchemyObjectType
+from ..utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4, is_sqlalchemy_version_less_than
 from .models import (
     Article,
     CompositeFullName,
@@ -336,6 +337,22 @@ def test_should_intenum_choice_convert_enum():
     assert graphene_type._meta.enum.__members__["two"].value == 2
 
 
+@pytest.mark.skipif(
+    not SQL_VERSION_HIGHER_EQUAL_THAN_1_4,
+    reason="SQLAlchemy <1.4 does not support this",
+)
+def test_should_columproperty_convert_sqa_20():
+    field = get_field_from_column(
+        column_property(select(func.sum(func.cast(id, types.Integer))).where(id == 1))
+    )
+
+    assert field.type == graphene.Int
+
+
+@pytest.mark.skipif(
+    not is_sqlalchemy_version_less_than("2.0.0b1"),
+    reason="SQLAlchemy >=2.0 does not support this syntax, see convert_sqa_20",
+)
 def test_should_columproperty_convert():
     field = get_field_from_column(
         column_property(select([func.sum(func.cast(id, types.Integer))]).where(id == 1))
@@ -355,10 +372,18 @@ def test_should_jsontype_convert_jsonstring():
     assert get_field(types.JSON).type == graphene.JSONString
 
 
+@pytest.mark.skipif(
+    (not is_sqlalchemy_version_less_than("2.0.0b1")),
+    reason="SQLAlchemy >=2.0 does not support this: Variant is no longer used in SQLAlchemy",
+)
 def test_should_variant_int_convert_int():
     assert get_field(types.Variant(types.Integer(), {})).type == graphene.Int
 
 
+@pytest.mark.skipif(
+    (not is_sqlalchemy_version_less_than("2.0.0b1")),
+    reason="SQLAlchemy >=2.0 does not support this: Variant is no longer used in SQLAlchemy",
+)
 def test_should_variant_string_convert_string():
     assert get_field(types.Variant(types.String(), {})).type == graphene.String
 

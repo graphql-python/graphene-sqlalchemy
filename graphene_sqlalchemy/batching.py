@@ -5,6 +5,7 @@ from typing import Any, Dict
 import sqlalchemy
 from sqlalchemy.orm import Session, strategies
 from sqlalchemy.orm.query import QueryContext
+from sqlalchemy.util import immutabledict
 
 from .utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4, is_graphene_version_less_than
 
@@ -77,6 +78,17 @@ class RelationshipLoader(DataLoader):
         else:
             query_context = QueryContext(session.query(parent_mapper.entity))
         if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+            self.selectin_loader._load_for_path(
+                query_context,
+                parent_mapper._path_registry,
+                states,
+                None,
+                child_mapper,
+                None,
+                None,  # recursion depth can be none
+                immutabledict(),  # default value for selectinload->lazyload
+            )
+        elif SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
             self.selectin_loader._load_for_path(
                 query_context,
                 parent_mapper._path_registry,
