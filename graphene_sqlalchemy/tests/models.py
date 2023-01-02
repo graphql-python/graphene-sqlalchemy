@@ -268,10 +268,19 @@ class ShoppingCart(Base):
             ],
         ]
 
-    # Other SQLAlchemy Instances
+    # Other SQLAlchemy Instance
     @hybrid_property
     def hybrid_prop_first_shopping_cart_item(self) -> ShoppingCartItem:
         return ShoppingCartItem(id=1)
+
+    # Other SQLAlchemy Instance with expression
+    @hybrid_property
+    def hybrid_prop_first_shopping_cart_item_expression(self) -> ShoppingCartItem:
+        return ShoppingCartItem(id=1)
+
+    @hybrid_prop_first_shopping_cart_item_expression.expression
+    def hybrid_prop_first_shopping_cart_item_expression(cls):
+        return ShoppingCartItem
 
     # Other SQLAlchemy Instances
     @hybrid_property

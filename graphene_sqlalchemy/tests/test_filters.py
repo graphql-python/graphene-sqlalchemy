@@ -7,7 +7,18 @@ from graphene import Connection, relay
 from ..fields import SQLAlchemyConnectionField
 from ..filters import FloatFilter
 from ..types import ORMField, SQLAlchemyObjectType
-from .models import Article, Editor, HairKind, Image, Pet, Reader, Reporter, Tag
+from .models import (
+    Article,
+    Editor,
+    HairKind,
+    Image,
+    Pet,
+    Reader,
+    Reporter,
+    ShoppingCart,
+    ShoppingCartItem,
+    Tag,
+)
 from .utils import to_std_dicts
 
 # TODO test that generated schema is correct for all examples with:
@@ -48,37 +59,6 @@ def add_test_data(session):
     editor = Editor(name="Jack")
     session.add(editor)
 
-    session.commit()
-
-
-def add_n2m_test_data(session):
-    # create objects
-    reader1 = Reader(name="Ada")
-    reader2 = Reader(name="Bip")
-    article1 = Article(headline="Article! Look!")
-    article2 = Article(headline="Woah! Another!")
-    tag1 = Tag(name="sensational")
-    tag2 = Tag(name="eye-grabbing")
-    image1 = Image(description="article 1")
-    image2 = Image(description="article 2")
-
-    # set relationships
-    article1.tags = [tag1]
-    article2.tags = [tag1, tag2]
-    article1.image = image1
-    article2.image = image2
-    reader1.articles = [article1]
-    reader2.articles = [article1, article2]
-
-    # save
-    session.add(image1)
-    session.add(image2)
-    session.add(tag1)
-    session.add(tag2)
-    session.add(article1)
-    session.add(article2)
-    session.add(reader1)
-    session.add(reader2)
     session.commit()
 
 
@@ -318,6 +298,37 @@ def test_filter_relationship_one_to_many(session):
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
+
+
+def add_n2m_test_data(session):
+    # create objects
+    reader1 = Reader(name="Ada")
+    reader2 = Reader(name="Bip")
+    article1 = Article(headline="Article! Look!")
+    article2 = Article(headline="Woah! Another!")
+    tag1 = Tag(name="sensational")
+    tag2 = Tag(name="eye-grabbing")
+    image1 = Image(description="article 1")
+    image2 = Image(description="article 2")
+
+    # set relationships
+    article1.tags = [tag1]
+    article2.tags = [tag1, tag2]
+    article1.image = image1
+    article2.image = image2
+    reader1.articles = [article1]
+    reader2.articles = [article1, article2]
+
+    # save
+    session.add(image1)
+    session.add(image2)
+    session.add(tag1)
+    session.add(tag2)
+    session.add(article1)
+    session.add(article2)
+    session.add(reader1)
+    session.add(reader2)
+    session.commit()
 
 
 # Test n:m relationship contains
@@ -796,10 +807,178 @@ def test_filter_logic_and_or(session):
     assert result == expected
 
 
+def add_hybrid_prop_test_data(session):
+    # create objects
+    cart = ShoppingCart()
+
+    # set relationships
+
+    # save
+    session.add(cart)
+    session.commit()
+
+
+def create_hybrid_prop_schema(session):
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCart
+            name = "ShoppingCart"
+            interfaces = (relay.Node,)
+            connection_class = Connection
+
+    class ShoppingCartItemType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCartItem
+            name = "ShoppingCartItem"
+            interfaces = (relay.Node,)
+            connection_class = Connection
+
+    class Query(graphene.ObjectType):
+        node = relay.Node.Field()
+        carts = SQLAlchemyConnectionField(ShoppingCartType.connection)
+
+    return Query
+
+
 # TODO hybrid property
 @pytest.mark.xfail
 def test_filter_hybrid_property(session):
-    raise NotImplementedError
+    add_hybrid_prop_test_data(session)
+    Query = create_hybrid_prop_schema(session)
+
+    # test hybrid_prop_int
+    query = """
+        query {
+          carts (filter: {hybridPropInt: {eq: 42}}) {
+            edges {
+                node {
+                    hybridPropInt
+                }
+            }
+          }
+        }
+    """
+    expected = {
+        "carts": {
+            "edges": [
+                {"node": {"hybridPropInt": 42}},
+            ]
+        },
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+    # test hybrid_prop_float
+    query = """
+        query {
+          carts (filter: {hybridPropFloat: {gt: 42}}) {
+            edges {
+                node {
+                    hybridPropFloat
+                }
+            }
+          }
+        }
+    """
+    expected = {
+        "carts": {
+            "edges": [
+                {"node": {"hybridPropFloat": 42.3}},
+            ]
+        },
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+    # test hybrid_prop different model without expression
+    query = """
+        query {
+          carts {
+            edges {
+                node {
+                    hybridPropFirstShoppingCartItem
+                }
+            }
+          }
+        }
+    """
+    expected = {
+        "carts": {
+            "edges": [
+                {"node": {"hybridPropFirstShoppingCartItem": {"id": 1}}},
+            ]
+        },
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    # cart = result["carts"]["edges"][0]["node"]["hybridPropFirstShoppingCartItem"]
+    # print(cart)
+    # print(type(cart))
+    # TODO why is this str?
+    assert result == expected
+
+    # test hybrid_prop different model with expression
+    query = """
+        query {
+          carts {
+            edges {
+                node {
+                    hybridPropFirstShoppingCartItemExpression
+                }
+            }
+          }
+        }
+    """
+    expected = {
+        "carts": {
+            "edges": [
+                {"node": {"hybridPropFirstShoppingCartItemExpression": {"id": 1}}},
+            ]
+        },
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    # cart = result["carts"]["edges"][0]["node"]["hybridPropFirstShoppingCartItemExpression"]
+    # print(cart)
+    # print(type(cart))
+    # TODO why is this str?
+    assert result == expected
+
+    # test hybrid_prop list of models
+    query = """
+        query {
+          carts {
+            edges {
+                node {
+                    hybridPropShoppingCartItemList
+                }
+            }
+          }
+        }
+    """
+    expected = {
+        "carts": {
+            "edges": [
+                {"node": {"hybridPropShoppingCartItemList": {"id": 1}}},
+            ]
+        },
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    # TODO why is this str?
+    assert result == expected
 
 
 # Test edge cases to improve test coverage
