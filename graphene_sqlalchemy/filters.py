@@ -273,7 +273,7 @@ class FieldFilter(graphene.InputObjectType):
 
     @classmethod
     def not_in_filter(cls, query, field, val: List[ScalarFilterInputType]):
-        return field.not_int(val)
+        return field.not_in(val)
 
     @classmethod
     def execute_filters(

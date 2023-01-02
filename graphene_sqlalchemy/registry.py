@@ -6,7 +6,7 @@ from sqlalchemy.types import Enum as SQLAlchemyEnumType
 import graphene
 from graphene import Enum
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no_cover
     from graphene_sqlalchemy.filters import (
         FieldFilter,
         ObjectTypeFilter,

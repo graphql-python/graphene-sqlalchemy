@@ -19,7 +19,7 @@ def add_test_data(session):
     reporter = Reporter(first_name="John", last_name="Doe", favorite_pet_kind="cat")
     session.add(reporter)
 
-    pet = Pet(name="Garfield", pet_kind="cat", hair_kind=HairKind.SHORT)
+    pet = Pet(name="Garfield", pet_kind="cat", hair_kind=HairKind.SHORT, legs=4)
     pet.reporter = reporter
     session.add(pet)
 
@@ -135,6 +135,7 @@ def create_schema(session):
         readers = SQLAlchemyConnectionField(ReaderType.connection)
         # reporter = graphene.Field(ReporterType)
         reporters = SQLAlchemyConnectionField(ReporterType.connection)
+        pets = SQLAlchemyConnectionField(PetType.connection)
         tags = SQLAlchemyConnectionField(TagType.connection)
 
         # def resolve_article(self, _info):
@@ -799,3 +800,71 @@ def test_filter_logic_and_or(session):
 @pytest.mark.xfail
 def test_filter_hybrid_property(session):
     raise NotImplementedError
+
+
+# Test edge cases to improve test coverage
+def test_filter_edge_cases(session):
+    add_test_data(session)
+
+    # test disabling filtering
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+            name = "Article"
+            interfaces = (relay.Node,)
+            connection_class = Connection
+
+    class Query(graphene.ObjectType):
+        node = relay.Node.Field()
+        articles = SQLAlchemyConnectionField(ArticleType.connection, filter=None)
+
+    schema = graphene.Schema(query=Query)
+    assert not hasattr(schema, "ArticleTypeFilter")
+
+
+# Test additional filter types to improve test coverage
+def test_additional_filters(session):
+    add_test_data(session)
+    Query = create_schema(session)
+
+    # test n_eq and not_in filters
+    query = """
+        query {
+          reporters (filter: {firstName: {nEq: "Jane"}, lastName: {notIn: "Doe"}}) {
+            edges {
+                node {
+                    lastName
+                }
+            }
+          }
+        }
+    """
+    expected = {
+        "reporters": {"edges": [{"node": {"lastName": "Woe"}}]},
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
+
+    # test gt, lt, gte, and lte filters
+    query = """
+        query {
+          pets (filter: {legs: {gt: 2, lt: 4, gte: 3, lte: 3}}) {
+            edges {
+                node {
+                    name
+                }
+            }
+          }
+        }
+    """
+    expected = {
+        "pets": {"edges": [{"node": {"name": "Snoopy"}}]},
+    }
+    schema = graphene.Schema(query=Query)
+    result = schema.execute(query, context_value={"session": session})
+    assert not result.errors
+    result = to_std_dicts(result.data)
+    assert result == expected
