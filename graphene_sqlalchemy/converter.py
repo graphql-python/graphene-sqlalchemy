@@ -91,6 +91,13 @@ def convert_sqlalchemy_association_proxy(
                 assoc_prop.value_attr,
                 **field_kwargs,
             ).get_type()
+        else:
+            raise TypeError(
+                "Unsupported association proxy target type: {} for prop {} on type {}. "
+                "Please disable the conversion of this field using an ORMField.".format(
+                    type(attr), assoc_prop, obj_type
+                )
+            )
         # else, not supported
 
     return graphene.Dynamic(dynamic_type)

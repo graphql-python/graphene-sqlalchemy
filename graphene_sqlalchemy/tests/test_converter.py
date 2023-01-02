@@ -29,6 +29,7 @@ from .models import (
     Article,
     CompositeFullName,
     Pet,
+    ProxiedReporter,
     Reporter,
     ShoppingCart,
     ShoppingCartItem,
@@ -521,6 +522,25 @@ def test_should_convert_association_proxy():
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     assert dynamic_field.get_type().type.of_type == ArticleType
+
+
+def test_should_throw_error_association_proxy_unsupported_target():
+    class ProxiedReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = ProxiedReporter
+
+    field = convert_sqlalchemy_association_proxy(
+        ProxiedReporter,
+        ProxiedReporter.composite_prop,
+        ProxiedReporterType,
+        get_global_registry(),
+        default_connection_field_factory,
+        True,
+        mock_resolver,
+    )
+
+    with pytest.raises(TypeError):
+        field.get_type()
 
 
 def test_should_postgresql_uuid_convert():

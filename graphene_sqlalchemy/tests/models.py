@@ -68,6 +68,18 @@ class CompositeFullName(object):
         return "{} {}".format(self.first_name, self.last_name)
 
 
+class ProxiedReporter(Base):
+    __tablename__ = "reporters_error"
+    id = Column(Integer(), primary_key=True)
+    first_name = Column(String(30), doc="First name")
+    last_name = Column(String(30), doc="Last name")
+    reporter_id = Column(Integer(), ForeignKey("reporters.id"))
+    reporter = relationship("Reporter", uselist=False)
+
+    # This is a hybrid property, we don't support proxies on hybrids yet
+    composite_prop = association_proxy("reporter", "composite_prop")
+
+
 class Reporter(Base):
     __tablename__ = "reporters"
 
