@@ -281,7 +281,7 @@ def convert_column_to_float(type, column, registry=None):
 
 @convert_sqlalchemy_type.register(sqa_types.Enum)
 def convert_enum_to_enum(type, column, registry=None):
-    return lambda: enum_for_sa_enum(type, registry or get_global_registry())
+    return lambda: enum_for_sa_enum(type, registry or get_global_registry(), fallback_name=column.key)
 
 
 # TODO Make ChoiceType conversion consistent with other enums
