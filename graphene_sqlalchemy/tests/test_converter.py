@@ -20,6 +20,7 @@ from ..converter import (
     convert_sqlalchemy_composite,
     convert_sqlalchemy_hybrid_method,
     convert_sqlalchemy_relationship,
+    convert_sqlalchemy_type,
 )
 from ..fields import UnsortedSQLAlchemyConnectionField, default_connection_field_factory
 from ..registry import Registry, get_global_registry
@@ -166,6 +167,11 @@ def test_should_union_work_310():
     assert issubclass(field_type_1, graphene.Union)
     assert field_type_1._meta.types == [PetType, ShoppingCartType]
     assert field_type_1 is field_type_2
+
+
+def test_should_unknown_type_raise_error():
+    with pytest.raises(Exception):
+        converted_type = convert_sqlalchemy_type(ZeroDivisionError)  # noqa
 
 
 def test_should_datetime_convert_datetime():

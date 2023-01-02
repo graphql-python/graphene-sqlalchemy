@@ -206,12 +206,6 @@ class singledispatchbymatchfunction:
 def value_equals(value: Any) -> Callable[[Any], bool]:
     """A simple function that makes the equality based matcher functions for
     SingleDispatchByMatchFunction prettier"""
-    return lambda x: (x == value or type(x) is value)
-
-
-def value_equals_strict(value: Any) -> Callable[[Any], bool]:
-    """A simple function that makes the equality based matcher functions for
-    SingleDispatchByMatchFunction prettier"""
     return lambda x: (x == value)
 
 

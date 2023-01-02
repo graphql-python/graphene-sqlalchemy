@@ -24,7 +24,6 @@ from .utils import (
     safe_isinstance,
     singledispatchbymatchfunction,
     value_equals,
-    value_equals_strict,
 )
 
 # We just use MapperProperties for type hints, they don't exist in sqlalchemy < 1.4
@@ -214,12 +213,15 @@ convert_sqlalchemy_composite.register = _register_composite_class
 
 def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
     column = column_prop.columns[0]
-
+    column_type = getattr(column, "type", None)
+    # The converter expects a type to find the right conversion function.
+    # If we get an instance instead, we need to convert it to a type.
+    # The conversion function will still be able to access the instance via the column argument.
+    if not isinstance(column_type, type):
+        column_type = type(column_type)
     field_kwargs.setdefault(
         "type_",
-        convert_sqlalchemy_type(
-            getattr(column, "type", None), column=column, registry=registry
-        ),
+        convert_sqlalchemy_type(column_type, column=column, registry=registry),
     )
     field_kwargs.setdefault("required", not is_column_nullable(column))
     field_kwargs.setdefault("description", get_column_doc(column))
@@ -251,7 +253,7 @@ def convert_sqlalchemy_type(
     )
 
 
-@convert_sqlalchemy_type.register(value_equals_strict(str))
+@convert_sqlalchemy_type.register(value_equals(str))
 @convert_sqlalchemy_type.register(value_equals(sqa_types.String))
 @convert_sqlalchemy_type.register(value_equals(sqa_types.Text))
 @convert_sqlalchemy_type.register(value_equals(sqa_types.Unicode))
@@ -305,7 +307,7 @@ def convert_column_to_date(
 
 @convert_sqlalchemy_type.register(value_equals(sqa_types.SmallInteger))
 @convert_sqlalchemy_type.register(value_equals(sqa_types.Integer))
-@convert_sqlalchemy_type.register(value_equals_strict(int))
+@convert_sqlalchemy_type.register(value_equals(int))
 def convert_column_to_int_or_id(
     type_arg: Any,
     column: Optional[Union[MapperProperty, hybrid_property]] = None,
@@ -318,7 +320,7 @@ def convert_column_to_int_or_id(
 
 
 @convert_sqlalchemy_type.register(value_equals(sqa_types.Boolean))
-@convert_sqlalchemy_type.register(value_equals_strict(bool))
+@convert_sqlalchemy_type.register(value_equals(bool))
 def convert_column_to_boolean(
     type_arg: Any,
     **kwargs,
@@ -326,7 +328,7 @@ def convert_column_to_boolean(
     return graphene.Boolean
 
 
-@convert_sqlalchemy_type.register(value_equals_strict(float))
+@convert_sqlalchemy_type.register(value_equals(float))
 @convert_sqlalchemy_type.register(value_equals(sqa_types.Float))
 @convert_sqlalchemy_type.register(value_equals(sqa_types.Numeric))
 @convert_sqlalchemy_type.register(value_equals(sqa_types.BigInteger))
@@ -345,7 +347,10 @@ def convert_enum_to_enum(
     registry: Registry = None,
     **kwargs,
 ):
-    return lambda: enum_for_sa_enum(type_arg, registry or get_global_registry())
+    if column is None or isinstance(column, hybrid_property):
+        raise Exception("SQL-Enum conversion requires a column")
+
+    return lambda: enum_for_sa_enum(column.type, registry or get_global_registry())
 
 
 # TODO Make ChoiceType conversion consistent with other enums
@@ -353,15 +358,18 @@ def convert_enum_to_enum(
 def convert_choice_to_enum(
     type_arg: sqa_utils.ChoiceType,
     column: Optional[Union[MapperProperty, hybrid_property]] = None,
-    registry: Registry = None,
+    **kwargs,
 ):
+    if column is None or isinstance(column, hybrid_property):
+        raise Exception("ChoiceType conversion requires a column")
+
     name = "{}_{}".format(column.table.name, column.key).upper()
-    if isinstance(type_arg.type_impl, EnumTypeImpl):
+    if isinstance(column.type.type_impl, EnumTypeImpl):
         # type.choices may be Enum/IntEnum, in ChoiceType both presented as EnumMeta
         # do not use from_enum here because we can have more than one enum column in table
-        return graphene.Enum(name, list((v.name, v.value) for v in type_arg.choices))
+        return graphene.Enum(name, list((v.name, v.value) for v in column.type.choices))
     else:
-        return graphene.Enum(name, type_arg.choices)
+        return graphene.Enum(name, column.type.choices)
 
 
 @convert_sqlalchemy_type.register(value_equals(sqa_utils.ScalarListType))
@@ -388,8 +396,13 @@ def convert_array_to_list(
     registry: Registry = None,
     **kwargs,
 ):
+    if column is None or isinstance(column, hybrid_property):
+        raise Exception("SQL-Array conversion requires a column")
+    item_type = column.type.item_type
+    if not isinstance(item_type, type):
+        item_type = type(item_type)
     inner_type = convert_sqlalchemy_type(
-        column.type.item_type, column=column, registry=registry, **kwargs
+        item_type, column=column, registry=registry, **kwargs
     )
     return graphene.List(
         init_array_list_recursive(inner_type, (column.type.dimensions or 1) - 1)
@@ -422,12 +435,18 @@ def convert_variant_to_impl_type(
     registry: Registry = None,
     **kwargs,
 ):
+    if column is None or isinstance(column, hybrid_property):
+        raise Exception("Vaiant conversion requires a column")
+
+    type_impl = column.type.impl
+    if not isinstance(type_impl, type):
+        type_impl = type(type_impl)
     return convert_sqlalchemy_type(
-        type_arg.impl, column=column, registry=registry, **kwargs
+        type_impl, column=column, registry=registry, **kwargs
     )
 
 
-@convert_sqlalchemy_type.register(value_equals_strict(Decimal))
+@convert_sqlalchemy_type.register(value_equals(Decimal))
 def convert_sqlalchemy_hybrid_property_type_decimal(type_arg: Any, **kwargs):
     # The reason Decimal should be serialized as a String is because this is a
     # base10 type used in things like money, and string allows it to not
