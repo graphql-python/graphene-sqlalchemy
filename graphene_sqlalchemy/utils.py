@@ -219,6 +219,16 @@ def safe_isinstance(cls):
     return safe_isinstance_checker
 
 
+def safe_issubclass(cls):
+    def safe_issubclass_checker(arg):
+        try:
+            return issubclass(arg, cls)
+        except TypeError:
+            pass
+
+    return safe_issubclass_checker
+
+
 def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:
     from graphene_sqlalchemy.registry import get_global_registry
 

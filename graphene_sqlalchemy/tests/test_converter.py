@@ -103,6 +103,25 @@ def test_hybrid_prop_no_type_annotation():
         get_hybrid_property_type(hybrid_prop)
 
 
+def test_hybrid_prop_object_type():
+    class MyObjectType(graphene.ObjectType):
+        string = graphene.String()
+
+    @hybrid_property
+    def hybrid_prop(self) -> MyObjectType:
+        return MyObjectType()
+
+    assert get_hybrid_property_type(hybrid_prop).type == MyObjectType
+
+
+def test_hybrid_prop_scalar_type():
+    @hybrid_property
+    def hybrid_prop(self) -> graphene.String:
+        return "This should work"
+
+    assert get_hybrid_property_type(hybrid_prop).type == graphene.String
+
+
 @pytest.mark.skipif(
     sys.version_info < (3, 10), reason="|-Style Unions are unsupported in python < 3.10"
 )

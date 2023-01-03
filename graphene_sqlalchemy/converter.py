@@ -23,6 +23,7 @@ from .utils import (
     column_type_eq,
     registry_sqlalchemy_model_from_str,
     safe_isinstance,
+    safe_issubclass,
     singledispatchbymatchfunction,
 )
 
@@ -236,15 +237,12 @@ def convert_sqlalchemy_type(
     registry: Registry = None,
     **kwargs,
 ):
-    existing_graphql_type = get_global_registry().get_type_for_model(type_arg)
+    registry_ = registry or get_global_registry()
+    # Enable returning Models by getting the corresponding model from the registry
+    # ToDo do we need a Dynamic Type here?
+    existing_graphql_type = registry_.get_type_for_model(type_arg)
     if existing_graphql_type:
         return existing_graphql_type
-
-    if isinstance(type_arg, type(graphene.ObjectType)):
-        return type_arg
-
-    if isinstance(type_arg, type(graphene.Scalar)):
-        return type_arg
 
     # No valid type found, warn and fall back to graphene.String
     raise TypeError(
@@ -252,6 +250,16 @@ def convert_sqlalchemy_type(
         "Please add a type converter or set the type manually using ORMField(type_=your_type)"
         % (column, column.__class__ or "no column provided", type_arg)
     )
+
+
+@convert_sqlalchemy_type.register(safe_issubclass(graphene.ObjectType))
+def convert_object_type(type_arg: Any, **kwargs):
+    return type_arg
+
+
+@convert_sqlalchemy_type.register(safe_issubclass(graphene.Scalar))
+def convert_scalar_type(type_arg: Any, **kwargs):
+    return type_arg
 
 
 @convert_sqlalchemy_type.register(column_type_eq(str))
