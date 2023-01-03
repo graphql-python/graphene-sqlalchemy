@@ -239,7 +239,8 @@ def convert_sqlalchemy_type(
 ):
     registry_ = registry or get_global_registry()
     # Enable returning Models by getting the corresponding model from the registry
-    # ToDo do we need a Dynamic Type here?
+    # ToDo Move to a separate converter later, matching all sqlalchemy mapped
+    #  types and returning a dynamic
     existing_graphql_type = registry_.get_type_for_model(type_arg)
     if existing_graphql_type:
         return existing_graphql_type
