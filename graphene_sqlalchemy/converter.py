@@ -247,8 +247,9 @@ def convert_sqlalchemy_type(
         return type_arg
 
     # No valid type found, warn and fall back to graphene.String
-    raise Exception(
-        "Don't know how to convert the SQLAlchemy field %s (%s, %s)"
+    raise TypeError(
+        "Don't know how to convert the SQLAlchemy field %s (%s, %s). "
+        "Please add a type converter or set the type manually using ORMField(type_=your_type)"
         % (column, column.__class__ or "no column provided", type_arg)
     )
 
@@ -562,6 +563,12 @@ def convert_sqlalchemy_hybrid_property_bare_str(type_arg: str, **kwargs):
 
 def convert_hybrid_property_return_type(hybrid_prop):
     # Grab the original method's return type annotations from inside the hybrid property
-    return_type_annotation = hybrid_prop.fget.__annotations__.get("return", str)
+    return_type_annotation = hybrid_prop.fget.__annotations__.get("return", None)
+    if not return_type_annotation:
+        raise TypeError(
+            "Cannot convert hybrid property type {} to a valid graphene type. "
+            "Please make sure to annotate the return type of the hybrid property or use the "
+            "type_ attribute of ORMField to set the type.".format(hybrid_prop)
+        )
 
     return convert_sqlalchemy_type(return_type_annotation)

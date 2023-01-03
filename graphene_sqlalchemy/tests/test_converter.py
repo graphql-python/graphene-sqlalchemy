@@ -1,6 +1,6 @@
 import enum
 import sys
-from typing import Dict, Union
+from typing import Dict, Tuple, Union
 
 import pytest
 import sqlalchemy_utils as sqa_utils
@@ -77,6 +77,30 @@ def test_hybrid_prop_int():
         return 42
 
     assert get_hybrid_property_type(prop_method).type == graphene.Int
+
+
+def test_hybrid_unknown_annotation():
+    @hybrid_property
+    def hybrid_prop(self):
+        return "This should fail"
+
+    with pytest.raises(
+        TypeError,
+        match=r"(.*)Please make sure to annotate the return type of the hybrid property or use the "
+        "type_ attribute of ORMField to set the type.(.*)",
+    ):
+        get_hybrid_property_type(hybrid_prop)
+
+
+def test_hybrid_prop_no_type_annotation():
+    @hybrid_property
+    def hybrid_prop(self) -> Tuple[str, str]:
+        return "This should Fail because", "we don't support Tuples in GQL"
+
+    with pytest.raises(
+        TypeError, match=r"(.*)Don't know how to convert the SQLAlchemy field(.*)"
+    ):
+        get_hybrid_property_type(hybrid_prop)
 
 
 @pytest.mark.skipif(
