@@ -203,7 +203,7 @@ class singledispatchbymatchfunction:
         return func
 
 
-def value_equals(value: Any) -> Callable[[Any], bool]:
+def column_type_eq(value: Any) -> Callable[[Any], bool]:
     """A simple function that makes the equality based matcher functions for
     SingleDispatchByMatchFunction prettier"""
     return lambda x: (x == value)

@@ -20,10 +20,10 @@ from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (
     DummyImport,
+    column_type_eq,
     registry_sqlalchemy_model_from_str,
     safe_isinstance,
     singledispatchbymatchfunction,
-    value_equals,
 )
 
 # We just use MapperProperties for type hints, they don't exist in sqlalchemy < 1.4
@@ -253,24 +253,24 @@ def convert_sqlalchemy_type(
     )
 
 
-@convert_sqlalchemy_type.register(value_equals(str))
-@convert_sqlalchemy_type.register(value_equals(sqa_types.String))
-@convert_sqlalchemy_type.register(value_equals(sqa_types.Text))
-@convert_sqlalchemy_type.register(value_equals(sqa_types.Unicode))
-@convert_sqlalchemy_type.register(value_equals(sqa_types.UnicodeText))
-@convert_sqlalchemy_type.register(value_equals(postgresql.INET))
-@convert_sqlalchemy_type.register(value_equals(postgresql.CIDR))
-@convert_sqlalchemy_type.register(value_equals(sqa_utils.TSVectorType))
-@convert_sqlalchemy_type.register(value_equals(sqa_utils.EmailType))
-@convert_sqlalchemy_type.register(value_equals(sqa_utils.URLType))
-@convert_sqlalchemy_type.register(value_equals(sqa_utils.IPAddressType))
+@convert_sqlalchemy_type.register(column_type_eq(str))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.String))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.Text))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.Unicode))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.UnicodeText))
+@convert_sqlalchemy_type.register(column_type_eq(postgresql.INET))
+@convert_sqlalchemy_type.register(column_type_eq(postgresql.CIDR))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_utils.TSVectorType))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_utils.EmailType))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_utils.URLType))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_utils.IPAddressType))
 def convert_column_to_string(type_arg: Any, **kwargs):
     return graphene.String
 
 
-@convert_sqlalchemy_type.register(value_equals(postgresql.UUID))
-@convert_sqlalchemy_type.register(value_equals(sqa_utils.UUIDType))
-@convert_sqlalchemy_type.register(value_equals(uuid.UUID))
+@convert_sqlalchemy_type.register(column_type_eq(postgresql.UUID))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_utils.UUIDType))
+@convert_sqlalchemy_type.register(column_type_eq(uuid.UUID))
 def convert_column_to_uuid(
     type_arg: Any,
     **kwargs,
@@ -278,8 +278,8 @@ def convert_column_to_uuid(
     return graphene.UUID
 
 
-@convert_sqlalchemy_type.register(value_equals(sqa_types.DateTime))
-@convert_sqlalchemy_type.register(value_equals(datetime.datetime))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.DateTime))
+@convert_sqlalchemy_type.register(column_type_eq(datetime.datetime))
 def convert_column_to_datetime(
     type_arg: Any,
     **kwargs,
@@ -287,8 +287,8 @@ def convert_column_to_datetime(
     return graphene.DateTime
 
 
-@convert_sqlalchemy_type.register(value_equals(sqa_types.Time))
-@convert_sqlalchemy_type.register(value_equals(datetime.time))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.Time))
+@convert_sqlalchemy_type.register(column_type_eq(datetime.time))
 def convert_column_to_time(
     type_arg: Any,
     **kwargs,
@@ -296,8 +296,8 @@ def convert_column_to_time(
     return graphene.Time
 
 
-@convert_sqlalchemy_type.register(value_equals(sqa_types.Date))
-@convert_sqlalchemy_type.register(value_equals(datetime.date))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.Date))
+@convert_sqlalchemy_type.register(column_type_eq(datetime.date))
 def convert_column_to_date(
     type_arg: Any,
     **kwargs,
@@ -305,9 +305,9 @@ def convert_column_to_date(
     return graphene.Date
 
 
-@convert_sqlalchemy_type.register(value_equals(sqa_types.SmallInteger))
-@convert_sqlalchemy_type.register(value_equals(sqa_types.Integer))
-@convert_sqlalchemy_type.register(value_equals(int))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.SmallInteger))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.Integer))
+@convert_sqlalchemy_type.register(column_type_eq(int))
 def convert_column_to_int_or_id(
     type_arg: Any,
     column: Optional[Union[MapperProperty, hybrid_property]] = None,
@@ -319,8 +319,8 @@ def convert_column_to_int_or_id(
     )  # fixme drop the primary key processing in another pr
 
 
-@convert_sqlalchemy_type.register(value_equals(sqa_types.Boolean))
-@convert_sqlalchemy_type.register(value_equals(bool))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.Boolean))
+@convert_sqlalchemy_type.register(column_type_eq(bool))
 def convert_column_to_boolean(
     type_arg: Any,
     **kwargs,
@@ -328,10 +328,10 @@ def convert_column_to_boolean(
     return graphene.Boolean
 
 
-@convert_sqlalchemy_type.register(value_equals(float))
-@convert_sqlalchemy_type.register(value_equals(sqa_types.Float))
-@convert_sqlalchemy_type.register(value_equals(sqa_types.Numeric))
-@convert_sqlalchemy_type.register(value_equals(sqa_types.BigInteger))
+@convert_sqlalchemy_type.register(column_type_eq(float))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.Float))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.Numeric))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.BigInteger))
 def convert_column_to_float(
     type_arg: Any,
     **kwargs,
@@ -339,8 +339,8 @@ def convert_column_to_float(
     return graphene.Float
 
 
-@convert_sqlalchemy_type.register(value_equals(postgresql.ENUM))
-@convert_sqlalchemy_type.register(value_equals(sqa_types.Enum))
+@convert_sqlalchemy_type.register(column_type_eq(postgresql.ENUM))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.Enum))
 def convert_enum_to_enum(
     type_arg: Any,
     column: Optional[Union[MapperProperty, hybrid_property]] = None,
@@ -354,7 +354,7 @@ def convert_enum_to_enum(
 
 
 # TODO Make ChoiceType conversion consistent with other enums
-@convert_sqlalchemy_type.register(value_equals(sqa_utils.ChoiceType))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_utils.ChoiceType))
 def convert_choice_to_enum(
     type_arg: sqa_utils.ChoiceType,
     column: Optional[Union[MapperProperty, hybrid_property]] = None,
@@ -372,7 +372,7 @@ def convert_choice_to_enum(
         return graphene.Enum(name, column.type.choices)
 
 
-@convert_sqlalchemy_type.register(value_equals(sqa_utils.ScalarListType))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_utils.ScalarListType))
 def convert_scalar_list_to_list(
     type_arg: Any,
     **kwargs,
@@ -388,8 +388,8 @@ def init_array_list_recursive(inner_type, n):
     )
 
 
-@convert_sqlalchemy_type.register(value_equals(sqa_types.ARRAY))
-@convert_sqlalchemy_type.register(value_equals(postgresql.ARRAY))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.ARRAY))
+@convert_sqlalchemy_type.register(column_type_eq(postgresql.ARRAY))
 def convert_array_to_list(
     type_arg: Any,
     column: Optional[Union[MapperProperty, hybrid_property]] = None,
@@ -409,9 +409,9 @@ def convert_array_to_list(
     )
 
 
-@convert_sqlalchemy_type.register(value_equals(postgresql.HSTORE))
-@convert_sqlalchemy_type.register(value_equals(postgresql.JSON))
-@convert_sqlalchemy_type.register(value_equals(postgresql.JSONB))
+@convert_sqlalchemy_type.register(column_type_eq(postgresql.HSTORE))
+@convert_sqlalchemy_type.register(column_type_eq(postgresql.JSON))
+@convert_sqlalchemy_type.register(column_type_eq(postgresql.JSONB))
 def convert_json_to_string(
     type_arg: Any,
     **kwargs,
@@ -419,8 +419,8 @@ def convert_json_to_string(
     return JSONString
 
 
-@convert_sqlalchemy_type.register(value_equals(sqa_utils.JSONType))
-@convert_sqlalchemy_type.register(value_equals(sqa_types.JSON))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_utils.JSONType))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.JSON))
 def convert_json_type_to_string(
     type_arg: Any,
     **kwargs,
@@ -428,7 +428,7 @@ def convert_json_type_to_string(
     return JSONString
 
 
-@convert_sqlalchemy_type.register(value_equals(sqa_types.Variant))
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.Variant))
 def convert_variant_to_impl_type(
     type_arg: sqa_types.Variant,
     column: Optional[Union[MapperProperty, hybrid_property]] = None,
@@ -446,7 +446,7 @@ def convert_variant_to_impl_type(
     )
 
 
-@convert_sqlalchemy_type.register(value_equals(Decimal))
+@convert_sqlalchemy_type.register(column_type_eq(Decimal))
 def convert_sqlalchemy_hybrid_property_type_decimal(type_arg: Any, **kwargs):
     # The reason Decimal should be serialized as a String is because this is a
     # base10 type used in things like money, and string allows it to not
