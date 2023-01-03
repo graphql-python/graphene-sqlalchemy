@@ -8,7 +8,7 @@ from typing import Any, Optional, Union, cast
 from sqlalchemy import types as sqa_types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import interfaces, strategies
+from sqlalchemy.orm import DeclarativeMeta, interfaces, strategies
 
 import graphene
 from graphene.types.json import JSONString
@@ -231,26 +231,40 @@ def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
 
 
 @singledispatchbymatchfunction
-def convert_sqlalchemy_type(
+def convert_sqlalchemy_type(  # noqa
     type_arg: Any,
     column: Optional[Union[MapperProperty, hybrid_property]] = None,
     registry: Registry = None,
     **kwargs,
 ):
-    registry_ = registry or get_global_registry()
-    # Enable returning Models by getting the corresponding model from the registry
-    # ToDo Move to a separate converter later, matching all sqlalchemy mapped
-    #  types and returning a dynamic
-    existing_graphql_type = registry_.get_type_for_model(type_arg)
-    if existing_graphql_type:
-        return existing_graphql_type
 
-    # No valid type found, warn and fall back to graphene.String
+    # No valid type found, raise an error
+
     raise TypeError(
         "Don't know how to convert the SQLAlchemy field %s (%s, %s). "
         "Please add a type converter or set the type manually using ORMField(type_=your_type)"
         % (column, column.__class__ or "no column provided", type_arg)
     )
+
+
+@convert_sqlalchemy_type.register(safe_isinstance(DeclarativeMeta))
+def convert_sqlalchemy_model_using_registry(
+    type_arg: Any, registry: Registry = None, **kwargs
+):
+    registry_ = registry or get_global_registry()
+
+    def get_type_from_registry():
+        existing_graphql_type = registry_.get_type_for_model(type_arg)
+        if existing_graphql_type:
+            return existing_graphql_type
+
+        raise TypeError(
+            "No model found in Registry for type %s. "
+            "Only references to SQLAlchemy Models mapped to "
+            "SQLAlchemyObjectTypes are allowed." % type_arg
+        )
+
+    return get_type_from_registry()
 
 
 @convert_sqlalchemy_type.register(safe_issubclass(graphene.ObjectType))

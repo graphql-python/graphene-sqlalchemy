@@ -138,6 +138,51 @@ def test_hybrid_prop_scalar_type():
     assert get_hybrid_property_type(hybrid_prop).type == graphene.String
 
 
+def test_hybrid_prop_not_mapped_to_graphene_type():
+    @hybrid_property
+    def hybrid_prop(self) -> ShoppingCartItem:
+        return "This shouldn't work"
+
+    with pytest.raises(TypeError, match=r"(.*)No model found in Registry for type(.*)"):
+        get_hybrid_property_type(hybrid_prop).type
+
+
+def test_hybrid_prop_mapped_to_graphene_type():
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCartItem
+
+    @hybrid_property
+    def hybrid_prop(self) -> ShoppingCartItem:
+        return "Dummy return value"
+
+    get_hybrid_property_type(hybrid_prop).type == ShoppingCartType
+
+
+def test_hybrid_prop_forward_ref_not_mapped_to_graphene_type():
+    @hybrid_property
+    def hybrid_prop(self) -> "ShoppingCartItem":
+        return "This shouldn't work"
+
+    with pytest.raises(
+        TypeError,
+        match=r"(.*)No model found in Registry for forward reference for type(.*)",
+    ):
+        get_hybrid_property_type(hybrid_prop).type
+
+
+def test_hybrid_prop_forward_ref_mapped_to_graphene_type():
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCartItem
+
+    @hybrid_property
+    def hybrid_prop(self) -> "ShoppingCartItem":
+        return "Dummy return value"
+
+    get_hybrid_property_type(hybrid_prop).type == ShoppingCartType
+
+
 @pytest.mark.skipif(
     sys.version_info < (3, 10), reason="|-Style Unions are unsupported in python < 3.10"
 )
