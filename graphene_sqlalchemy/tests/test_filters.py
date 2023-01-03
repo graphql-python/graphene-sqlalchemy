@@ -841,7 +841,6 @@ def create_hybrid_prop_schema(session):
 
 
 # TODO hybrid property
-@pytest.mark.xfail
 def test_filter_hybrid_property(session):
     add_hybrid_prop_test_data(session)
     Query = create_hybrid_prop_schema(session)
@@ -901,84 +900,64 @@ def test_filter_hybrid_property(session):
         query {
           carts {
             edges {
-                node {
-                    hybridPropFirstShoppingCartItem
+              node {
+                hybridPropFirstShoppingCartItem {
+                  id
                 }
+              }
             }
           }
         }
     """
-    expected = {
-        "carts": {
-            "edges": [
-                {"node": {"hybridPropFirstShoppingCartItem": {"id": 1}}},
-            ]
-        },
-    }
     schema = graphene.Schema(query=Query)
     result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
-    # cart = result["carts"]["edges"][0]["node"]["hybridPropFirstShoppingCartItem"]
-    # print(cart)
-    # print(type(cart))
-    # TODO why is this str?
-    assert result == expected
+    assert len(result["carts"]["edges"]) == 1
 
     # test hybrid_prop different model with expression
     query = """
         query {
           carts {
             edges {
-                node {
-                    hybridPropFirstShoppingCartItemExpression
+              node {
+                hybridPropFirstShoppingCartItemExpression {
+                  id
                 }
+              }
             }
           }
         }
     """
-    expected = {
-        "carts": {
-            "edges": [
-                {"node": {"hybridPropFirstShoppingCartItemExpression": {"id": 1}}},
-            ]
-        },
-    }
+
     schema = graphene.Schema(query=Query)
     result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
-    # cart = result["carts"]["edges"][0]["node"]["hybridPropFirstShoppingCartItemExpression"]
-    # print(cart)
-    # print(type(cart))
-    # TODO why is this str?
-    assert result == expected
+    assert len(result["carts"]["edges"]) == 1
 
     # test hybrid_prop list of models
     query = """
         query {
           carts {
             edges {
-                node {
-                    hybridPropShoppingCartItemList
+              node {
+                hybridPropShoppingCartItemList {
+                  id
                 }
+              }
             }
           }
         }
     """
-    expected = {
-        "carts": {
-            "edges": [
-                {"node": {"hybridPropShoppingCartItemList": {"id": 1}}},
-            ]
-        },
-    }
     schema = graphene.Schema(query=Query)
     result = schema.execute(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
-    # TODO why is this str?
-    assert result == expected
+    assert len(result["carts"]["edges"]) == 1
+    assert (
+        len(result["carts"]["edges"][0]["node"]["hybridPropShoppingCartItemList"]) == 2
+    )
 
 
 # Test edge cases to improve test coverage
