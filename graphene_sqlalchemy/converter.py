@@ -324,9 +324,11 @@ def convert_column_to_int_or_id(
     registry: Registry = None,
     **kwargs,
 ):
-    return (
-        graphene.ID if (column is not None) and column.primary_key else graphene.Int
-    )  # fixme drop the primary key processing in another pr
+    # fixme drop the primary key processing from here in another pr
+    if column is not None:
+        if getattr(column, "primary_key", False) is True:
+            return graphene.ID
+    return graphene.Int
 
 
 @convert_sqlalchemy_type.register(column_type_eq(sqa_types.Boolean))
