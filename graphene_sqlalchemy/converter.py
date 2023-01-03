@@ -8,7 +8,7 @@ from typing import Any, Optional, Union, cast
 from sqlalchemy import types as sqa_types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import DeclarativeMeta, interfaces, strategies
+from sqlalchemy.orm import interfaces, strategies
 
 import graphene
 from graphene.types.json import JSONString
@@ -19,6 +19,7 @@ from .fields import BatchSQLAlchemyConnectionField, default_connection_field_fac
 from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4,
     DummyImport,
     column_type_eq,
     registry_sqlalchemy_model_from_str,
@@ -26,6 +27,12 @@ from .utils import (
     safe_issubclass,
     singledispatchbymatchfunction,
 )
+
+# Import path changed in 1.4
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+    from sqlalchemy.orm import DeclarativeMeta
+else:
+    from sqlalchemy.ext.declarative import DeclarativeMeta
 
 # We just use MapperProperties for type hints, they don't exist in sqlalchemy < 1.4
 try:
@@ -237,7 +244,6 @@ def convert_sqlalchemy_type(  # noqa
     registry: Registry = None,
     **kwargs,
 ):
-
     # No valid type found, raise an error
 
     raise TypeError(
