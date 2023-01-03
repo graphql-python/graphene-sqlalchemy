@@ -103,6 +103,22 @@ def test_hybrid_prop_no_type_annotation():
         get_hybrid_property_type(hybrid_prop)
 
 
+def test_hybrid_invalid_forward_reference():
+    class MyTypeNotInRegistry:
+        pass
+
+    @hybrid_property
+    def hybrid_prop(self) -> "MyTypeNotInRegistry":
+        return MyTypeNotInRegistry()
+
+    with pytest.raises(
+        TypeError,
+        match=r"(.*)Only forward references to other SQLAlchemy Models mapped to "
+        "SQLAlchemyObjectTypes are allowed.(.*)",
+    ):
+        get_hybrid_property_type(hybrid_prop).type
+
+
 def test_hybrid_prop_object_type():
     class MyObjectType(graphene.ObjectType):
         string = graphene.String()

@@ -553,7 +553,11 @@ def convert_sqlalchemy_hybrid_property_forwardref(type_arg: Any, **kwargs):
     def forward_reference_solver():
         model = registry_sqlalchemy_model_from_str(type_arg.__forward_arg__)
         if not model:
-            return graphene.String
+            raise TypeError(
+                "No model found in Registry for forward reference for type %s. "
+                "Only forward references to other SQLAlchemy Models mapped to "
+                "SQLAlchemyObjectTypes are allowed." % type_arg
+            )
         # Always fall back to string if no ForwardRef type found.
         return get_global_registry().get_type_for_model(model)
 
@@ -579,4 +583,4 @@ def convert_hybrid_property_return_type(hybrid_prop):
             "type_ attribute of ORMField to set the type.".format(hybrid_prop)
         )
 
-    return convert_sqlalchemy_type(return_type_annotation)
+    return convert_sqlalchemy_type(return_type_annotation, column=hybrid_prop)
