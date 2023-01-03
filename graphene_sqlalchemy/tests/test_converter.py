@@ -666,6 +666,7 @@ def test_sqlalchemy_hybrid_property_type_inference():
             graphene.List(graphene.List(graphene.Int))
         ),
         "hybrid_prop_first_shopping_cart_item": ShoppingCartItemType,
+        "hybrid_prop_first_shopping_cart_item_expression": ShoppingCartItemType,
         "hybrid_prop_shopping_cart_item_list": graphene.List(ShoppingCartItemType),
         "hybrid_prop_unsupported_type_tuple": graphene.String,
         # Self Referential List
