@@ -18,7 +18,7 @@ A [SQLAlchemy](http://www.sqlalchemy.org/) integration for [Graphene](http://gra
 For installing Graphene, just run this command in your shell.
 
 ```bash
-pip install "graphene-sqlalchemy>=3"
+pip install --pre "graphene-sqlalchemy"
 ```
 
 ## Examples
