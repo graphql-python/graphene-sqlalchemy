@@ -196,18 +196,17 @@ class singledispatchbymatchfunction:
         # No match, using default.
         return self.default(*args, **kwargs)
 
-    def register(self, matcher_function: Callable[[Any], bool]):
-        def grab_function_from_outside(f):
-            self.registry[matcher_function] = f
-            return self
+    def register(self, matcher_function: Callable[[Any], bool], func=None):
+        if func is None:
+            return lambda f: self.register(matcher_function, f)
+        self.registry[matcher_function] = func
+        return func
 
-        return grab_function_from_outside
 
-
-def value_equals(value):
+def column_type_eq(value: Any) -> Callable[[Any], bool]:
     """A simple function that makes the equality based matcher functions for
     SingleDispatchByMatchFunction prettier"""
-    return lambda x: x == value
+    return lambda x: (x == value)
 
 
 def safe_isinstance(cls):
@@ -218,6 +217,16 @@ def safe_isinstance(cls):
             pass
 
     return safe_isinstance_checker
+
+
+def safe_issubclass(cls):
+    def safe_issubclass_checker(arg):
+        try:
+            return issubclass(arg, cls)
+        except TypeError:
+            pass
+
+    return safe_issubclass_checker
 
 
 def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:

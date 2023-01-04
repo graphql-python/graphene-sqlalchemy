@@ -83,13 +83,13 @@ class Registry(object):
         return self._registry_sort_enums.get(obj_type)
 
     def register_union_type(
-        self, union: graphene.Union, obj_types: List[Type[graphene.ObjectType]]
+        self, union: Type[graphene.Union], obj_types: List[Type[graphene.ObjectType]]
     ):
-        if not isinstance(union, graphene.Union):
+        if not issubclass(union, graphene.Union):
             raise TypeError("Expected graphene.Union, but got: {!r}".format(union))
 
         for obj_type in obj_types:
-            if not isinstance(obj_type, type(graphene.ObjectType)):
+            if not issubclass(obj_type, graphene.ObjectType):
                 raise TypeError(
                     "Expected Graphene ObjectType, but got: {!r}".format(obj_type)
                 )

@@ -4,7 +4,7 @@ import datetime
 import enum
 import uuid
 from decimal import Decimal
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from sqlalchemy import (
     Column,
@@ -88,12 +88,12 @@ class Reporter(Base):
     favorite_article = relationship("Article", uselist=False, lazy="selectin")
 
     @hybrid_property
-    def hybrid_prop_with_doc(self):
+    def hybrid_prop_with_doc(self) -> str:
         """Docstring test"""
         return self.first_name
 
     @hybrid_property
-    def hybrid_prop(self):
+    def hybrid_prop(self) -> str:
         return self.first_name
 
     @hybrid_property
@@ -252,11 +252,6 @@ class ShoppingCart(Base):
     @hybrid_property
     def hybrid_prop_shopping_cart_item_list(self) -> List[ShoppingCartItem]:
         return [ShoppingCartItem(id=1), ShoppingCartItem(id=2)]
-
-    # Unsupported Type
-    @hybrid_property
-    def hybrid_prop_unsupported_type_tuple(self) -> Tuple[str, str]:
-        return "this will actually", "be a string"
 
     # Self-references
 
