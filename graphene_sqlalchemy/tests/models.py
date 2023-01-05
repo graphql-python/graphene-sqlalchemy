@@ -270,12 +270,12 @@ class ShoppingCart(Base):
 
     # Other SQLAlchemy Instance
     @hybrid_property
-    def hybrid_prop_first_shopping_cart_item(self) -> "ShoppingCartItem":
+    def hybrid_prop_first_shopping_cart_item(self) -> ShoppingCartItem:
         return ShoppingCartItem(id=1)
 
     # Other SQLAlchemy Instance with expression
     @hybrid_property
-    def hybrid_prop_first_shopping_cart_item_expression(self) -> "ShoppingCartItem":
+    def hybrid_prop_first_shopping_cart_item_expression(self) -> ShoppingCartItem:
         return ShoppingCartItem(id=1)
 
     @hybrid_prop_first_shopping_cart_item_expression.expression
@@ -284,7 +284,7 @@ class ShoppingCart(Base):
 
     # Other SQLAlchemy Instances
     @hybrid_property
-    def hybrid_prop_shopping_cart_item_list(self) -> List["ShoppingCartItem"]:
+    def hybrid_prop_shopping_cart_item_list(self) -> List[ShoppingCartItem]:
         return [ShoppingCartItem(id=1), ShoppingCartItem(id=2)]
 
     # Unsupported Type

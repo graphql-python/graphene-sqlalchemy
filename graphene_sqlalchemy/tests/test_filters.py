@@ -819,13 +819,6 @@ def add_hybrid_prop_test_data(session):
 
 
 def create_hybrid_prop_schema(session):
-    class ShoppingCartType(SQLAlchemyObjectType):
-        class Meta:
-            model = ShoppingCart
-            name = "ShoppingCart"
-            interfaces = (relay.Node,)
-            connection_class = Connection
-
     class ShoppingCartItemType(SQLAlchemyObjectType):
         class Meta:
             model = ShoppingCartItem
@@ -833,14 +826,22 @@ def create_hybrid_prop_schema(session):
             interfaces = (relay.Node,)
             connection_class = Connection
 
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCart
+            name = "ShoppingCart"
+            interfaces = (relay.Node,)
+            connection_class = Connection
+
     class Query(graphene.ObjectType):
         node = relay.Node.Field()
+        items = SQLAlchemyConnectionField(ShoppingCartItemType.connection)
         carts = SQLAlchemyConnectionField(ShoppingCartType.connection)
 
     return Query
 
 
-# TODO hybrid property
+# Test filtering over and returning hybrid_property
 def test_filter_hybrid_property(session):
     add_hybrid_prop_test_data(session)
     Query = create_hybrid_prop_schema(session)
