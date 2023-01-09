@@ -5,6 +5,7 @@ from collections import OrderedDict
 from typing import Any, Callable, Dict, Optional
 
 import pkg_resources
+from sqlalchemy import select
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
@@ -16,6 +17,28 @@ def get_nullable_type(_type):
     if isinstance(_type, NonNull):
         return _type.of_type
     return _type
+
+
+def is_sqlalchemy_version_less_than(version_string):
+    """Check the installed SQLAlchemy version"""
+    return pkg_resources.get_distribution(
+        "SQLAlchemy"
+    ).parsed_version < pkg_resources.parse_version(version_string)
+
+
+def is_graphene_version_less_than(version_string):  # pragma: no cover
+    """Check the installed graphene version"""
+    return pkg_resources.get_distribution(
+        "graphene"
+    ).parsed_version < pkg_resources.parse_version(version_string)
+
+
+SQL_VERSION_HIGHER_EQUAL_THAN_1_4 = False
+
+if not is_sqlalchemy_version_less_than("1.4"):
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4 = True
 
 
 def get_session(context):
@@ -31,6 +54,8 @@ def get_query(model, context):
                 "A query in the model Base or a session in the schema is required for querying.\n"
                 "Read more http://docs.graphene-python.org/projects/sqlalchemy/en/latest/tips/#querying"
             )
+        if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
+            return select(model)
         query = session.query(model)
     return query
 
@@ -160,20 +185,6 @@ def sort_argument_for_model(cls, has_default=True):
     return Argument(List(enum), default_value=enum.default)
 
 
-def is_sqlalchemy_version_less_than(version_string):  # pragma: no cover
-    """Check the installed SQLAlchemy version"""
-    return pkg_resources.get_distribution(
-        "SQLAlchemy"
-    ).parsed_version < pkg_resources.parse_version(version_string)
-
-
-def is_graphene_version_less_than(version_string):  # pragma: no cover
-    """Check the installed graphene version"""
-    return pkg_resources.get_distribution(
-        "graphene"
-    ).parsed_version < pkg_resources.parse_version(version_string)
-
-
 class singledispatchbymatchfunction:
     """
     Inspired by @singledispatch, this is a variant that works using a matcher function
@@ -194,18 +205,17 @@ class singledispatchbymatchfunction:
         # No match, using default.
         return self.default(*args, **kwargs)
 
-    def register(self, matcher_function: Callable[[Any], bool]):
-        def grab_function_from_outside(f):
-            self.registry[matcher_function] = f
-            return self
+    def register(self, matcher_function: Callable[[Any], bool], func=None):
+        if func is None:
+            return lambda f: self.register(matcher_function, f)
+        self.registry[matcher_function] = func
+        return func
 
-        return grab_function_from_outside
 
-
-def value_equals(value):
+def column_type_eq(value: Any) -> Callable[[Any], bool]:
     """A simple function that makes the equality based matcher functions for
     SingleDispatchByMatchFunction prettier"""
-    return lambda x: x == value
+    return lambda x: (x == value)
 
 
 def safe_isinstance(cls):
@@ -216,6 +226,16 @@ def safe_isinstance(cls):
             pass
 
     return safe_isinstance_checker
+
+
+def safe_issubclass(cls):
+    def safe_issubclass_checker(arg):
+        try:
+            return issubclass(arg, cls)
+        except TypeError:
+            pass
+
+    return safe_issubclass_checker
 
 
 def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:

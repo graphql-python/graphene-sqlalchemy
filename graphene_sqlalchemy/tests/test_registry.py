@@ -28,7 +28,7 @@ def test_register_incorrect_object_type():
     class Spam:
         pass
 
-    re_err = "Expected SQLAlchemyObjectType, but got: .*Spam"
+    re_err = "Expected SQLAlchemyBase, but got: .*Spam"
     with pytest.raises(TypeError, match=re_err):
         reg.register(Spam)
 
@@ -51,7 +51,7 @@ def test_register_orm_field_incorrect_types():
     class Spam:
         pass
 
-    re_err = "Expected SQLAlchemyObjectType, but got: .*Spam"
+    re_err = "Expected SQLAlchemyBase, but got: .*Spam"
     with pytest.raises(TypeError, match=re_err):
         reg.register_orm_field(Spam, "name", Pet.name)
 
@@ -142,7 +142,7 @@ def test_register_union():
             model = Reporter
 
     union_types = [PetType, ReporterType]
-    union = graphene.Union("ReporterPet", tuple(union_types))
+    union = graphene.Union.create_type("ReporterPet", types=tuple(union_types))
 
     reg.register_union_type(union, union_types)
 
@@ -155,7 +155,7 @@ def test_register_union_scalar():
     reg = Registry()
 
     union_types = [graphene.String, graphene.Int]
-    union = graphene.Union("StringInt", tuple(union_types))
+    union = graphene.Union.create_type("StringInt", types=union_types)
 
     re_err = r"Expected Graphene ObjectType, but got: .*String.*"
     with pytest.raises(TypeError, match=re_err):

@@ -4,7 +4,7 @@ import datetime
 import enum
 import uuid
 from decimal import Decimal
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from sqlalchemy import (
     Column,
@@ -77,18 +77,24 @@ class Reporter(Base):
     email = Column(String(), doc="Email")
     favorite_pet_kind = Column(PetKind)
     pets = relationship(
-        "Pet", secondary=association_table, backref="reporters", order_by="Pet.id"
+        "Pet",
+        secondary=association_table,
+        backref="reporters",
+        order_by="Pet.id",
+        lazy="selectin",
     )
-    articles = relationship("Article", backref="reporter")
-    favorite_article = relationship("Article", uselist=False)
+    articles = relationship(
+        "Article", backref=backref("reporter", lazy="selectin"), lazy="selectin"
+    )
+    favorite_article = relationship("Article", uselist=False, lazy="selectin")
 
     @hybrid_property
-    def hybrid_prop_with_doc(self):
+    def hybrid_prop_with_doc(self) -> str:
         """Docstring test"""
         return self.first_name
 
     @hybrid_property
-    def hybrid_prop(self):
+    def hybrid_prop(self) -> str:
         return self.first_name
 
     @hybrid_property
@@ -287,11 +293,6 @@ class ShoppingCart(Base):
     def hybrid_prop_shopping_cart_item_list(self) -> List[ShoppingCartItem]:
         return [ShoppingCartItem(id=1), ShoppingCartItem(id=2)]
 
-    # Unsupported Type
-    @hybrid_property
-    def hybrid_prop_unsupported_type_tuple(self) -> Tuple[str, str]:
-        return "this will actually", "be a string"
-
     # Self-references
 
     @hybrid_property
@@ -328,3 +329,42 @@ class KeyedModel(Base):
     __tablename__ = "test330"
     id = Column(Integer(), primary_key=True)
     reporter_number = Column("% reporter_number", Numeric, key="reporter_number")
+
+
+############################################
+# For interfaces
+############################################
+
+
+class Person(Base):
+    id = Column(Integer(), primary_key=True)
+    type = Column(String())
+    name = Column(String())
+    birth_date = Column(Date())
+
+    __tablename__ = "person"
+    __mapper_args__ = {
+        "polymorphic_on": type,
+        "with_polymorphic": "*",  # needed for eager loading in async session
+    }
+
+
+class NonAbstractPerson(Base):
+    id = Column(Integer(), primary_key=True)
+    type = Column(String())
+    name = Column(String())
+    birth_date = Column(Date())
+
+    __tablename__ = "non_abstract_person"
+    __mapper_args__ = {
+        "polymorphic_on": type,
+        "polymorphic_identity": "person",
+    }
+
+
+class Employee(Person):
+    hire_date = Column(Date())
+
+    __mapper_args__ = {
+        "polymorphic_identity": "employee",
+    }

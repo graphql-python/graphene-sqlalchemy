@@ -1,3 +1,4 @@
+import inspect
 import re
 
 
@@ -15,3 +16,11 @@ def remove_cache_miss_stat(message):
     """Remove the stat from the echoed query message when the cache is missed for sqlalchemy version >= 1.4"""
     # https://github.com/sqlalchemy/sqlalchemy/blob/990eb3d8813369d3b8a7776ae85fb33627443d30/lib/sqlalchemy/engine/default.py#L1177
     return re.sub(r"\[generated in \d+.?\d*s\]\s", "", message)
+
+
+async def eventually_await_session(session, func, *args):
+
+    if inspect.iscoroutinefunction(getattr(session, func)):
+        await getattr(session, func)(*args)
+    else:
+        getattr(session, func)(*args)
