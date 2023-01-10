@@ -21,6 +21,7 @@ from ..converter import (
     convert_sqlalchemy_hybrid_method,
     convert_sqlalchemy_relationship,
     convert_sqlalchemy_type,
+    set_non_null_many_relationships,
 )
 from ..fields import UnsortedSQLAlchemyConnectionField, default_connection_field_factory
 from ..registry import Registry, get_global_registry
@@ -69,6 +70,16 @@ def get_hybrid_property_type(prop_method):
     return convert_sqlalchemy_hybrid_method(
         column_prop, mock_resolver(), **ORMField().kwargs
     )
+
+
+@pytest.fixture
+def use_legacy_many_relationships():
+    set_non_null_many_relationships(False)
+    try:
+        yield
+    finally:
+        set_non_null_many_relationships(True)
+
 
 
 def test_hybrid_prop_int():
@@ -501,6 +512,30 @@ def test_should_manytomany_convert_connectionorlist_list():
         True,
         "orm_field_name",
     )
+    # field should be [A!]!
+    assert isinstance(dynamic_field, graphene.Dynamic)
+    graphene_type = dynamic_field.get_type()
+    assert isinstance(graphene_type, graphene.Field)
+    assert isinstance(graphene_type.type, graphene.NonNull)
+    assert isinstance(graphene_type.type.of_type, graphene.List)
+    assert isinstance(graphene_type.type.of_type.of_type, graphene.NonNull)
+    assert graphene_type.type.of_type.of_type.of_type == A
+
+
+@pytest.mark.usefixtures("use_legacy_many_relationships")
+def test_should_manytomany_convert_connectionorlist_list_legacy():
+    class A(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+
+    dynamic_field = convert_sqlalchemy_relationship(
+        Reporter.pets.property,
+        A,
+        default_connection_field_factory,
+        True,
+        "orm_field_name",
+    )
+    # field should be [A]
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
