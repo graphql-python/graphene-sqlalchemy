@@ -81,7 +81,6 @@ def use_legacy_many_relationships():
         set_non_null_many_relationships(True)
 
 
-
 def test_hybrid_prop_int():
     @hybrid_property
     def prop_method() -> int:
@@ -795,6 +794,7 @@ def test_sqlalchemy_hybrid_property_type_inference():
 
     shopping_cart_expected_types: Dict[str, Union[graphene.Scalar, Structure]] = {
         # Basic types
+        "dec": graphene.String,
         "hybrid_prop_str": graphene.String,
         "hybrid_prop_int": graphene.Int,
         "hybrid_prop_float": graphene.Float,

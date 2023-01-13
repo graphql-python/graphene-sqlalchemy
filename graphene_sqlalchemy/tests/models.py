@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import List, Optional
 
 from sqlalchemy import (
+    DECIMAL,
     Column,
     Date,
     Enum,
@@ -184,6 +185,7 @@ class ShoppingCart(Base):
     __tablename__ = "shopping_carts"
 
     id = Column(Integer(), primary_key=True)
+    dec = Column(DECIMAL())
 
     # Standard Library types
 

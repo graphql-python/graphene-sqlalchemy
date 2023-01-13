@@ -518,6 +518,7 @@ def convert_variant_to_impl_type(
     )
 
 
+@convert_sqlalchemy_type.register(column_type_eq(sqa_types.DECIMAL))
 @convert_sqlalchemy_type.register(column_type_eq(Decimal))
 def convert_sqlalchemy_hybrid_property_type_decimal(type_arg: Any, **kwargs):
     # The reason Decimal should be serialized as a String is because this is a
