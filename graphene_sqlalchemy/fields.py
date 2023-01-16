@@ -48,9 +48,9 @@ class SQLAlchemyConnectionField(ConnectionField):
         nullable_type = get_nullable_type(type_)
         # Handle Sorting and Filtering
         if (
-            nullable_type
+            "sort" not in kwargs
+            and nullable_type
             and issubclass(nullable_type, Connection)
-            and "sort" not in kwargs
         ):
             # Let super class raise if type is not a Connection
             try:
@@ -66,9 +66,9 @@ class SQLAlchemyConnectionField(ConnectionField):
             del kwargs["sort"]
 
         if (
-            nullable_type
+            "filter" not in kwargs
+            and nullable_type
             and issubclass(nullable_type, Connection)
-            and "filter" not in kwargs
         ):
             # Only add filtering if a filter argument exists on the object type
             filter_argument = nullable_type.Edge.node._type.get_filter_argument()

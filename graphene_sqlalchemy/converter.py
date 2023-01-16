@@ -192,6 +192,7 @@ def _convert_o2m_or_m2m_relationship(
     child_type = obj_type._meta.registry.get_type_for_model(
         relationship_prop.mapper.entity
     )
+
     if not child_type._meta.connection:
         # check if we need to use non-null fields
         list_type = (
@@ -640,6 +641,7 @@ def convert_sqlalchemy_hybrid_property_bare_str(type_arg: str, **kwargs):
     """
 
     return convert_sqlalchemy_type(ForwardRef(type_arg), **kwargs)
+
 
 def convert_hybrid_property_return_type(hybrid_prop):
     # Grab the original method's return type annotations from inside the hybrid property
