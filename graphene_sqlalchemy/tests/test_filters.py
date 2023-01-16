@@ -19,14 +19,14 @@ from .models import (
     ShoppingCartItem,
     Tag,
 )
-from .utils import to_std_dicts
+from .utils import eventually_await_session, to_std_dicts
 
 # TODO test that generated schema is correct for all examples with:
 # with open('schema.gql', 'w') as fp:
 #     fp.write(str(schema))
 
 
-def add_test_data(session):
+async def add_test_data(session):
     reporter = Reporter(first_name="John", last_name="Doe", favorite_pet_kind="cat")
     session.add(reporter)
 
@@ -59,7 +59,7 @@ def add_test_data(session):
     editor = Editor(name="Jack")
     session.add(editor)
 
-    session.commit()
+    await eventually_await_session(session, "commit")
 
 
 def create_schema(session):
@@ -131,8 +131,9 @@ def create_schema(session):
 
 
 # Test a simple example of filtering
-def test_filter_simple(session):
-    add_test_data(session)
+@pytest.mark.asyncio
+async def test_filter_simple(session):
+    await add_test_data(session)
 
     Query = create_schema(session)
 
@@ -151,15 +152,18 @@ def test_filter_simple(session):
         "reporters": {"edges": [{"node": {"firstName": "Jane"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
+    print(result)
+    print(result.errors)
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
 # Test a custom filter type
-def test_filter_custom_type(session):
-    add_test_data(session)
+@pytest.mark.asyncio
+async def test_filter_custom_type(session):
+    await add_test_data(session)
 
     class MathFilter(FloatFilter):
         class Meta:
@@ -200,20 +204,21 @@ def test_filter_custom_type(session):
         },
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
 # Test a 1:1 relationship
-def test_filter_relationship_one_to_one(session):
+@pytest.mark.asyncio
+async def test_filter_relationship_one_to_one(session):
     article = Article(headline="Hi!")
     image = Image(external_id=1, description="A beautiful image.")
     article.image = image
     session.add(article)
     session.add(image)
-    session.commit()
+    await eventually_await_session(session, "commit")
 
     Query = create_schema(session)
 
@@ -234,15 +239,16 @@ def test_filter_relationship_one_to_one(session):
         "articles": {"edges": [{"node": {"headline": "Hi!"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
 # Test a 1:n relationship
-def test_filter_relationship_one_to_many(session):
-    add_test_data(session)
+@pytest.mark.asyncio
+async def test_filter_relationship_one_to_many(session):
+    await add_test_data(session)
     Query = create_schema(session)
 
     # test contains
@@ -265,7 +271,7 @@ def test_filter_relationship_one_to_many(session):
         "reporters": {"edges": [{"node": {"lastName": "Woe"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -294,13 +300,13 @@ def test_filter_relationship_one_to_many(session):
         "reporters": {"edges": [{"node": {"firstName": "John", "lastName": "Woe"}}]}
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
-def add_n2m_test_data(session):
+async def add_n2m_test_data(session):
     # create objects
     reader1 = Reader(name="Ada")
     reader2 = Reader(name="Bip")
@@ -328,12 +334,13 @@ def add_n2m_test_data(session):
     session.add(article2)
     session.add(reader1)
     session.add(reader2)
-    session.commit()
+    await eventually_await_session(session, "commit")
 
 
 # Test n:m relationship contains
-def test_filter_relationship_many_to_many_contains(session):
-    add_n2m_test_data(session)
+@pytest.mark.asyncio
+async def test_filter_relationship_many_to_many_contains(session):
+    await add_n2m_test_data(session)
     Query = create_schema(session)
 
     # test contains 1
@@ -363,7 +370,7 @@ def test_filter_relationship_many_to_many_contains(session):
         },
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -394,7 +401,7 @@ def test_filter_relationship_many_to_many_contains(session):
         },
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -425,7 +432,7 @@ def test_filter_relationship_many_to_many_contains(session):
         },
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -433,8 +440,9 @@ def test_filter_relationship_many_to_many_contains(session):
 
 # Test n:m relationship containsExactly
 @pytest.mark.xfail
-def test_filter_relationship_many_to_many_contains_exactly(session):
-    add_n2m_test_data(session)
+@pytest.mark.asyncio
+async def test_filter_relationship_many_to_many_contains_exactly(session):
+    await add_n2m_test_data(session)
     Query = create_schema(session)
 
     # test containsExactly 1
@@ -460,7 +468,7 @@ def test_filter_relationship_many_to_many_contains_exactly(session):
         "articles": {"edges": [{"node": {"headline": "Woah! Another!"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -487,7 +495,7 @@ def test_filter_relationship_many_to_many_contains_exactly(session):
         "articles": {"edges": [{"node": {"headline": "Article! Look!"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -515,15 +523,16 @@ def test_filter_relationship_many_to_many_contains_exactly(session):
         "tags": {"edges": [{"node": {"name": "eye-grabbing"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
 # Test n:m relationship both contains and containsExactly
-def test_filter_relationship_many_to_many_contains_and_contains_exactly(session):
-    add_n2m_test_data(session)
+@pytest.mark.asyncio
+async def test_filter_relationship_many_to_many_contains_and_contains_exactly(session):
+    await add_n2m_test_data(session)
     Query = create_schema(session)
 
     query = """
@@ -551,7 +560,7 @@ def test_filter_relationship_many_to_many_contains_and_contains_exactly(session)
         "articles": {"edges": [{"node": {"headline": "Woah! Another!"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -559,8 +568,9 @@ def test_filter_relationship_many_to_many_contains_and_contains_exactly(session)
 
 # Test n:m nested relationship
 # TODO add containsExactly
-def test_filter_relationship_many_to_many_nested(session):
-    add_n2m_test_data(session)
+@pytest.mark.asyncio
+async def test_filter_relationship_many_to_many_nested(session):
+    await add_n2m_test_data(session)
     Query = create_schema(session)
 
     # test readers->articles relationship
@@ -585,7 +595,7 @@ def test_filter_relationship_many_to_many_nested(session):
         "readers": {"edges": [{"node": {"name": "Bip"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -618,7 +628,7 @@ def test_filter_relationship_many_to_many_nested(session):
         "readers": {"edges": [{"node": {"name": "Bip"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -651,7 +661,7 @@ def test_filter_relationship_many_to_many_nested(session):
         "tags": {"edges": [{"node": {"name": "sensational"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -685,15 +695,16 @@ def test_filter_relationship_many_to_many_nested(session):
         "readers": {"edges": [{"node": {"name": "Bip"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
 # Test connecting filters with "and"
-def test_filter_logic_and(session):
-    add_test_data(session)
+@pytest.mark.asyncio
+async def test_filter_logic_and(session):
+    await add_test_data(session)
 
     Query = create_schema(session)
 
@@ -720,15 +731,16 @@ def test_filter_logic_and(session):
         },
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
 # Test connecting filters with "or"
-def test_filter_logic_or(session):
-    add_test_data(session)
+@pytest.mark.asyncio
+async def test_filter_logic_or(session):
+    await add_test_data(session)
     Query = create_schema(session)
 
     query = """
@@ -759,15 +771,16 @@ def test_filter_logic_or(session):
         }
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
 # Test connecting filters with "and" and "or" together
-def test_filter_logic_and_or(session):
-    add_test_data(session)
+@pytest.mark.asyncio
+async def test_filter_logic_and_or(session):
+    await add_test_data(session)
     Query = create_schema(session)
 
     query = """
@@ -801,21 +814,16 @@ def test_filter_logic_and_or(session):
         }
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
 
 
-def add_hybrid_prop_test_data(session):
-    # create objects
+async def add_hybrid_prop_test_data(session):
     cart = ShoppingCart()
-
-    # set relationships
-
-    # save
     session.add(cart)
-    session.commit()
+    await eventually_await_session(session, "commit")
 
 
 def create_hybrid_prop_schema(session):
@@ -842,8 +850,9 @@ def create_hybrid_prop_schema(session):
 
 
 # Test filtering over and returning hybrid_property
-def test_filter_hybrid_property(session):
-    add_hybrid_prop_test_data(session)
+@pytest.mark.asyncio
+async def test_filter_hybrid_property(session):
+    await add_hybrid_prop_test_data(session)
     Query = create_hybrid_prop_schema(session)
 
     # test hybrid_prop_int
@@ -866,7 +875,7 @@ def test_filter_hybrid_property(session):
         },
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -891,7 +900,7 @@ def test_filter_hybrid_property(session):
         },
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -911,7 +920,7 @@ def test_filter_hybrid_property(session):
         }
     """
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert len(result["carts"]["edges"]) == 1
@@ -932,7 +941,7 @@ def test_filter_hybrid_property(session):
     """
 
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert len(result["carts"]["edges"]) == 1
@@ -952,7 +961,7 @@ def test_filter_hybrid_property(session):
         }
     """
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert len(result["carts"]["edges"]) == 1
@@ -962,8 +971,9 @@ def test_filter_hybrid_property(session):
 
 
 # Test edge cases to improve test coverage
-def test_filter_edge_cases(session):
-    add_test_data(session)
+@pytest.mark.asyncio
+async def test_filter_edge_cases(session):
+    await add_test_data(session)
 
     # test disabling filtering
     class ArticleType(SQLAlchemyObjectType):
@@ -982,8 +992,9 @@ def test_filter_edge_cases(session):
 
 
 # Test additional filter types to improve test coverage
-def test_additional_filters(session):
-    add_test_data(session)
+@pytest.mark.asyncio
+async def test_additional_filters(session):
+    await add_test_data(session)
     Query = create_schema(session)
 
     # test n_eq and not_in filters
@@ -1002,7 +1013,7 @@ def test_additional_filters(session):
         "reporters": {"edges": [{"node": {"lastName": "Woe"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected
@@ -1023,7 +1034,7 @@ def test_additional_filters(session):
         "pets": {"edges": [{"node": {"name": "Snoopy"}}]},
     }
     schema = graphene.Schema(query=Query)
-    result = schema.execute(query, context_value={"session": session})
+    result = await schema.execute_async(query, context_value={"session": session})
     assert not result.errors
     result = to_std_dicts(result.data)
     assert result == expected

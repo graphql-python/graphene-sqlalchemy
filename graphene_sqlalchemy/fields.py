@@ -99,7 +99,9 @@ class SQLAlchemyConnectionField(ConnectionField):
             assert isinstance(filter, dict)
             filter_type: BaseTypeFilter = type(filter)
             query, clauses = filter_type.execute_filters(query, filter)
+            print("1: ", query, clauses)
             query = query.filter(*clauses)
+            print("2: ", query)
         return query
 
     @classmethod
@@ -146,6 +148,7 @@ class SQLAlchemyConnectionField(ConnectionField):
         session = get_session(info.context)
         if resolved is None:
             query = cls.get_query(model, info, **args)
+            print("HERE: ", query)
             resolved = (await session.scalars(query)).all()
         if isinstance(resolved, Query):
             _len = resolved.count()
