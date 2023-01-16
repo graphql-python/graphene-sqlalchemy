@@ -1,3 +1,4 @@
+import types
 import warnings
 from collections import OrderedDict
 from inspect import isawaitable
@@ -30,11 +31,11 @@ from .enums import (
     sort_enum_for_object_type,
 )
 from .filters import (
+    BaseTypeFilter,
     BooleanFilter,
     FloatFilter,
     IdFilter,
     IntFilter,
-    BaseTypeFilter,
     RelationshipFilter,
     StringFilter,
 )
@@ -157,21 +158,11 @@ def filter_field_from_type_field(
     # If a custom filter type was set for this field, use it here
     if filter_type:
         return graphene.InputField(filter_type)
-    # fixme one test case fails where, find out why
     if issubclass(type(field), graphene.Scalar):
         filter_class = registry.get_filter_for_scalar_type(type(field))
         return graphene.InputField(filter_class)
-
-    elif isinstance(field.type, graphene.List):
-        print("got field with list type")
-        pass
-    elif isinstance(field, graphene.List):
-        print("Got list")
-        pass
-    elif isinstance(field.type, graphene.Dynamic):
-        pass
     # If the field is Dynamic, we don't know its type yet and can't select the right filter
-    elif isinstance(field, graphene.Dynamic):
+    if isinstance(field, graphene.Dynamic):
 
         def resolve_dynamic():
             # Resolve Dynamic Type
@@ -206,7 +197,18 @@ def filter_field_from_type_field(
 
         return graphene.Dynamic(resolve_dynamic)
 
-    elif isinstance(field, graphene.Field):
+    if isinstance(field, graphene.List):
+        print("Got list")
+        return
+    if isinstance(field._type, types.FunctionType):
+        print("got field with function type")
+        return
+    if isinstance(field._type, graphene.Dynamic):
+        return
+    if isinstance(field._type, graphene.List):
+        print("got field with list type")
+        return
+    if isinstance(field, graphene.Field):
         type_ = get_nullable_type(field.type)
         # Field might be a SQLAlchemyObjectType, due to hybrid properties
         if issubclass(type_, SQLAlchemyObjectType):
@@ -219,10 +221,8 @@ def filter_field_from_type_field(
             )
             return None
         return graphene.InputField(filter_class)
-    else:
-        raise Exception(
-            f"Expected a graphene.Field or graphene.Dynamic, but got: {field}"
-        )
+
+    raise Exception(f"Expected a graphene.Field or graphene.Dynamic, but got: {field}")
 
 
 def get_polymorphic_on(model):
@@ -366,14 +366,6 @@ def construct_fields_and_filters(
             )
 
     return fields, filters
-
-
-class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
-    model = None  # type: sqlalchemy.Model
-    registry = None  # type: sqlalchemy.Registry
-    connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
-    id = None  # type: str
-    filter_class: Type[BaseTypeFilter] = None
 
 
 class SQLAlchemyBase(BaseType):
