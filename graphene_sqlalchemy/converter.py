@@ -15,7 +15,6 @@ from graphene.types.json import JSONString
 
 from .batching import get_batch_resolver
 from .enums import enum_for_sa_enum
-from .fields import BatchSQLAlchemyConnectionField, default_connection_field_factory
 from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (
@@ -243,8 +242,13 @@ def convert_sqlalchemy_type(  # noqa
     type_arg: Any,
     column: Optional[Union[MapperProperty, hybrid_property]] = None,
     registry: Registry = None,
+    replace_type_vars: typing.Dict[str, Any] = None,
     **kwargs,
 ):
+
+    if replace_type_vars and type_arg in replace_type_vars:
+        return replace_type_vars[type_arg]
+
     # No valid type found, raise an error
 
     raise TypeError(

@@ -34,7 +34,7 @@ from .filters import (
     FloatFilter,
     IdFilter,
     IntFilter,
-    ObjectTypeFilter,
+    BaseTypeFilter,
     RelationshipFilter,
     StringFilter,
 )
@@ -131,19 +131,19 @@ class ORMField(OrderedType):
 
 
 def get_or_create_relationship_filter(
-    obj_type: Type[ObjectType], registry: Registry
+    base_type: Type[BaseType], registry: Registry
 ) -> Type[RelationshipFilter]:
-    relationship_filter = registry.get_relationship_filter_for_object_type(obj_type)
+    relationship_filter = registry.get_relationship_filter_for_base_type(base_type)
 
     if not relationship_filter:
-        object_type_filter = registry.get_filter_for_object_type(obj_type)
+        base_type_filter = registry.get_filter_for_base_type(base_type)
         relationship_filter = RelationshipFilter.create_type(
-            f"{obj_type.__name__}RelationshipFilter",
-            object_type_filter=object_type_filter,
-            model=obj_type._meta.model,
+            f"{base_type.__name__}RelationshipFilter",
+            base_type_filter=base_type_filter,
+            model=base_type._meta.model,
         )
-        registry.register_relationship_filter_for_object_type(
-            obj_type, relationship_filter
+        registry.register_relationship_filter_for_base_type(
+            base_type, relationship_filter
         )
 
     return relationship_filter
@@ -197,7 +197,7 @@ def filter_field_from_type_field(
                         print("filter class was none!!!")
                         print(type_)
                     return graphene.InputField(reg_res)
-                reg_res = registry.get_filter_for_object_type(type_.type)
+                reg_res = registry.get_filter_for_base_type(type_.type)
 
                 return graphene.InputField(reg_res)
             else:
@@ -210,7 +210,7 @@ def filter_field_from_type_field(
         type_ = get_nullable_type(field.type)
         # Field might be a SQLAlchemyObjectType, due to hybrid properties
         if issubclass(type_, SQLAlchemyObjectType):
-            filter_class = registry.get_filter_for_object_type(type_)
+            filter_class = registry.get_filter_for_base_type(type_)
             return graphene.InputField(filter_class)
         filter_class = registry.get_filter_for_scalar_type(type_)
         if not filter_class:
@@ -373,7 +373,7 @@ class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
     registry = None  # type: sqlalchemy.Registry
     connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
     id = None  # type: str
-    filter_class: Type[ObjectTypeFilter] = None
+    filter_class: Type[BaseTypeFilter] = None
 
 
 class SQLAlchemyBase(BaseType):
@@ -491,10 +491,10 @@ class SQLAlchemyBase(BaseType):
 
             filter_fields = yank_fields_from_attrs(filters, _as=InputField, sort=False)
 
-            _meta.filter_class = ObjectTypeFilter.create_type(
+            _meta.filter_class = BaseTypeFilter.create_type(
                 f"{cls.__name__}Filter", filter_fields=filter_fields, model=model
             )
-            registry.register_filter_for_object_type(cls, _meta.filter_class)
+            registry.register_filter_for_base_type(cls, _meta.filter_class)
 
         _meta.connection = connection
         _meta.id = id or "id"
@@ -571,6 +571,7 @@ class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
     registry = None  # type: sqlalchemy.Registry
     connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
     id = None  # type: str
+    filter_class: Type[BaseTypeFilter] = None
 
 
 class SQLAlchemyObjectType(SQLAlchemyBase, ObjectType):
@@ -605,6 +606,7 @@ class SQLAlchemyInterfaceOptions(InterfaceOptions):
     registry = None  # type: sqlalchemy.Registry
     connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
     id = None  # type: str
+    filter_class: Type[BaseTypeFilter] = None
 
 
 class SQLAlchemyInterface(SQLAlchemyBase, Interface):

@@ -5,11 +5,12 @@ from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
 import graphene
 from graphene import Enum
+from graphene.types.base import BaseType
 
 if TYPE_CHECKING:  # pragma: no_cover
     from graphene_sqlalchemy.filters import (
         FieldFilter,
-        ObjectTypeFilter,
+        BaseTypeFilter,
         RelationshipFilter,
     )
 
@@ -24,7 +25,7 @@ class Registry(object):
         self._registry_sort_enums = {}
         self._registry_unions = {}
         self._registry_scalar_filters = {}
-        self._registry_object_type_filters = {}
+        self._registry_base_type_filters = {}
         self._registry_relationship_filters = {}
 
     def register(self, obj_type):
@@ -140,7 +141,7 @@ class Registry(object):
     ):
         from .filters import FieldFilter
 
-        if not isinstance(enum_type, type(graphene.Enum)):
+        if not issubclass(enum_type, graphene.Enum):
             raise TypeError("Expected Enum, but got: {!r}".format(enum_type))
 
         if not issubclass(filter_obj, FieldFilter):
@@ -152,45 +153,45 @@ class Registry(object):
     ) -> Type["FieldFilter"]:
         return self._registry_enum_type_filters.get(enum_type)
 
-    # Filter Object Types
-    def register_filter_for_object_type(
+    # Filter Base Types
+    def register_filter_for_base_type(
         self,
-        object_type: Type[graphene.ObjectType],
-        filter_obj: Type["ObjectTypeFilter"],
+        base_type: Type[BaseType],
+        filter_obj: Type["BaseTypeFilter"],
     ):
-        from .filters import ObjectTypeFilter
+        from .filters import BaseTypeFilter
 
-        if not isinstance(object_type, type(graphene.ObjectType)):
-            raise TypeError("Expected Object Type, but got: {!r}".format(object_type))
+        if not issubclass(base_type, BaseType):
+            raise TypeError("Expected BaseType, but got: {!r}".format(base_type))
 
-        if not issubclass(filter_obj, ObjectTypeFilter):
+        if not issubclass(filter_obj, BaseTypeFilter):
             raise TypeError(
-                "Expected ObjectTypeFilter, but got: {!r}".format(filter_obj)
+                "Expected BaseTypeFilter, but got: {!r}".format(filter_obj)
             )
-        self._registry_object_type_filters[object_type] = filter_obj
+        self._registry_base_type_filters[base_type] = filter_obj
 
-    def get_filter_for_object_type(self, object_type: Type[graphene.ObjectType]):
-        return self._registry_object_type_filters.get(object_type)
+    def get_filter_for_base_type(self, base_type: Type[BaseType]):
+        return self._registry_base_type_filters.get(base_type)
 
-    # Filter Relationships between object types
-    def register_relationship_filter_for_object_type(
-        self, object_type: graphene.ObjectType, filter_obj: Type["RelationshipFilter"]
+    # Filter Relationships between base types
+    def register_relationship_filter_for_base_type(
+        self, base_type: BaseType, filter_obj: Type["RelationshipFilter"]
     ):
         from .filters import RelationshipFilter
 
-        if not isinstance(object_type, type(graphene.ObjectType)):
-            raise TypeError("Expected Object Type, but got: {!r}".format(object_type))
+        if not isinstance(base_type, type(BaseType)):
+            raise TypeError("Expected BaseType, but got: {!r}".format(base_type))
 
         if not issubclass(filter_obj, RelationshipFilter):
             raise TypeError(
                 "Expected RelationshipFilter, but got: {!r}".format(filter_obj)
             )
-        self._registry_relationship_filters[object_type] = filter_obj
+        self._registry_relationship_filters[base_type] = filter_obj
 
-    def get_relationship_filter_for_object_type(
-        self, object_type: Type[graphene.ObjectType]
+    def get_relationship_filter_for_base_type(
+        self, base_type: Type[BaseType]
     ) -> "RelationshipFilter":
-        return self._registry_relationship_filters.get(object_type)
+        return self._registry_relationship_filters.get(base_type)
 
 
 registry = None

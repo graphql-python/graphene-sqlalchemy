@@ -11,8 +11,9 @@ from graphene.types.inputobjecttype import (
 )
 from graphene_sqlalchemy.utils import is_list
 
-ObjectTypeFilterSelf = TypeVar(
-    "ObjectTypeFilterSelf", Dict[str, Any], InputObjectTypeContainer
+
+BaseTypeFilterSelf = TypeVar(
+    "BaseTypeFilterSelf", Dict[str, Any], InputObjectTypeContainer
 )
 
 
@@ -35,13 +36,13 @@ def _get_functions_by_regex(
     return matching_functions
 
 
-class ObjectTypeFilter(graphene.InputObjectType):
+class BaseTypeFilter(graphene.InputObjectType):
     @classmethod
     def __init_subclass_with_meta__(
         cls, filter_fields=None, model=None, _meta=None, **options
     ):
         from graphene_sqlalchemy.converter import (
-            convert_sqlalchemy_hybrid_property_type,
+            convert_sqlalchemy_type,
         )
 
         # Init meta options class if it doesn't exist already
@@ -59,8 +60,8 @@ class ObjectTypeFilter(graphene.InputObjectType):
             ), "Each filter method must have a value field with valid type annotations"
             # If type is generic, replace with actual type of filter class
 
-            replace_type_vars = {ObjectTypeFilterSelf: cls}
-            field_type = convert_sqlalchemy_hybrid_property_type(
+            replace_type_vars = {BaseTypeFilterSelf: cls}
+            field_type = convert_sqlalchemy_type(
                 _annotations.get("val", str), replace_type_vars=replace_type_vars
             )
             new_filter_fields.update({field_name: graphene.InputField(field_type)})
@@ -77,14 +78,14 @@ class ObjectTypeFilter(graphene.InputObjectType):
 
         _meta.model = model
 
-        super(ObjectTypeFilter, cls).__init_subclass_with_meta__(_meta=_meta, **options)
+        super(BaseTypeFilter, cls).__init_subclass_with_meta__(_meta=_meta, **options)
 
     @classmethod
     def and_logic(
         cls,
         query,
-        filter_type: "ObjectTypeFilter",
-        val: List[ObjectTypeFilterSelf],
+        filter_type: "BaseTypeFilter",
+        val: List[BaseTypeFilterSelf],
     ):
         # # Get the model to join on the Filter Query
         # joined_model = filter_type._meta.model
@@ -107,8 +108,8 @@ class ObjectTypeFilter(graphene.InputObjectType):
     def or_logic(
         cls,
         query,
-        filter_type: "ObjectTypeFilter",
-        val: List[ObjectTypeFilterSelf],
+        filter_type: "BaseTypeFilter",
+        val: List[BaseTypeFilterSelf],
     ):
         # # Get the model to join on the Filter Query
         # joined_model = filter_type._meta.model
@@ -161,7 +162,7 @@ class ObjectTypeFilter(graphene.InputObjectType):
                 clauses.extend(_clauses)
             else:
                 model_field = getattr(model, field)
-                if issubclass(field_filter_type, ObjectTypeFilter):
+                if issubclass(field_filter_type, BaseTypeFilter):
                     # Get the model to join on the Filter Query
                     joined_model = field_filter_type._meta.model
                     # Always alias the model
@@ -219,7 +220,7 @@ class FieldFilter(graphene.InputObjectType):
 
     @classmethod
     def __init_subclass_with_meta__(cls, graphene_type=None, _meta=None, **options):
-        from .converter import convert_sqlalchemy_hybrid_property_type
+        from .converter import convert_sqlalchemy_type
 
         # get all filter functions
 
@@ -240,9 +241,7 @@ class FieldFilter(graphene.InputObjectType):
             ), "Each filter method must have a value field with valid type annotations"
             # If type is generic, replace with actual type of filter class
             replace_type_vars = {ScalarFilterInputType: _meta.graphene_type}
-            field_type = convert_sqlalchemy_hybrid_property_type(
-                _annotations.get("val", str), replace_type_vars=replace_type_vars
-            )
+            field_type = convert_sqlalchemy_type(_annotations.get("val", str), replace_type_vars=replace_type_vars)
             new_filter_fields.update({field_name: graphene.InputField(field_type)})
 
         # Add all fields to the meta options. graphene.InputbjectType will take care of the rest
@@ -354,9 +353,9 @@ class IdFilter(FieldFilter):
 class RelationshipFilter(graphene.InputObjectType):
     @classmethod
     def __init_subclass_with_meta__(
-        cls, object_type_filter=None, model=None, _meta=None, **options
+        cls, base_type_filter=None, model=None, _meta=None, **options
     ):
-        if not object_type_filter:
+        if not base_type_filter:
             raise Exception("Relationship Filters must be specific to an object type")
         # Init meta options class if it doesn't exist already
         if not _meta:
@@ -375,11 +374,11 @@ class RelationshipFilter(graphene.InputObjectType):
             # If type is generic, replace with actual type of filter class
             if is_list(_annotations["val"]):
                 relationship_filters.update(
-                    {field_name: graphene.InputField(graphene.List(object_type_filter))}
+                    {field_name: graphene.InputField(graphene.List(base_type_filter))}
                 )
             else:
                 relationship_filters.update(
-                    {field_name: graphene.InputField(object_type_filter)}
+                    {field_name: graphene.InputField(base_type_filter)}
                 )
 
         # Add all fields to the meta options. graphene.InputObjectType will take care of the rest
@@ -389,7 +388,7 @@ class RelationshipFilter(graphene.InputObjectType):
             _meta.fields = relationship_filters
 
         _meta.model = model
-        _meta.object_type_filter = object_type_filter
+        _meta.base_type_filter = base_type_filter
         super(RelationshipFilter, cls).__init_subclass_with_meta__(
             _meta=_meta, **options
         )
@@ -414,7 +413,7 @@ class RelationshipFilter(graphene.InputObjectType):
             print("Joined model", relationship_prop)
             print(query)
             # pass the alias so group can join group
-            query, _clauses = cls._meta.object_type_filter.execute_filters(
+            query, _clauses = cls._meta.base_type_filter.execute_filters(
                 query, v, model_alias=joined_model_alias
             )
             clauses.append(and_(*_clauses))
@@ -439,7 +438,7 @@ class RelationshipFilter(graphene.InputObjectType):
             joined_model_alias = aliased(relationship_prop)
 
             subquery = session.query(joined_model_alias.id)
-            subquery, _clauses = cls._meta.object_type_filter.execute_filters(
+            subquery, _clauses = cls._meta.base_type_filter.execute_filters(
                 subquery, v, model_alias=joined_model_alias
             )
             subquery_ids = [s_id[0] for s_id in subquery.filter(and_(*_clauses)).all()]
