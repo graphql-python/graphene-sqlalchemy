@@ -3,6 +3,7 @@ import sys
 from typing import Dict, Tuple, Union
 
 import pytest
+import sqlalchemy
 import sqlalchemy_utils as sqa_utils
 from sqlalchemy import Column, func, select, types
 from sqlalchemy.dialects import postgresql
@@ -29,6 +30,7 @@ from ..types import ORMField, SQLAlchemyObjectType
 from .models import (
     Article,
     CompositeFullName,
+    CustomColumnModel,
     Pet,
     Reporter,
     ShoppingCart,
@@ -79,7 +81,6 @@ def use_legacy_many_relationships():
         yield
     finally:
         set_non_null_many_relationships(True)
-
 
 
 def test_hybrid_prop_int():
@@ -743,6 +744,38 @@ def test_should_unknown_sqlalchemy_composite_raise_exception():
             Registry(),
             mock_resolver,
         )
+
+
+def test_raise_exception_unkown_column_type():
+    with pytest.raises(
+        Exception,
+        match="Don't know how to convert the SQLAlchemy field customcolumnmodel.custom_col",
+    ):
+
+        class A(SQLAlchemyObjectType):
+            class Meta:
+                model = CustomColumnModel
+
+
+def test_prioritize_orm_field_unkown_column_type():
+    class A(SQLAlchemyObjectType):
+        class Meta:
+            model = CustomColumnModel
+
+        custom_col = ORMField(type_=graphene.Int)
+
+    assert A._meta.fields["custom_col"].type == graphene.Int
+
+
+def test_match_supertype_from_mro_correct_order():
+    """
+    BigInt and Integer are both superclasses of BIGINT, but a custom converter exists for BigInt that maps to Float.
+    We expect the correct MRO order to be used and conversion by the nearest match. BIGINT should be converted to Float,
+    just like BigInt, not to Int like integer which is further up in the MRO.
+    """
+    field = get_field_from_column(Column(sqlalchemy.dialects.mysql.BIGINT))
+
+    assert field.type == graphene.Float
 
 
 def test_sqlalchemy_hybrid_property_type_inference():
