@@ -773,7 +773,11 @@ def test_match_supertype_from_mro_correct_order():
     We expect the correct MRO order to be used and conversion by the nearest match. BIGINT should be converted to Float,
     just like BigInt, not to Int like integer which is further up in the MRO.
     """
-    field = get_field_from_column(Column(sqlalchemy.dialects.mysql.BIGINT))
+
+    class BIGINT(sqlalchemy.types.BigInteger):
+        pass
+
+    field = get_field_from_column(Column(BIGINT))
 
     assert field.type == graphene.Float
 
