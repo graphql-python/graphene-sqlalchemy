@@ -1,6 +1,7 @@
 import re
 from typing import Any, Dict, List, Tuple, Type, TypeVar, Union
 
+from graphql import Undefined
 from sqlalchemy import and_, func, not_, or_
 from sqlalchemy.orm import Query, aliased  # , selectinload
 
@@ -10,7 +11,6 @@ from graphene.types.inputobjecttype import (
     InputObjectTypeOptions,
 )
 from graphene_sqlalchemy.utils import is_list
-
 
 BaseTypeFilterSelf = TypeVar(
     "BaseTypeFilterSelf", Dict[str, Any], InputObjectTypeContainer
@@ -36,14 +36,39 @@ def _get_functions_by_regex(
     return matching_functions
 
 
+class SQLAlchemyFilterInputField(graphene.InputField):
+    def __init__(
+        self,
+        type_,
+        model_attr,
+        name=None,
+        default_value=Undefined,
+        deprecation_reason=None,
+        description=None,
+        required=False,
+        _creation_counter=None,
+        **extra_args,
+    ):
+        super(SQLAlchemyFilterInputField, self).__init__(
+            type_,
+            name,
+            default_value,
+            deprecation_reason,
+            description,
+            required,
+            _creation_counter,
+            **extra_args,
+        )
+
+        self.model_attr = model_attr
+
+
 class BaseTypeFilter(graphene.InputObjectType):
     @classmethod
     def __init_subclass_with_meta__(
         cls, filter_fields=None, model=None, _meta=None, **options
     ):
-        from graphene_sqlalchemy.converter import (
-            convert_sqlalchemy_type,
-        )
+        from graphene_sqlalchemy.converter import convert_sqlalchemy_type
 
         # Init meta options class if it doesn't exist already
         if not _meta:
@@ -144,7 +169,8 @@ class BaseTypeFilter(graphene.InputObjectType):
             # Check with a profiler is required to determine necessity
             input_field = cls._meta.fields[field]
             if isinstance(input_field, graphene.Dynamic):
-                field_filter_type = input_field.get_type().type
+                input_field = input_field.get_type()
+                field_filter_type = input_field.type
             else:
                 field_filter_type = cls._meta.fields[field].type
             # raise Exception
@@ -161,7 +187,9 @@ class BaseTypeFilter(graphene.InputObjectType):
                 )
                 clauses.extend(_clauses)
             else:
-                model_field = getattr(model, field)
+                model_field = getattr(
+                    model, input_field.model_attr
+                )  # getattr(model, field)
                 if issubclass(field_filter_type, BaseTypeFilter):
                     # Get the model to join on the Filter Query
                     joined_model = field_filter_type._meta.model
@@ -196,6 +224,10 @@ class BaseTypeFilter(graphene.InputObjectType):
                     )
                     clauses.extend(_clauses)
                 elif issubclass(field_filter_type, FieldFilter):
+                    print("got", model_field)
+                    print(repr(model_field))
+                    print(model_field == 1)
+                    print("with input", field_filters)
                     query, _clauses = field_filter_type.execute_filters(
                         query, model_field, field_filters
                     )
@@ -241,7 +273,9 @@ class FieldFilter(graphene.InputObjectType):
             ), "Each filter method must have a value field with valid type annotations"
             # If type is generic, replace with actual type of filter class
             replace_type_vars = {ScalarFilterInputType: _meta.graphene_type}
-            field_type = convert_sqlalchemy_type(_annotations.get("val", str), replace_type_vars=replace_type_vars)
+            field_type = convert_sqlalchemy_type(
+                _annotations.get("val", str), replace_type_vars=replace_type_vars
+            )
             new_filter_fields.update({field_name: graphene.InputField(field_type)})
 
         # Add all fields to the meta options. graphene.InputbjectType will take care of the rest

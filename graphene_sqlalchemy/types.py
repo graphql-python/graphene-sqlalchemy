@@ -37,6 +37,7 @@ from .filters import (
     IdFilter,
     IntFilter,
     RelationshipFilter,
+    SQLAlchemyFilterInputField,
     StringFilter,
 )
 from .registry import Registry, get_global_registry
@@ -154,13 +155,14 @@ def filter_field_from_type_field(
     field: Union[graphene.Field, graphene.Dynamic, Type[UnmountedType]],
     registry: Registry,
     filter_type: Optional[Type],
+    model_attr_name: Any,
 ) -> Optional[Union[graphene.InputField, graphene.Dynamic]]:
     # If a custom filter type was set for this field, use it here
     if filter_type:
-        return graphene.InputField(filter_type)
+        return SQLAlchemyFilterInputField(filter_type, model_attr_name)
     if issubclass(type(field), graphene.Scalar):
         filter_class = registry.get_filter_for_scalar_type(type(field))
-        return graphene.InputField(filter_class)
+        return SQLAlchemyFilterInputField(filter_class, model_attr_name)
     # If the field is Dynamic, we don't know its type yet and can't select the right filter
     if isinstance(field, graphene.Dynamic):
 
@@ -179,7 +181,7 @@ def filter_field_from_type_field(
                 if not reg_res:
                     print("filter class was none!!!")
                     print(type_)
-                return graphene.InputField(reg_res)
+                return SQLAlchemyFilterInputField(reg_res, model_attr_name)
             elif isinstance(type_, Field):
                 if isinstance(type_.type, graphene.List):
                     inner_type = get_nullable_type(type_.type.of_type)
@@ -187,10 +189,10 @@ def filter_field_from_type_field(
                     if not reg_res:
                         print("filter class was none!!!")
                         print(type_)
-                    return graphene.InputField(reg_res)
+                    return SQLAlchemyFilterInputField(reg_res, model_attr_name)
                 reg_res = registry.get_filter_for_base_type(type_.type)
 
-                return graphene.InputField(reg_res)
+                return SQLAlchemyFilterInputField(reg_res, model_attr_name)
             else:
                 warnings.warn(f"Unexpected Dynamic Type: {type_}")  # Investigate
                 # raise Exception(f"Unexpected Dynamic Type: {type_}")
@@ -213,14 +215,14 @@ def filter_field_from_type_field(
         # Field might be a SQLAlchemyObjectType, due to hybrid properties
         if issubclass(type_, SQLAlchemyObjectType):
             filter_class = registry.get_filter_for_base_type(type_)
-            return graphene.InputField(filter_class)
+            return SQLAlchemyFilterInputField(filter_class, model_attr_name)
         filter_class = registry.get_filter_for_scalar_type(type_)
         if not filter_class:
             warnings.warn(
                 f"No compatible filters found for {field.type}. Skipping field."
             )
             return None
-        return graphene.InputField(filter_class)
+        return SQLAlchemyFilterInputField(filter_class, model_attr_name)
 
     raise Exception(f"Expected a graphene.Field or graphene.Dynamic, but got: {field}")
 
@@ -362,7 +364,7 @@ def construct_fields_and_filters(
         fields[orm_field_name] = field
         if filtering_enabled_for_field:
             filters[orm_field_name] = filter_field_from_type_field(
-                field, registry, filter_type
+                field, registry, filter_type, attr_name
             )
 
     return fields, filters
