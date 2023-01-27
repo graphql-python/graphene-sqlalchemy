@@ -262,16 +262,17 @@ convert_sqlalchemy_composite.register = _register_composite_class
 
 def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
     column = column_prop.columns[0]
-    column_type = getattr(column, "type", None)
     # The converter expects a type to find the right conversion function.
     # If we get an instance instead, we need to convert it to a type.
     # The conversion function will still be able to access the instance via the column argument.
-    if not isinstance(column_type, type):
-        column_type = type(column_type)
-    field_kwargs.setdefault(
-        "type_",
-        convert_sqlalchemy_type(column_type, column=column, registry=registry),
-    )
+    if "type_" not in field_kwargs:
+        column_type = getattr(column, "type", None)
+        if not isinstance(column_type, type):
+            column_type = type(column_type)
+        field_kwargs.setdefault(
+            "type_",
+            convert_sqlalchemy_type(column_type, column=column, registry=registry),
+        )
     field_kwargs.setdefault("required", not is_column_nullable(column))
     field_kwargs.setdefault("description", get_column_doc(column))
 

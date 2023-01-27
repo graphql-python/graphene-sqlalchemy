@@ -2,6 +2,7 @@ import re
 import typing
 import warnings
 from collections import OrderedDict
+from functools import _c3_mro
 from typing import Any, Callable, Dict, Optional
 
 import pkg_resources
@@ -197,10 +198,19 @@ class singledispatchbymatchfunction:
         self.default = default
 
     def __call__(self, *args, **kwargs):
-        for matcher_function, final_method in self.registry.items():
-            # Register order is important. First one that matches, runs.
-            if matcher_function(args[0]):
-                return final_method(*args, **kwargs)
+        matched_arg = args[0]
+        try:
+            mro = _c3_mro(matched_arg)
+        except Exception:
+            # In case of tuples or similar types, we can't use the MRO.
+            # Fall back to just matching the original argument.
+            mro = [matched_arg]
+
+        for cls in mro:
+            for matcher_function, final_method in self.registry.items():
+                # Register order is important. First one that matches, runs.
+                if matcher_function(cls):
+                    return final_method(*args, **kwargs)
 
         # No match, using default.
         return self.default(*args, **kwargs)
