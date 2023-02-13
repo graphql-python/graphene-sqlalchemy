@@ -8,4 +8,5 @@ Contents:
 
    tutorial
    tips
+   filters
    examples
