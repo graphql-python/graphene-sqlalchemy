@@ -138,7 +138,7 @@ Now, using a many-to-many model definition:
         name = Column(String(30))
 
     class Person
-        --tablename__ = "people"
+        __tablename__ = "people"
         id = Column(Integer(), primary_key=True)
         pets = relationship("Pet", backref="people")
 
