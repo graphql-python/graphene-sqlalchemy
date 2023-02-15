@@ -68,42 +68,36 @@ def create_schema(session):
             model = Article
             name = "Article"
             interfaces = (relay.Node,)
-            connection_class = Connection
 
     class ImageType(SQLAlchemyObjectType):
         class Meta:
             model = Image
             name = "Image"
             interfaces = (relay.Node,)
-            connection_class = Connection
 
     class PetType(SQLAlchemyObjectType):
         class Meta:
             model = Pet
             name = "Pet"
             interfaces = (relay.Node,)
-            connection_class = Connection
 
     class ReaderType(SQLAlchemyObjectType):
         class Meta:
             model = Reader
             name = "Reader"
             interfaces = (relay.Node,)
-            connection_class = Connection
 
     class ReporterType(SQLAlchemyObjectType):
         class Meta:
             model = Reporter
             name = "Reporter"
             interfaces = (relay.Node,)
-            connection_class = Connection
 
     class TagType(SQLAlchemyObjectType):
         class Meta:
             model = Tag
             name = "Tag"
             interfaces = (relay.Node,)
-            connection_class = Connection
 
     class Query(graphene.ObjectType):
         node = relay.Node.Field()
@@ -139,7 +133,7 @@ async def test_filter_simple(session):
 
     query = """
         query {
-          reporters (filter: {lastName: {eq: "Roe"}}) {
+          reporters (filter: {lastName: {eq: "Roe", like: "oe"}}) {
             edges {
                 node {
                     firstName

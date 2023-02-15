@@ -11,7 +11,6 @@ from graphene.types.inputobjecttype import (
 )
 from graphene_sqlalchemy.utils import is_list
 
-
 BaseTypeFilterSelf = TypeVar(
     "BaseTypeFilterSelf", Dict[str, Any], InputObjectTypeContainer
 )
@@ -41,9 +40,7 @@ class BaseTypeFilter(graphene.InputObjectType):
     def __init_subclass_with_meta__(
         cls, filter_fields=None, model=None, _meta=None, **options
     ):
-        from graphene_sqlalchemy.converter import (
-            convert_sqlalchemy_type,
-        )
+        from graphene_sqlalchemy.converter import convert_sqlalchemy_type
 
         # Init meta options class if it doesn't exist already
         if not _meta:
@@ -241,7 +238,9 @@ class FieldFilter(graphene.InputObjectType):
             ), "Each filter method must have a value field with valid type annotations"
             # If type is generic, replace with actual type of filter class
             replace_type_vars = {ScalarFilterInputType: _meta.graphene_type}
-            field_type = convert_sqlalchemy_type(_annotations.get("val", str), replace_type_vars=replace_type_vars)
+            field_type = convert_sqlalchemy_type(
+                _annotations.get("val", str), replace_type_vars=replace_type_vars
+            )
             new_filter_fields.update({field_name: graphene.InputField(field_type)})
 
         # Add all fields to the meta options. graphene.InputbjectType will take care of the rest
@@ -273,6 +272,8 @@ class FieldFilter(graphene.InputObjectType):
     @classmethod
     def not_in_filter(cls, query, field, val: List[ScalarFilterInputType]):
         return field.notin_(val)
+
+    # TODO add like/ilike
 
     @classmethod
     def execute_filters(
