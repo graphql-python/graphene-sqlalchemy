@@ -8,6 +8,7 @@ Contents:
 
    starter
    inheritance
+   relay
    tips
    examples
    tutorial
