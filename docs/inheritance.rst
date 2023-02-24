@@ -3,7 +3,7 @@ Inheritance Examples
 
 Create interfaces from inheritance relationships
 ------------------------------------------------
-.. note:: If you're using `AsyncSession`, please check the chapter `Eager Loading & Using with AsyncSession`_.
+.. note:: If you're using `AsyncSession`, please check the section `Eager Loading & Using with AsyncSession`_.
 SQLAlchemy has excellent support for class inheritance hierarchies.
 These hierarchies can be represented in your GraphQL schema by means
 of interfaces_.  Much like ObjectTypes, Interfaces in

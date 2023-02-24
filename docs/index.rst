@@ -6,6 +6,9 @@ Contents:
 .. toctree::
    :maxdepth: 0
 
-   tutorial
+   starter
+   inheritance
    tips
    examples
+   tutorial
+   api
