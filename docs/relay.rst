@@ -1,5 +1,5 @@
 Relay
-====
+==========
 
 :code:`graphene-sqlalchemy` comes with pre-defined
 connection fields to quickly create a functioning relay API.

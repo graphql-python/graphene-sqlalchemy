@@ -1,5 +1,5 @@
 Getting Started
-====
+=================
 
 Welcome to the graphene-sqlalchemy documentation!
 Graphene is a powerful Python library for building GraphQL APIs,
@@ -80,7 +80,7 @@ Then you can simply query the schema:
 
 
 It is important to provide a session for graphene-sqlalchemy to resolve the models.
-In this example, it is provided using the GraphQL context. See :ref:`querying` for
+In this example, it is provided using the GraphQL context. See :doc:`tips` for
 other ways to implement this.
 
 You may also subclass SQLAlchemyObjectType by providing
