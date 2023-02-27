@@ -133,7 +133,7 @@ async def test_filter_simple(session):
 
     query = """
         query {
-          reporters (filter: {lastName: {eq: "Roe", like: "oe"}}) {
+          reporters (filter: {lastName: {eq: "Roe", like: "%oe"}}) {
             edges {
                 node {
                     firstName

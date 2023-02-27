@@ -293,6 +293,18 @@ class StringFilter(FieldFilter):
     class Meta:
         graphene_type = graphene.String
 
+    @classmethod
+    def like_filter(cls, query, field, val: ScalarFilterInputType) -> bool:
+        return field.like(val)
+
+    @classmethod
+    def ilike_filter(cls, query, field, val: ScalarFilterInputType) -> bool:
+        return field.ilike(val)
+
+    @classmethod
+    def notlike_filter(cls, query, field, val: ScalarFilterInputType) -> bool:
+        return field.notlike(val)
+
 
 class BooleanFilter(FieldFilter):
     class Meta:
