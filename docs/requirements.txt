@@ -1,2 +1,3 @@
+sphinx
 # Docs template
 http://graphene-python.org/sphinx_graphene_theme.zip
