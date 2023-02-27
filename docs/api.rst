@@ -11,7 +11,7 @@ SQLAlchemyInterface
 
 ORMField
 --------------------
-.. autoclass:: graphene_sqlalchemy.fields.ORMField
+.. autoclass:: graphene_sqlalchemy.types.ORMField
 
 SQLAlchemyConnectionField
 -------------------------

@@ -5,6 +5,7 @@ Tips
 Querying
 --------
 .. _querying:
+
 In order to make querying against the database work, there are two alternatives:
 
 -  Set the db session when you do the execution:
