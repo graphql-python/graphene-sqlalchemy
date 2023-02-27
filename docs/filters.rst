@@ -34,7 +34,7 @@ Take as example a Pet model similar to that in the sorting example. We will use 
             model = Pet
 
 
-    class Query(ObjectType):
+    class Query(graphene.ObjectType):
         allPets = SQLAlchemyConnectionField(PetNode.connection)
 
 
@@ -96,12 +96,11 @@ Take the following SQLAlchemy model definition as an example:
 .. code:: python
 
     class Pet
-        id = Column(Integer(), primary_key=True)
-        name = Column(String(30))
-        person_id = Column(Integer(), ForeignKey("persons.id"))
+        ...
+        person_id = Column(Integer(), ForeignKey("people.id"))
 
     class Person
-        id = Column(Integer(), primary_key=True)
+        ...
         pets = relationship("Pet", backref="person")
 
 
@@ -133,17 +132,14 @@ Now, using a many-to-many model definition:
     )
 
     class Pet
-        __tablename__ = "pets"
-        id = Column(Integer(), primary_key=True)
-        name = Column(String(30))
+        ...
 
     class Person
-        __tablename__ = "people"
-        id = Column(Integer(), primary_key=True)
+        ...
         pets = relationship("Pet", backref="people")
 
 
-this query will return all pets which have a person named "Ben" in their ``persons`` list.
+this query will return all pets which have a person named "Ben" in their ``people`` list.
 
 .. code::
 
