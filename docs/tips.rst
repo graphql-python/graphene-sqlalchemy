@@ -4,6 +4,7 @@ Tips
 
 Querying
 --------
+.. _querying:
 
 In order to make querying against the database work, there are two alternatives:
 

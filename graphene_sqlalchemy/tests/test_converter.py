@@ -3,6 +3,7 @@ import sys
 from typing import Dict, Tuple, Union
 
 import pytest
+import sqlalchemy
 import sqlalchemy_utils as sqa_utils
 from sqlalchemy import Column, func, select, types
 from sqlalchemy.dialects import postgresql
@@ -21,6 +22,7 @@ from ..converter import (
     convert_sqlalchemy_hybrid_method,
     convert_sqlalchemy_relationship,
     convert_sqlalchemy_type,
+    set_non_null_many_relationships,
 )
 from ..fields import UnsortedSQLAlchemyConnectionField, default_connection_field_factory
 from ..registry import Registry, get_global_registry
@@ -28,6 +30,7 @@ from ..types import ORMField, SQLAlchemyObjectType
 from .models import (
     Article,
     CompositeFullName,
+    CustomColumnModel,
     Pet,
     Reporter,
     ShoppingCart,
@@ -69,6 +72,15 @@ def get_hybrid_property_type(prop_method):
     return convert_sqlalchemy_hybrid_method(
         column_prop, mock_resolver(), **ORMField().kwargs
     )
+
+
+@pytest.fixture
+def use_legacy_many_relationships():
+    set_non_null_many_relationships(False)
+    try:
+        yield
+    finally:
+        set_non_null_many_relationships(True)
 
 
 def test_hybrid_prop_int():
@@ -501,6 +513,30 @@ def test_should_manytomany_convert_connectionorlist_list():
         True,
         "orm_field_name",
     )
+    # field should be [A!]!
+    assert isinstance(dynamic_field, graphene.Dynamic)
+    graphene_type = dynamic_field.get_type()
+    assert isinstance(graphene_type, graphene.Field)
+    assert isinstance(graphene_type.type, graphene.NonNull)
+    assert isinstance(graphene_type.type.of_type, graphene.List)
+    assert isinstance(graphene_type.type.of_type.of_type, graphene.NonNull)
+    assert graphene_type.type.of_type.of_type.of_type == A
+
+
+@pytest.mark.usefixtures("use_legacy_many_relationships")
+def test_should_manytomany_convert_connectionorlist_list_legacy():
+    class A(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+
+    dynamic_field = convert_sqlalchemy_relationship(
+        Reporter.pets.property,
+        A,
+        default_connection_field_factory,
+        True,
+        "orm_field_name",
+    )
+    # field should be [A]
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
@@ -708,6 +744,42 @@ def test_should_unknown_sqlalchemy_composite_raise_exception():
             Registry(),
             mock_resolver,
         )
+
+
+def test_raise_exception_unkown_column_type():
+    with pytest.raises(
+        Exception,
+        match="Don't know how to convert the SQLAlchemy field customcolumnmodel.custom_col",
+    ):
+
+        class A(SQLAlchemyObjectType):
+            class Meta:
+                model = CustomColumnModel
+
+
+def test_prioritize_orm_field_unkown_column_type():
+    class A(SQLAlchemyObjectType):
+        class Meta:
+            model = CustomColumnModel
+
+        custom_col = ORMField(type_=graphene.Int)
+
+    assert A._meta.fields["custom_col"].type == graphene.Int
+
+
+def test_match_supertype_from_mro_correct_order():
+    """
+    BigInt and Integer are both superclasses of BIGINT, but a custom converter exists for BigInt that maps to Float.
+    We expect the correct MRO order to be used and conversion by the nearest match. BIGINT should be converted to Float,
+    just like BigInt, not to Int like integer which is further up in the MRO.
+    """
+
+    class BIGINT(sqlalchemy.types.BigInteger):
+        pass
+
+    field = get_field_from_column(Column(BIGINT))
+
+    assert field.type == graphene.Float
 
 
 def test_sqlalchemy_hybrid_property_type_inference():

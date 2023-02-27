@@ -59,6 +59,39 @@ except ImportError:
 
 is_selectin_available = getattr(strategies, "SelectInLoader", None)
 
+"""
+Flag for whether to generate stricter non-null fields for many-relationships.
+
+For many-relationships, both the list element and the list field itself will be
+non-null by default. This better matches ORM semantics, where there is always a
+list for a many relationship (even if it is empty), and it never contains None.
+
+This option can be set to False to revert to pre-3.0 behavior.
+
+For example, given a User model with many Comments:
+
+    class User(Base):
+        comments = relationship("Comment")
+
+The Schema will be:
+
+    type User {
+        comments: [Comment!]!
+    }
+
+When set to False, the pre-3.0 behavior gives:
+
+    type User {
+        comments: [Comment]
+    }
+"""
+use_non_null_many_relationships = True
+
+
+def set_non_null_many_relationships(non_null_flag):
+    global use_non_null_many_relationships
+    use_non_null_many_relationships = non_null_flag
+
 
 def get_column_doc(column):
     return getattr(column, "doc", None)
@@ -160,7 +193,14 @@ def _convert_o2m_or_m2m_relationship(
     )
 
     if not child_type._meta.connection:
-        return graphene.Field(graphene.List(child_type), **field_kwargs)
+        # check if we need to use non-null fields
+        list_type = (
+            graphene.NonNull(graphene.List(graphene.NonNull(child_type)))
+            if use_non_null_many_relationships
+            else graphene.List(child_type)
+        )
+
+        return graphene.Field(list_type, **field_kwargs)
 
     # TODO Allow override of connection_field_factory and resolver via ORMField
     if connection_field_factory is None:
@@ -221,16 +261,17 @@ convert_sqlalchemy_composite.register = _register_composite_class
 
 def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
     column = column_prop.columns[0]
-    column_type = getattr(column, "type", None)
     # The converter expects a type to find the right conversion function.
     # If we get an instance instead, we need to convert it to a type.
     # The conversion function will still be able to access the instance via the column argument.
-    if not isinstance(column_type, type):
-        column_type = type(column_type)
-    field_kwargs.setdefault(
-        "type_",
-        convert_sqlalchemy_type(column_type, column=column, registry=registry),
-    )
+    if "type_" not in field_kwargs:
+        column_type = getattr(column, "type", None)
+        if not isinstance(column_type, type):
+            column_type = type(column_type)
+        field_kwargs.setdefault(
+            "type_",
+            convert_sqlalchemy_type(column_type, column=column, registry=registry),
+        )
     field_kwargs.setdefault("required", not is_column_nullable(column))
     field_kwargs.setdefault("description", get_column_doc(column))
 
