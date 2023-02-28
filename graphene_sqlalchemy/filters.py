@@ -443,6 +443,11 @@ class RelationshipFilter(graphene.InputObjectType):
     ):
         print("Contains exactly called: ", query, val)
         session = query.session
+        # TODO change logic as follows:
+        # do select()
+        # write down query without session
+        # main_query.subqueryload()
+        # use query.where() instead of query.filter()
         child_model_ids = []
         for v in val:
             print("Contains exactly loop: ", v)
