@@ -1,8 +1,9 @@
 import enum
 import sys
-from typing import Dict, Union
+from typing import Dict, Tuple, Union
 
 import pytest
+import sqlalchemy
 import sqlalchemy_utils as sqa_utils
 from sqlalchemy import Column, func, select, types
 from sqlalchemy.dialects import postgresql
@@ -21,6 +22,8 @@ from ..converter import (
     convert_sqlalchemy_composite,
     convert_sqlalchemy_hybrid_method,
     convert_sqlalchemy_relationship,
+    convert_sqlalchemy_type,
+    set_non_null_many_relationships,
 )
 from ..fields import UnsortedSQLAlchemyConnectionField, default_connection_field_factory
 from ..registry import Registry, get_global_registry
@@ -28,6 +31,7 @@ from ..types import ORMField, SQLAlchemyObjectType
 from .models import (
     Article,
     CompositeFullName,
+    CustomColumnModel,
     Pet,
     ProxiedReporter,
     Reporter,
@@ -72,12 +76,125 @@ def get_hybrid_property_type(prop_method):
     )
 
 
+@pytest.fixture
+def use_legacy_many_relationships():
+    set_non_null_many_relationships(False)
+    try:
+        yield
+    finally:
+        set_non_null_many_relationships(True)
+
+
 def test_hybrid_prop_int():
     @hybrid_property
     def prop_method() -> int:
         return 42
 
     assert get_hybrid_property_type(prop_method).type == graphene.Int
+
+
+def test_hybrid_unknown_annotation():
+    @hybrid_property
+    def hybrid_prop(self):
+        return "This should fail"
+
+    with pytest.raises(
+        TypeError,
+        match=r"(.*)Please make sure to annotate the return type of the hybrid property or use the "
+        "type_ attribute of ORMField to set the type.(.*)",
+    ):
+        get_hybrid_property_type(hybrid_prop)
+
+
+def test_hybrid_prop_no_type_annotation():
+    @hybrid_property
+    def hybrid_prop(self) -> Tuple[str, str]:
+        return "This should Fail because", "we don't support Tuples in GQL"
+
+    with pytest.raises(
+        TypeError, match=r"(.*)Don't know how to convert the SQLAlchemy field(.*)"
+    ):
+        get_hybrid_property_type(hybrid_prop)
+
+
+def test_hybrid_invalid_forward_reference():
+    class MyTypeNotInRegistry:
+        pass
+
+    @hybrid_property
+    def hybrid_prop(self) -> "MyTypeNotInRegistry":
+        return MyTypeNotInRegistry()
+
+    with pytest.raises(
+        TypeError,
+        match=r"(.*)Only forward references to other SQLAlchemy Models mapped to "
+        "SQLAlchemyObjectTypes are allowed.(.*)",
+    ):
+        get_hybrid_property_type(hybrid_prop).type
+
+
+def test_hybrid_prop_object_type():
+    class MyObjectType(graphene.ObjectType):
+        string = graphene.String()
+
+    @hybrid_property
+    def hybrid_prop(self) -> MyObjectType:
+        return MyObjectType()
+
+    assert get_hybrid_property_type(hybrid_prop).type == MyObjectType
+
+
+def test_hybrid_prop_scalar_type():
+    @hybrid_property
+    def hybrid_prop(self) -> graphene.String:
+        return "This should work"
+
+    assert get_hybrid_property_type(hybrid_prop).type == graphene.String
+
+
+def test_hybrid_prop_not_mapped_to_graphene_type():
+    @hybrid_property
+    def hybrid_prop(self) -> ShoppingCartItem:
+        return "This shouldn't work"
+
+    with pytest.raises(TypeError, match=r"(.*)No model found in Registry for type(.*)"):
+        get_hybrid_property_type(hybrid_prop).type
+
+
+def test_hybrid_prop_mapped_to_graphene_type():
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCartItem
+
+    @hybrid_property
+    def hybrid_prop(self) -> ShoppingCartItem:
+        return "Dummy return value"
+
+    get_hybrid_property_type(hybrid_prop).type == ShoppingCartType
+
+
+def test_hybrid_prop_forward_ref_not_mapped_to_graphene_type():
+    @hybrid_property
+    def hybrid_prop(self) -> "ShoppingCartItem":
+        return "This shouldn't work"
+
+    with pytest.raises(
+        TypeError,
+        match=r"(.*)No model found in Registry for forward reference for type(.*)",
+    ):
+        get_hybrid_property_type(hybrid_prop).type
+
+
+def test_hybrid_prop_forward_ref_mapped_to_graphene_type():
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCartItem
+
+    @hybrid_property
+    def hybrid_prop(self) -> "ShoppingCartItem":
+        return "Dummy return value"
+
+    get_hybrid_property_type(hybrid_prop).type == ShoppingCartType
 
 
 @pytest.mark.skipif(
@@ -133,10 +250,9 @@ def test_should_union_work():
     field_type_1 = get_hybrid_property_type(prop_method).type
     field_type_2 = get_hybrid_property_type(prop_method_2).type
 
-    assert isinstance(field_type_1, graphene.Union)
+    assert issubclass(field_type_1, graphene.Union)
+    assert field_type_1._meta.types == [PetType, ShoppingCartType]
     assert field_type_1 is field_type_2
-
-    # TODO verify types of the union
 
 
 @pytest.mark.skipif(
@@ -166,8 +282,14 @@ def test_should_union_work_310():
     field_type_1 = get_hybrid_property_type(prop_method).type
     field_type_2 = get_hybrid_property_type(prop_method_2).type
 
-    assert isinstance(field_type_1, graphene.Union)
+    assert issubclass(field_type_1, graphene.Union)
+    assert field_type_1._meta.types == [PetType, ShoppingCartType]
     assert field_type_1 is field_type_2
+
+
+def test_should_unknown_type_raise_error():
+    with pytest.raises(Exception):
+        converted_type = convert_sqlalchemy_type(ZeroDivisionError)  # noqa
 
 
 def test_should_datetime_convert_datetime():
@@ -393,6 +515,30 @@ def test_should_manytomany_convert_connectionorlist_list():
         True,
         "orm_field_name",
     )
+    # field should be [A!]!
+    assert isinstance(dynamic_field, graphene.Dynamic)
+    graphene_type = dynamic_field.get_type()
+    assert isinstance(graphene_type, graphene.Field)
+    assert isinstance(graphene_type.type, graphene.NonNull)
+    assert isinstance(graphene_type.type.of_type, graphene.List)
+    assert isinstance(graphene_type.type.of_type.of_type, graphene.NonNull)
+    assert graphene_type.type.of_type.of_type.of_type == A
+
+
+@pytest.mark.usefixtures("use_legacy_many_relationships")
+def test_should_manytomany_convert_connectionorlist_list_legacy():
+    class A(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+
+    dynamic_field = convert_sqlalchemy_relationship(
+        Reporter.pets.property,
+        A,
+        default_connection_field_factory,
+        True,
+        "orm_field_name",
+    )
+    # field should be [A]
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
@@ -656,6 +802,42 @@ def test_should_unknown_sqlalchemy_composite_raise_exception():
         )
 
 
+def test_raise_exception_unkown_column_type():
+    with pytest.raises(
+        Exception,
+        match="Don't know how to convert the SQLAlchemy field customcolumnmodel.custom_col",
+    ):
+
+        class A(SQLAlchemyObjectType):
+            class Meta:
+                model = CustomColumnModel
+
+
+def test_prioritize_orm_field_unkown_column_type():
+    class A(SQLAlchemyObjectType):
+        class Meta:
+            model = CustomColumnModel
+
+        custom_col = ORMField(type_=graphene.Int)
+
+    assert A._meta.fields["custom_col"].type == graphene.Int
+
+
+def test_match_supertype_from_mro_correct_order():
+    """
+    BigInt and Integer are both superclasses of BIGINT, but a custom converter exists for BigInt that maps to Float.
+    We expect the correct MRO order to be used and conversion by the nearest match. BIGINT should be converted to Float,
+    just like BigInt, not to Int like integer which is further up in the MRO.
+    """
+
+    class BIGINT(sqlalchemy.types.BigInteger):
+        pass
+
+    field = get_field_from_column(Column(BIGINT))
+
+    assert field.type == graphene.Float
+
+
 def test_sqlalchemy_hybrid_property_type_inference():
     class ShoppingCartItemType(SQLAlchemyObjectType):
         class Meta:
@@ -723,7 +905,6 @@ def test_sqlalchemy_hybrid_property_type_inference():
         ),
         "hybrid_prop_first_shopping_cart_item": ShoppingCartItemType,
         "hybrid_prop_shopping_cart_item_list": graphene.List(ShoppingCartItemType),
-        "hybrid_prop_unsupported_type_tuple": graphene.String,
         # Self Referential List
         "hybrid_prop_self_referential": ShoppingCartType,
         "hybrid_prop_self_referential_list": graphene.List(ShoppingCartType),

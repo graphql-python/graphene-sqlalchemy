@@ -1,6 +1,7 @@
 import re
 import warnings
 from collections import OrderedDict
+from functools import _c3_mro
 from typing import Any, Callable, Dict, Optional
 
 import pkg_resources
@@ -188,26 +189,34 @@ class singledispatchbymatchfunction:
         self.default = default
 
     def __call__(self, *args, **kwargs):
-        for matcher_function, final_method in self.registry.items():
-            # Register order is important. First one that matches, runs.
-            if matcher_function(args[0]):
-                return final_method(*args, **kwargs)
+        matched_arg = args[0]
+        try:
+            mro = _c3_mro(matched_arg)
+        except Exception:
+            # In case of tuples or similar types, we can't use the MRO.
+            # Fall back to just matching the original argument.
+            mro = [matched_arg]
+
+        for cls in mro:
+            for matcher_function, final_method in self.registry.items():
+                # Register order is important. First one that matches, runs.
+                if matcher_function(cls):
+                    return final_method(*args, **kwargs)
 
         # No match, using default.
         return self.default(*args, **kwargs)
 
-    def register(self, matcher_function: Callable[[Any], bool]):
-        def grab_function_from_outside(f):
-            self.registry[matcher_function] = f
-            return self
+    def register(self, matcher_function: Callable[[Any], bool], func=None):
+        if func is None:
+            return lambda f: self.register(matcher_function, f)
+        self.registry[matcher_function] = func
+        return func
 
-        return grab_function_from_outside
 
-
-def value_equals(value):
+def column_type_eq(value: Any) -> Callable[[Any], bool]:
     """A simple function that makes the equality based matcher functions for
     SingleDispatchByMatchFunction prettier"""
-    return lambda x: x == value
+    return lambda x: (x == value)
 
 
 def safe_isinstance(cls):
@@ -218,6 +227,16 @@ def safe_isinstance(cls):
             pass
 
     return safe_isinstance_checker
+
+
+def safe_issubclass(cls):
+    def safe_issubclass_checker(arg):
+        try:
+            return issubclass(arg, cls)
+        except TypeError:
+            pass
+
+    return safe_issubclass_checker
 
 
 def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:
