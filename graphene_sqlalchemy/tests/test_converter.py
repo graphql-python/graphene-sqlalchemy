@@ -666,8 +666,12 @@ def test_should_convert_association_proxy():
         True,
         mock_resolver,
     )
+    dynamic_field_type = dynamic_field.get_type().type
     assert isinstance(dynamic_field, graphene.Dynamic)
-    assert dynamic_field.get_type().type.of_type == ArticleType
+    assert isinstance(dynamic_field_type, graphene.NonNull)
+    assert isinstance(dynamic_field_type.of_type, graphene.List)
+    assert isinstance(dynamic_field_type.of_type.of_type, graphene.NonNull)
+    assert dynamic_field_type.of_type.of_type.of_type == ArticleType
 
 
 def test_should_throw_error_association_proxy_unsupported_target():
