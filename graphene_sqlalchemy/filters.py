@@ -441,42 +441,7 @@ class RelationshipFilter(graphene.InputObjectType):
         relationship_prop,
         val: List[ScalarFilterInputType],
     ):
-        print("Contains exactly called: ", query, val)
-        session = query.session
-        # TODO change logic as follows:
-        # do select()
-        # write down query without session
-        # main_query.subqueryload()
-        # use query.where() instead of query.filter()
-        child_model_ids = []
-        for v in val:
-            print("Contains exactly loop: ", v)
-
-            # Always alias the model
-            joined_model_alias = aliased(relationship_prop)
-
-            subquery = session.query(joined_model_alias.id)
-            subquery, _clauses = cls._meta.base_type_filter.execute_filters(
-                subquery, v, model_alias=joined_model_alias
-            )
-            subquery_ids = [s_id[0] for s_id in subquery.filter(and_(*_clauses)).all()]
-            child_model_ids.extend(subquery_ids)
-
-        # Join the relationship onto the query
-        joined_model_alias = aliased(relationship_prop)
-        joined_field = field.of_type(joined_model_alias)
-        query = query.join(joined_field)
-
-        # Construct clauses from child_model_ids
-        query = (
-            query.filter(joined_model_alias.id.in_(child_model_ids))
-            .group_by(parent_model)
-            .having(func.count(str(field)) == len(child_model_ids))
-            # TODO should filter on aliased field
-            # .having(func.count(joined_field) == len(child_model_ids))
-        )
-
-        return query, []
+        raise NotImplementedError
 
     @classmethod
     def execute_filters(
