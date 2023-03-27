@@ -1,8 +1,8 @@
 import re
 from typing import Any, Dict, List, Tuple, Type, TypeVar, Union
 
-from sqlalchemy import and_, func, not_, or_
-from sqlalchemy.orm import Query, aliased  # , selectinload
+from sqlalchemy import and_, func, not_, or_, select
+from sqlalchemy.orm import Query, aliased, subqueryload  # , selectinload
 
 import graphene
 from graphene.types.inputobjecttype import (
@@ -441,39 +441,70 @@ class RelationshipFilter(graphene.InputObjectType):
         relationship_prop,
         val: List[ScalarFilterInputType],
     ):
-        print("Contains exactly called: ", query, val)
-        session = query.session
-        # TODO change logic as follows:
+        # working for sqlalchemy<1.4
+
+        # print("Contains exactly called: ", query, val)
+        # # Construct clauses from child_model_ids
+        # session = query.session
+        # child_model_ids = []
+        # for v in val:
+        #     print("Contains exactly loop: ", v)
+
+        #     # Always alias the model
+        #     joined_model_alias = aliased(relationship_prop)
+
+        #     subquery = session.query(joined_model_alias.id)
+        #     subquery, _clauses = cls._meta.base_type_filter.execute_filters(
+        #         subquery, v, model_alias=joined_model_alias
+        #     )
+        #     subquery_ids = [s_id[0] for s_id in subquery.filter(and_(*_clauses)).all()]
+        #     child_model_ids.extend(subquery_ids)
+
+        # # Join the relationship onto the query
+        # joined_model_alias = aliased(relationship_prop)
+        # joined_field = field.of_type(joined_model_alias)
+        # query = query.join(joined_field)
+
+        # query = (
+        #     query.filter(joined_model_alias.id.in_(child_model_ids))
+        #     .group_by(parent_model)
+        #     .having(func.count(str(field)) == len(child_model_ids))
+        #     # TODO should filter on aliased field
+        #     # .having(func.count(joined_field) == len(child_model_ids))
+        # )
+
+        # sqlalchemy 1.4 attempt
+
         # do select()
         # write down query without session
         # main_query.subqueryload()
         # use query.where() instead of query.filter()
-        child_model_ids = []
+
+        # Always alias the model
+        joined_model_alias = aliased(relationship_prop)
+        subquery = select(joined_model_alias.id)
         for v in val:
             print("Contains exactly loop: ", v)
 
-            # Always alias the model
-            joined_model_alias = aliased(relationship_prop)
-
-            subquery = session.query(joined_model_alias.id)
             subquery, _clauses = cls._meta.base_type_filter.execute_filters(
                 subquery, v, model_alias=joined_model_alias
             )
-            subquery_ids = [s_id[0] for s_id in subquery.filter(and_(*_clauses)).all()]
-            child_model_ids.extend(subquery_ids)
+            subquery = subquery.where(and_(*_clauses))
 
-        # Join the relationship onto the query
+        print("HERE")
+
+        print(subquery)
+
         joined_model_alias = aliased(relationship_prop)
         joined_field = field.of_type(joined_model_alias)
         query = query.join(joined_field)
 
-        # Construct clauses from child_model_ids
         query = (
-            query.filter(joined_model_alias.id.in_(child_model_ids))
+            select(parent_model)
+            .options(subqueryload(joined_model_alias.id))
+            .where(joined_model_alias.id.in_(subquery))
             .group_by(parent_model)
-            .having(func.count(str(field)) == len(child_model_ids))
-            # TODO should filter on aliased field
-            # .having(func.count(joined_field) == len(child_model_ids))
+            .having(func.count(str(field)) == func.count(subquery))
         )
 
         return query, []
