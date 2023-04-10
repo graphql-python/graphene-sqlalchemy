@@ -34,8 +34,12 @@ setup(
     name="graphene-sqlalchemy",
     version=version,
     description="Graphene SQLAlchemy integration",
-    long_description=open("README.rst").read(),
+    long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
     url="https://github.com/graphql-python/graphene-sqlalchemy",
+    project_urls={
+        "Documentation": "https://docs.graphene-python.org/projects/sqlalchemy/en/latest",
+    },
     author="Syrus Akbary",
     author_email="me@syrusakbary.com",
     license="MIT",
