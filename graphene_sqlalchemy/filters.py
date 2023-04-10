@@ -1,7 +1,7 @@
 import re
 from typing import Any, Dict, List, Tuple, Type, TypeVar, Union
 
-from sqlalchemy import and_, func, not_, or_
+from sqlalchemy import and_, not_, or_
 from sqlalchemy.orm import Query, aliased  # , selectinload
 
 import graphene
