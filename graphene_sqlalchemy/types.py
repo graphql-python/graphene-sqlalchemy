@@ -1,3 +1,4 @@
+import inspect
 import types
 import warnings
 from collections import OrderedDict
@@ -18,6 +19,7 @@ from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.unmountedtype import UnmountedType
 from graphene.types.utils import yank_fields_from_attrs
 from graphene.utils.orderedtype import OrderedType
+import graphene_sqlalchemy.filters as gsa_filters
 
 from .converter import (
     convert_sqlalchemy_column,
@@ -30,15 +32,7 @@ from .enums import (
     sort_argument_for_object_type,
     sort_enum_for_object_type,
 )
-from .filters import (
-    BaseTypeFilter,
-    BooleanFilter,
-    FloatFilter,
-    IdFilter,
-    IntFilter,
-    RelationshipFilter,
-    StringFilter,
-)
+from .filters import BaseTypeFilter, FieldFilter, RelationshipFilter
 from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (
@@ -405,21 +399,21 @@ class SQLAlchemyBase(BaseType):
             )
 
         if not registry:
+            # TODO add documentation for users to register their own filters
             registry = get_global_registry()
-            # TODO way of doing this automatically?
-            get_global_registry().register_filter_for_scalar_type(
-                graphene.Float, FloatFilter
-            )
-            get_global_registry().register_filter_for_scalar_type(
-                graphene.Int, IntFilter
-            )
-            get_global_registry().register_filter_for_scalar_type(
-                graphene.String, StringFilter
-            )
-            get_global_registry().register_filter_for_scalar_type(
-                graphene.Boolean, BooleanFilter
-            )
-            get_global_registry().register_filter_for_scalar_type(graphene.ID, IdFilter)
+            field_filter_classes = [
+                filter_cls[1]
+                for filter_cls in inspect.getmembers(gsa_filters, inspect.isclass)
+                if (
+                    filter_cls[1] is not FieldFilter
+                    and FieldFilter in filter_cls[1].__mro__
+                    and getattr(filter_cls[1]._meta, "graphene_type", False)
+                )
+            ]
+            for field_filter_class in field_filter_classes:
+                get_global_registry().register_filter_for_scalar_type(
+                    field_filter_class._meta.graphene_type, field_filter_class
+                )
 
         assert isinstance(registry, Registry), (
             "The attribute registry in {} needs to be an instance of "
