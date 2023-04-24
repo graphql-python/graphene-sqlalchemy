@@ -9,8 +9,8 @@ from graphene.types.base import BaseType
 
 if TYPE_CHECKING:  # pragma: no_cover
     from graphene_sqlalchemy.filters import (
-        FieldFilter,
         BaseTypeFilter,
+        FieldFilter,
         RelationshipFilter,
     )
 
@@ -165,9 +165,7 @@ class Registry(object):
             raise TypeError("Expected BaseType, but got: {!r}".format(base_type))
 
         if not issubclass(filter_obj, BaseTypeFilter):
-            raise TypeError(
-                "Expected BaseTypeFilter, but got: {!r}".format(filter_obj)
-            )
+            raise TypeError("Expected BaseTypeFilter, but got: {!r}".format(filter_obj))
         self._registry_base_type_filters[base_type] = filter_obj
 
     def get_filter_for_base_type(self, base_type: Type[BaseType]):
