@@ -1,6 +1,6 @@
 import enum
 import sys
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple, Union, TypeVar
 
 import pytest
 import sqlalchemy
@@ -194,6 +194,18 @@ def test_hybrid_prop_forward_ref_mapped_to_graphene_type():
 
     get_hybrid_property_type(hybrid_prop).type == ShoppingCartType
 
+
+def test_converter_replace_type_var():
+
+    T = TypeVar("T")
+
+    replace_type_vars = {T: graphene.String}
+
+    field_type = convert_sqlalchemy_type(
+        T, replace_type_vars=replace_type_vars
+    )
+
+    assert field_type == graphene.String
 
 @pytest.mark.skipif(
     sys.version_info < (3, 10), reason="|-Style Unions are unsupported in python < 3.10"
