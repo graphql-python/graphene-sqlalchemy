@@ -422,7 +422,7 @@ class RelationshipFilter(graphene.InputObjectType):
             joined_model_alias = aliased(relationship_prop)
 
             # Join the aliased model onto the query
-            query = query.join(field.of_type(joined_model_alias))
+            query = query.join(field.of_type(joined_model_alias)).distinct()
             print("Joined model", relationship_prop)
             print(query)
             # pass the alias so group can join group
