@@ -2,7 +2,7 @@ import re
 from typing import Any, Dict, List, Tuple, Type, TypeVar, Union
 
 from graphql import Undefined
-from sqlalchemy import and_, func, not_, or_
+from sqlalchemy import and_, not_, or_
 from sqlalchemy.orm import Query, aliased  # , selectinload
 
 import graphene
@@ -308,6 +308,8 @@ class FieldFilter(graphene.InputObjectType):
     def not_in_filter(cls, query, field, val: List[ScalarFilterInputType]):
         return field.notin_(val)
 
+    # TODO add like/ilike
+
     @classmethod
     def execute_filters(
         cls, query, field, filter_dict: Dict[str, any]
@@ -325,6 +327,18 @@ class FieldFilter(graphene.InputObjectType):
 class StringFilter(FieldFilter):
     class Meta:
         graphene_type = graphene.String
+
+    @classmethod
+    def like_filter(cls, query, field, val: ScalarFilterInputType) -> bool:
+        return field.like(val)
+
+    @classmethod
+    def ilike_filter(cls, query, field, val: ScalarFilterInputType) -> bool:
+        return field.ilike(val)
+
+    @classmethod
+    def notlike_filter(cls, query, field, val: ScalarFilterInputType) -> bool:
+        return field.notlike(val)
 
 
 class BooleanFilter(FieldFilter):
@@ -443,7 +457,7 @@ class RelationshipFilter(graphene.InputObjectType):
             joined_model_alias = aliased(relationship_prop)
 
             # Join the aliased model onto the query
-            query = query.join(field.of_type(joined_model_alias))
+            query = query.join(field.of_type(joined_model_alias)).distinct()
             print("Joined model", relationship_prop)
             print(query)
             # pass the alias so group can join group
@@ -462,37 +476,7 @@ class RelationshipFilter(graphene.InputObjectType):
         relationship_prop,
         val: List[ScalarFilterInputType],
     ):
-        print("Contains exactly called: ", query, val)
-        session = query.session
-        child_model_ids = []
-        for v in val:
-            print("Contains exactly loop: ", v)
-
-            # Always alias the model
-            joined_model_alias = aliased(relationship_prop)
-
-            subquery = session.query(joined_model_alias.id)
-            subquery, _clauses = cls._meta.base_type_filter.execute_filters(
-                subquery, v, model_alias=joined_model_alias
-            )
-            subquery_ids = [s_id[0] for s_id in subquery.filter(and_(*_clauses)).all()]
-            child_model_ids.extend(subquery_ids)
-
-        # Join the relationship onto the query
-        joined_model_alias = aliased(relationship_prop)
-        joined_field = field.of_type(joined_model_alias)
-        query = query.join(joined_field)
-
-        # Construct clauses from child_model_ids
-        query = (
-            query.filter(joined_model_alias.id.in_(child_model_ids))
-            .group_by(parent_model)
-            .having(func.count(str(field)) == len(child_model_ids))
-            # TODO should filter on aliased field
-            # .having(func.count(joined_field) == len(child_model_ids))
-        )
-
-        return query, []
+        raise NotImplementedError
 
     @classmethod
     def execute_filters(

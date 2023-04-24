@@ -6,6 +6,11 @@ Contents:
 .. toctree::
    :maxdepth: 0
 
-   tutorial
+   starter
+   inheritance
+   relay
    tips
+   filters
    examples
+   tutorial
+   api

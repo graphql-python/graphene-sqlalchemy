@@ -576,13 +576,15 @@ class SQLAlchemyObjectType(SQLAlchemyBase, ObjectType):
 
     Usage:
 
-        class MyModel(Base):
-            id = Column(Integer(), primary_key=True)
-            name = Column(String())
+        .. code-block:: python
 
-        class MyType(SQLAlchemyObjectType):
-            class Meta:
-                model = MyModel
+            class MyModel(Base):
+                id = Column(Integer(), primary_key=True)
+                name = Column(String())
+
+            class MyType(SQLAlchemyObjectType):
+                class Meta:
+                    model = MyModel
     """
 
     @classmethod
@@ -619,30 +621,32 @@ class SQLAlchemyInterface(SQLAlchemyBase, Interface):
 
     Usage (using joined table inheritance):
 
-        class MyBaseModel(Base):
-            id = Column(Integer(), primary_key=True)
-            type = Column(String())
-            name = Column(String())
+        .. code-block:: python
 
-        __mapper_args__ = {
-            "polymorphic_on": type,
-        }
+            class MyBaseModel(Base):
+                id = Column(Integer(), primary_key=True)
+                type = Column(String())
+                name = Column(String())
 
-        class MyChildModel(Base):
-            date = Column(Date())
+            __mapper_args__ = {
+                "polymorphic_on": type,
+            }
 
-        __mapper_args__ = {
-            "polymorphic_identity": "child",
-        }
+            class MyChildModel(Base):
+                date = Column(Date())
 
-        class MyBaseType(SQLAlchemyInterface):
-            class Meta:
-                model = MyBaseModel
+            __mapper_args__ = {
+                "polymorphic_identity": "child",
+            }
 
-        class MyChildType(SQLAlchemyObjectType):
-            class Meta:
-                model = MyChildModel
-                interfaces = (MyBaseType,)
+            class MyBaseType(SQLAlchemyInterface):
+                class Meta:
+                    model = MyBaseModel
+
+            class MyChildType(SQLAlchemyObjectType):
+                class Meta:
+                    model = MyChildModel
+                    interfaces = (MyBaseType,)
     """
 
     @classmethod

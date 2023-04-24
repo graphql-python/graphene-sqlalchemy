@@ -109,11 +109,11 @@ schema = graphene.Schema(query=Query)
 
 ### Full Examples
 
-To learn more check out the following [examples](examples/):
+To learn more check out the following [examples](https://github.com/graphql-python/graphene-sqlalchemy/tree/master/examples/):
 
-- [Flask SQLAlchemy example](examples/flask_sqlalchemy)
-- [Nameko SQLAlchemy example](examples/nameko_sqlalchemy)
+- [Flask SQLAlchemy example](https://github.com/graphql-python/graphene-sqlalchemy/tree/master/examples/flask_sqlalchemy)
+- [Nameko SQLAlchemy example](https://github.com/graphql-python/graphene-sqlalchemy/tree/master/examples/nameko_sqlalchemy)
 
 ## Contributing
 
-See [CONTRIBUTING.md](/CONTRIBUTING.md)
+See [CONTRIBUTING.md](https://github.com/graphql-python/graphene-sqlalchemy/blob/master/CONTRIBUTING.md)
