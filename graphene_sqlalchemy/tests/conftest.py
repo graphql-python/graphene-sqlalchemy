@@ -3,13 +3,6 @@ import pytest_asyncio
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# fmt: off
-# Fixme remove when https://github.com/kvesteri/sqlalchemy-utils/pull/644 is released #noqa
-import sqlalchemy # noqa  # isort:skip
-if sqlalchemy.__version__ == "2.0.0b3": # noqa  # isort:skip
-    sqlalchemy.__version__ = "2.0.0"    # noqa  # isort:skip
-# fmt: on
-
 import graphene
 from graphene_sqlalchemy.utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4
 
