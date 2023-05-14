@@ -22,6 +22,7 @@ from .models import (
     ShoppingCart,
     ShoppingCartItem,
 )
+from .utils import wrap_select_func
 from ..converter import (
     convert_sqlalchemy_column,
     convert_sqlalchemy_composite,
