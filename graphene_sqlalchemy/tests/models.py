@@ -16,12 +16,12 @@ from sqlalchemy import (
     String,
     Table,
     func,
-    select,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import backref, column_property, composite, mapper, relationship
 
+from graphene_sqlalchemy.tests.utils import wrap_select_func
 from graphene_sqlalchemy.utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4
 
 PetKind = Enum("cat", "dog", name="pet_kind")
@@ -118,15 +118,9 @@ class Reporter(Base):
     def hybrid_prop_list(self) -> List[int]:
         return [1, 2, 3]
 
-    # TODO Remove when switching min sqlalchemy version to SQLAlchemy 1.4
-    if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
-        column_prop = column_property(
-            select(func.cast(func.count(id), Integer)), doc="Column property"
-        )
-    else:
-        column_prop = column_property(
-            select([func.cast(func.count(id), Integer)]), doc="Column property"
-        )
+    column_prop = column_property(
+        wrap_select_func(func.cast(func.count(id), Integer)), doc="Column property"
+    )
 
     composite_prop = composite(
         CompositeFullName, first_name, last_name, doc="Composite"

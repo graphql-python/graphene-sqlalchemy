@@ -2,19 +2,26 @@ import enum
 import sys
 from typing import Dict, Union
 
+import graphene
 import pytest
 import sqlalchemy_utils as sqa_utils
-from sqlalchemy import Column, func, select, types
+from graphene.relay import Node
+from graphene.types.structures import Structure
+from sqlalchemy import Column, func, types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import column_property, composite
 
-import graphene
-from graphene.relay import Node
-from graphene.types.structures import Structure
-
+from .models import (
+    Article,
+    CompositeFullName,
+    Pet,
+    Reporter,
+    ShoppingCart,
+    ShoppingCartItem,
+)
 from ..converter import (
     convert_sqlalchemy_column,
     convert_sqlalchemy_composite,
@@ -24,15 +31,7 @@ from ..converter import (
 from ..fields import UnsortedSQLAlchemyConnectionField, default_connection_field_factory
 from ..registry import Registry, get_global_registry
 from ..types import ORMField, SQLAlchemyObjectType
-from ..utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4, is_sqlalchemy_version_less_than
-from .models import (
-    Article,
-    CompositeFullName,
-    Pet,
-    Reporter,
-    ShoppingCart,
-    ShoppingCartItem,
-)
+from ..utils import is_sqlalchemy_version_less_than
 
 
 def mock_resolver():
@@ -88,9 +87,9 @@ def test_hybrid_prop_scalar_union_310():
         return "not allowed in gql schema"
 
     with pytest.raises(
-        ValueError,
-        match=r"Cannot convert hybrid_property Union to "
-        r"graphene.Union: the Union contains scalars. \.*",
+            ValueError,
+            match=r"Cannot convert hybrid_property Union to "
+                  r"graphene.Union: the Union contains scalars. \.*",
     ):
         get_hybrid_property_type(prop_method)
 
@@ -337,25 +336,9 @@ def test_should_intenum_choice_convert_enum():
     assert graphene_type._meta.enum.__members__["two"].value == 2
 
 
-@pytest.mark.skipif(
-    not SQL_VERSION_HIGHER_EQUAL_THAN_1_4,
-    reason="SQLAlchemy <1.4 does not support this",
-)
-def test_should_columproperty_convert_sqa_20():
-    field = get_field_from_column(
-        column_property(select(func.sum(func.cast(id, types.Integer))).where(id == 1))
-    )
-
-    assert field.type == graphene.Int
-
-
-@pytest.mark.skipif(
-    not is_sqlalchemy_version_less_than("2.0.0b1"),
-    reason="SQLAlchemy >=2.0 does not support this syntax, see convert_sqa_20",
-)
 def test_should_columproperty_convert():
     field = get_field_from_column(
-        column_property(select([func.sum(func.cast(id, types.Integer))]).where(id == 1))
+        column_property(wrap_select_func(func.sum(func.cast(id, types.Integer))).where(id == 1))
     )
 
     assert field.type == graphene.Int
@@ -654,8 +637,8 @@ def test_sqlalchemy_hybrid_property_type_inference():
     )
 
     for (
-        hybrid_prop_name,
-        hybrid_prop_expected_return_type,
+            hybrid_prop_name,
+            hybrid_prop_expected_return_type,
     ) in shopping_cart_item_expected_types.items():
         hybrid_prop_field = ShoppingCartItemType._meta.fields[hybrid_prop_name]
 
@@ -666,7 +649,7 @@ def test_sqlalchemy_hybrid_property_type_inference():
             str(hybrid_prop_expected_return_type),
         )
         assert (
-            hybrid_prop_field.description is None
+                hybrid_prop_field.description is None
         )  # "doc" is ignored by hybrid property
 
     ###################################################
@@ -714,8 +697,8 @@ def test_sqlalchemy_hybrid_property_type_inference():
     )
 
     for (
-        hybrid_prop_name,
-        hybrid_prop_expected_return_type,
+            hybrid_prop_name,
+            hybrid_prop_expected_return_type,
     ) in shopping_cart_expected_types.items():
         hybrid_prop_field = ShoppingCartType._meta.fields[hybrid_prop_name]
 
@@ -726,5 +709,5 @@ def test_sqlalchemy_hybrid_property_type_inference():
             str(hybrid_prop_expected_return_type),
         )
         assert (
-            hybrid_prop_field.description is None
+                hybrid_prop_field.description is None
         )  # "doc" is ignored by hybrid property
