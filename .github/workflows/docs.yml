@@ -1,0 +1,19 @@
+name: Deploy Docs
+
+# Runs on pushes targeting the default branch
+on:
+  push:
+    branches: [master]
+
+jobs:
+  pages:
+    runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+    - id: deployment
+      uses: sphinx-notes/pages@v3

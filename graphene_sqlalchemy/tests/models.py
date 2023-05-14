@@ -4,7 +4,7 @@ import datetime
 import enum
 import uuid
 from decimal import Decimal
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from sqlalchemy import (
     Column,
@@ -20,6 +20,8 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import backref, column_property, composite, mapper, relationship
+from sqlalchemy.sql.sqltypes import _LookupExpressionAdapter
+from sqlalchemy.sql.type_api import TypeEngine
 
 from graphene_sqlalchemy.tests.utils import wrap_select_func
 from graphene_sqlalchemy.utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4
@@ -90,12 +92,12 @@ class Reporter(Base):
     favorite_article = relationship("Article", uselist=False, lazy="selectin")
 
     @hybrid_property
-    def hybrid_prop_with_doc(self):
+    def hybrid_prop_with_doc(self) -> str:
         """Docstring test"""
         return self.first_name
 
     @hybrid_property
-    def hybrid_prop(self):
+    def hybrid_prop(self) -> str:
         return self.first_name
 
     @hybrid_property
@@ -259,11 +261,6 @@ class ShoppingCart(Base):
     def hybrid_prop_shopping_cart_item_list(self) -> List[ShoppingCartItem]:
         return [ShoppingCartItem(id=1), ShoppingCartItem(id=2)]
 
-    # Unsupported Type
-    @hybrid_property
-    def hybrid_prop_unsupported_type_tuple(self) -> Tuple[str, str]:
-        return "this will actually", "be a string"
-
     # Self-references
 
     @hybrid_property
@@ -339,3 +336,39 @@ class Employee(Person):
     __mapper_args__ = {
         "polymorphic_identity": "employee",
     }
+
+
+############################################
+# Custom Test Models
+############################################
+
+
+class CustomIntegerColumn(_LookupExpressionAdapter, TypeEngine):
+    """
+    Custom Column Type that our converters don't recognize
+    Adapted from sqlalchemy.Integer
+    """
+
+    """A type for ``int`` integers."""
+
+    __visit_name__ = "integer"
+
+    def get_dbapi_type(self, dbapi):
+        return dbapi.NUMBER
+
+    @property
+    def python_type(self):
+        return int
+
+    def literal_processor(self, dialect):
+        def process(value):
+            return str(int(value))
+
+        return process
+
+
+class CustomColumnModel(Base):
+    __tablename__ = "customcolumnmodel"
+
+    id = Column(Integer(), primary_key=True)
+    custom_col = Column(CustomIntegerColumn)
