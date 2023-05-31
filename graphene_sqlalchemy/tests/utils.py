@@ -1,6 +1,10 @@
 import inspect
 import re
 
+from sqlalchemy import select
+
+from graphene_sqlalchemy.utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4
+
 
 def to_std_dicts(value):
     """Convert nested ordered dicts to normal dicts for better comparison."""
@@ -18,8 +22,15 @@ def remove_cache_miss_stat(message):
     return re.sub(r"\[generated in \d+.?\d*s\]\s", "", message)
 
 
-async def eventually_await_session(session, func, *args):
+def wrap_select_func(query):
+    # TODO remove this when we drop support for sqa < 2.0
+    if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+        return select(query)
+    else:
+        return select([query])
 
+
+async def eventually_await_session(session, func, *args):
     if inspect.iscoroutinefunction(getattr(session, func)):
         await getattr(session, func)(*args)
     else:

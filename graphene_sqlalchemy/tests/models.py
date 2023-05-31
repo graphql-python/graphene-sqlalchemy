@@ -16,13 +16,22 @@ from sqlalchemy import (
     String,
     Table,
     func,
-    select,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import backref, column_property, composite, mapper, relationship
-from sqlalchemy.sql.sqltypes import _LookupExpressionAdapter
 from sqlalchemy.sql.type_api import TypeEngine
+
+from graphene_sqlalchemy.tests.utils import wrap_select_func
+from graphene_sqlalchemy.utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4, SQL_VERSION_HIGHER_EQUAL_THAN_2
+
+# fmt: off
+import sqlalchemy
+if SQL_VERSION_HIGHER_EQUAL_THAN_2:
+    from sqlalchemy.sql.sqltypes import HasExpressionLookup # noqa  # isort:skip
+else:
+    from sqlalchemy.sql.sqltypes import _LookupExpressionAdapter as HasExpressionLookup # noqa  # isort:skip
+# fmt: on
 
 PetKind = Enum("cat", "dog", name="pet_kind")
 
@@ -120,9 +129,7 @@ class Reporter(Base):
         return [1, 2, 3]
 
     column_prop = column_property(
-        # TODO scalar_subquery replaced as_scalar in sqlalchemy 1.4
-        select([func.cast(func.count(id), Integer)]).as_scalar(),
-        doc="Column property",
+        wrap_select_func(func.cast(func.count(id), Integer)), doc="Column property"
     )
 
     composite_prop = composite(
@@ -194,7 +201,11 @@ class ReflectedEditor(type):
 
 editor_table = Table("editors", Base.metadata, autoload=True)
 
-mapper(ReflectedEditor, editor_table)
+# TODO Remove when switching min sqlalchemy version to SQLAlchemy 1.4
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+    Base.registry.map_imperatively(ReflectedEditor, editor_table)
+else:
+    mapper(ReflectedEditor, editor_table)
 
 
 ############################################
@@ -377,7 +388,7 @@ class Employee(Person):
 ############################################
 
 
-class CustomIntegerColumn(_LookupExpressionAdapter, TypeEngine):
+class CustomIntegerColumn(HasExpressionLookup, TypeEngine):
     """
     Custom Column Type that our converters don't recognize
     Adapted from sqlalchemy.Integer
