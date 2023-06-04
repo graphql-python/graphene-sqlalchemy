@@ -424,6 +424,108 @@ async def test_filter_relationship_many_to_many_contains(session):
     assert_and_raise_result(result, expected)
 
 
+@pytest.mark.asyncio
+async def test_filter_relationship_many_to_many_contains_with_and(session):
+    """
+    This test is necessary to ensure we don't accidentally turn and-contains filter
+    into or-contains filters due to incorrect aliasing of the joined table.
+    """
+    await add_n2m_test_data(session)
+    Query = create_schema(session)
+
+    # test contains 1
+    query = """
+        query {
+          articles (filter: {
+            tags: {
+              contains: [{
+                and: [
+                    { name: { in: ["sensational", "eye-grabbing"] } },
+                    { name: { eq: "eye-grabbing" } },
+                ]
+            
+              }
+              ]
+            }
+          }) {
+            edges {
+              node {
+                headline
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "articles": {
+            "edges": [
+                {"node": {"headline": "Woah! Another!"}},
+            ],
+        },
+    }
+    schema = graphene.Schema(query=Query)
+    result = await schema.execute_async(query, context_value={"session": session})
+    assert_and_raise_result(result, expected)
+
+    # test contains 2
+    query = """
+        query {
+          articles (filter: {
+            tags: {
+              contains: [
+                { name: { eq: "eye-grabbing" } },
+              ]
+            }
+          }) {
+            edges {
+              node {
+                headline
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "articles": {
+            "edges": [
+                {"node": {"headline": "Woah! Another!"}},
+            ],
+        },
+    }
+    schema = graphene.Schema(query=Query)
+    result = await schema.execute_async(query, context_value={"session": session})
+    assert_and_raise_result(result, expected)
+
+    # test reverse
+    query = """
+        query {
+          tags (filter: {
+            articles: {
+              contains: [
+                { headline: { eq: "Article! Look!" } },
+              ]
+            }
+          }) {
+            edges {
+              node {
+                name
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "tags": {
+            "edges": [
+                {"node": {"name": "sensational"}},
+            ],
+        },
+    }
+    schema = graphene.Schema(query=Query)
+    result = await schema.execute_async(query, context_value={"session": session})
+    assert_and_raise_result(result, expected)
+
+
 # Test n:m relationship containsExactly
 @pytest.mark.xfail
 @pytest.mark.asyncio

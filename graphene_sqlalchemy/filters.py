@@ -83,19 +83,19 @@ class BaseTypeFilter(graphene.InputObjectType):
         query,
         filter_type: "BaseTypeFilter",
         val: List[BaseTypeFilterSelf],
+        model_alias=None,
     ):
         # # Get the model to join on the Filter Query
         # joined_model = filter_type._meta.model
         # # Always alias the model
         # joined_model_alias = aliased(joined_model)
-
         clauses = []
         for value in val:
             # # Join the aliased model onto the query
             # query = query.join(model_field.of_type(joined_model_alias))
 
             query, _clauses = filter_type.execute_filters(
-                query, value
+                query, value, model_alias=model_alias
             )  # , model_alias=joined_model_alias)
             clauses += _clauses
 
@@ -107,6 +107,7 @@ class BaseTypeFilter(graphene.InputObjectType):
         query,
         filter_type: "BaseTypeFilter",
         val: List[BaseTypeFilterSelf],
+        model_alias=None,
     ):
         # # Get the model to join on the Filter Query
         # joined_model = filter_type._meta.model
@@ -119,7 +120,7 @@ class BaseTypeFilter(graphene.InputObjectType):
             # query = query.join(model_field.of_type(joined_model_alias))
 
             query, _clauses = filter_type.execute_filters(
-                query, value
+                query, value, model_alias=model_alias
             )  # , model_alias=joined_model_alias)
             clauses += _clauses
 
@@ -149,12 +150,12 @@ class BaseTypeFilter(graphene.InputObjectType):
             #  to conduct joins and alias the joins (in case there are duplicate joins: A->B A->C B->C)
             if field == "and":
                 query, _clauses = cls.and_logic(
-                    query, field_filter_type.of_type, field_filters
+                    query, field_filter_type.of_type, field_filters, model_alias=model
                 )
                 clauses.extend(_clauses)
             elif field == "or":
                 query, _clauses = cls.or_logic(
-                    query, field_filter_type.of_type, field_filters
+                    query, field_filter_type.of_type, field_filters, model_alias=model
                 )
                 clauses.extend(_clauses)
             else:
