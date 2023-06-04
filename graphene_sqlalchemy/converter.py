@@ -330,7 +330,7 @@ def convert_scalar_type(type_arg: Any, **kwargs):
 
 
 @convert_sqlalchemy_type.register(safe_isinstance(TypeVar))
-def convert_scalar_type(type_arg: Any, replace_type_vars: Dict[TypeVar, Any], **kwargs):
+def convert_type_var(type_arg: Any, replace_type_vars: Dict[TypeVar, Any], **kwargs):
     return replace_type_vars[type_arg]
 
 
