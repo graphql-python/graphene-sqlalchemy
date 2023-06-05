@@ -207,6 +207,60 @@ async def test_filter_custom_type(session):
     assert_and_raise_result(result, expected)
 
 
+# Test filtering on enums
+@pytest.mark.asyncio
+async def test_filter_enum(session):
+    await add_test_data(session)
+
+    Query = create_schema(session)
+
+    # test sqlalchemy enum
+    query = """
+        query {
+          reporters (filter: {
+            favoritePetKind: {eq: "dog"}
+        }
+          ) {
+            edges {
+                node {
+                    firstName
+                    lastName
+                }
+            }
+          }
+        }
+    """
+    expected = {
+        "pets": {"edges": [{"node": {"firstName": "Jane", "lastName": "Roe"}}]},
+    }
+    schema = graphene.Schema(query=Query)
+    result = await schema.execute_async(query, context_value={"session": session})
+    assert_and_raise_result(result, expected)
+
+    # test Python enum and sqlalchemy enum
+    query = """
+        query {
+          pets (filter: {
+            and: [
+              { hairKind: {eq: LONG} },
+              { petKind: {eq: "dog"} }
+          ]}) {
+            edges {
+                node {
+                    name
+                }
+            }
+          }
+        }
+    """
+    expected = {
+        "pets": {"edges": [{"node": {"name": "Lassie"}}]},
+    }
+    schema = graphene.Schema(query=Query)
+    result = await schema.execute_async(query, context_value={"session": session})
+    assert_and_raise_result(result, expected)
+
+
 # Test a 1:1 relationship
 @pytest.mark.asyncio
 async def test_filter_relationship_one_to_one(session):
@@ -443,7 +497,7 @@ async def test_filter_relationship_many_to_many_contains_with_and(session):
                     { name: { in: ["sensational", "eye-grabbing"] } },
                     { name: { eq: "eye-grabbing" } },
                 ]
-            
+
               }
               ]
             }
@@ -788,8 +842,7 @@ async def test_filter_logic_and(session):
           reporters (filter: {
             and: [
                 { firstName: { eq: "John" } },
-                # TODO get enums working for filters
-                # { favoritePetKind: { eq: "cat" } },
+                { favoritePetKind: { eq: "cat" } },
             ]
         }) {
             edges {
@@ -821,8 +874,7 @@ async def test_filter_logic_or(session):
           reporters (filter: {
             or: [
                 { lastName: { eq: "Woe" } },
-                # TODO get enums working for filters
-                #{ favoritePetKind: { eq: "dog" } },
+                { favoritePetKind: { eq: "dog" } },
             ]
         }) {
             edges {
@@ -838,7 +890,6 @@ async def test_filter_logic_or(session):
         "reporters": {
             "edges": [
                 {"node": {"firstName": "John", "lastName": "Woe"}},
-                # TODO get enums working for filters
                 # {"node": {"firstName": "Jane", "lastName": "Roe"}},
             ]
         }
