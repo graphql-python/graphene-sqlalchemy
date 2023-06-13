@@ -26,7 +26,6 @@ from graphene_sqlalchemy.tests.utils import wrap_select_func
 from graphene_sqlalchemy.utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4, SQL_VERSION_HIGHER_EQUAL_THAN_2
 
 # fmt: off
-import sqlalchemy
 if SQL_VERSION_HIGHER_EQUAL_THAN_2:
     from sqlalchemy.sql.sqltypes import HasExpressionLookup # noqa  # isort:skip
 else:

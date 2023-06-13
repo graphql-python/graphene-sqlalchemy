@@ -137,7 +137,6 @@ def get_batch_resolver(relationship_prop):
             RELATIONSHIP_LOADERS_CACHE[relationship_prop] = loader
         return loader
 
-
     async def resolve(root, info, **args):
         return await _get_loader(relationship_prop).load(root)
 
