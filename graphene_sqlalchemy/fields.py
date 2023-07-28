@@ -8,7 +8,7 @@ from sqlalchemy.orm.query import Query
 from graphene import NonNull
 from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import PageInfo
-from graphql_relay.connection.arrayconnection import connection_from_list_slice
+from graphql_relay import connection_from_array_slice
 
 from .batching import get_batch_resolver
 from .utils import get_query
@@ -53,7 +53,7 @@ class UnsortedSQLAlchemyConnectionField(ConnectionField):
             _len = resolved.count()
         else:
             _len = len(resolved)
-        connection = connection_from_list_slice(
+        connection = connection_from_array_slice(
             resolved,
             args,
             slice_start=0,
