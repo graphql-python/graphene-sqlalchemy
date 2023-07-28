@@ -49,7 +49,6 @@ class BaseTypeFilter(graphene.InputObjectType):
         logic_functions = _get_functions_by_regex(".+_logic$", "_logic$", cls)
 
         new_filter_fields = {}
-        print(f"Generating Filter for {cls.__name__} with model {model} ")
         # Generate Graphene Fields from the filter functions based on type hints
         for field_name, _annotations in logic_functions:
             assert (
@@ -69,9 +68,6 @@ class BaseTypeFilter(graphene.InputObjectType):
         else:
             _meta.fields = filter_fields
         _meta.fields.update(new_filter_fields)
-
-        for field in _meta.fields:
-            print(f"Added field {field} of type {_meta.fields[field].type}")
 
         _meta.model = model
 
@@ -288,6 +284,48 @@ class FieldFilter(graphene.InputObjectType):
             clauses.append(clause)
 
         return query, clauses
+
+class SQLEnumFilter(FieldFilter):
+    """Basic Filter for Scalars in Graphene.
+    We want this filter to use Dynamic fields so it provides the base
+    filtering methods ("eq, nEq") for different types of scalars.
+    The Dynamic fields will resolve to Meta.filtered_type"""
+    class Meta:
+        graphene_type = graphene.Enum
+
+    # Abstract methods can be marked using ScalarFilterInputType. See comment on the init method
+    @classmethod
+    def eq_filter(
+        cls, query, field, val: ScalarFilterInputType
+    ) -> Union[Tuple[Query, Any], Any]:
+        return field == val.value
+
+    @classmethod
+    def n_eq_filter(
+        cls, query, field, val: ScalarFilterInputType
+    ) -> Union[Tuple[Query, Any], Any]:
+        return not_(field == val.value)
+
+class PyEnumFilter(FieldFilter):
+    """Basic Filter for Scalars in Graphene.
+    We want this filter to use Dynamic fields so it provides the base
+    filtering methods ("eq, nEq") for different types of scalars.
+    The Dynamic fields will resolve to Meta.filtered_type"""
+    class Meta:
+        graphene_type = graphene.Enum
+
+    # Abstract methods can be marked using ScalarFilterInputType. See comment on the init method
+    @classmethod
+    def eq_filter(
+        cls, query, field, val: ScalarFilterInputType
+    ) -> Union[Tuple[Query, Any], Any]:
+        return field == val
+
+    @classmethod
+    def n_eq_filter(
+        cls, query, field, val: ScalarFilterInputType
+    ) -> Union[Tuple[Query, Any], Any]:
+        return not_(field == val)
 
 
 class StringFilter(FieldFilter):

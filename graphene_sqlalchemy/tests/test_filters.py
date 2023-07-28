@@ -218,20 +218,21 @@ async def test_filter_enum(session):
     query = """
         query {
           reporters (filter: {
-            favoritePetKind: {eq: "dog"}
+            favoritePetKind: {eq: DOG}
         }
           ) {
             edges {
                 node {
                     firstName
                     lastName
+                    favoritePetKind
                 }
             }
           }
         }
     """
     expected = {
-        "pets": {"edges": [{"node": {"firstName": "Jane", "lastName": "Roe"}}]},
+        "reporters": {"edges": [{"node": {"firstName": "Jane", "lastName": "Roe", "favoritePetKind": "DOG"}}]},
     }
     schema = graphene.Schema(query=Query)
     result = await schema.execute_async(query, context_value={"session": session})
@@ -243,7 +244,7 @@ async def test_filter_enum(session):
           pets (filter: {
             and: [
               { hairKind: {eq: LONG} },
-              { petKind: {eq: "dog"} }
+              { petKind: {eq: DOG} }
           ]}) {
             edges {
                 node {
@@ -842,7 +843,7 @@ async def test_filter_logic_and(session):
           reporters (filter: {
             and: [
                 { firstName: { eq: "John" } },
-                { favoritePetKind: { eq: "cat" } },
+                { favoritePetKind: { eq: CAT } },
             ]
         }) {
             edges {
@@ -874,13 +875,14 @@ async def test_filter_logic_or(session):
           reporters (filter: {
             or: [
                 { lastName: { eq: "Woe" } },
-                { favoritePetKind: { eq: "dog" } },
+                { favoritePetKind: { eq: DOG } },
             ]
         }) {
             edges {
                 node {
                     firstName
                     lastName
+                    favoritePetKind
                 }
             }
           }
@@ -889,8 +891,8 @@ async def test_filter_logic_or(session):
     expected = {
         "reporters": {
             "edges": [
-                {"node": {"firstName": "John", "lastName": "Woe"}},
-                # {"node": {"firstName": "Jane", "lastName": "Roe"}},
+                {"node": {"firstName": "John", "lastName": "Woe", "favoritePetKind": "CAT"}},
+                {"node": {"firstName": "Jane", "lastName": "Roe", "favoritePetKind": "DOG"}},
             ]
         }
     }
