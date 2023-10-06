@@ -191,13 +191,6 @@ class BaseTypeFilter(graphene.InputObjectType):
                     joined_model_alias = aliased(joined_model)
                     # Join the aliased model onto the query
                     query = query.join(model_field.of_type(joined_model_alias))
-
-                    if model_alias:
-                        print("=======================")
-                        print(
-                            f"joining model {joined_model} on {model_alias} with alias {joined_model_alias}"
-                        )
-                        print(str(query))
                     # Pass the joined query down to the next object type filter for processing
                     query, _clauses = field_filter_type.execute_filters(
                         query, field_filters, model_alias=joined_model_alias
@@ -221,7 +214,6 @@ class BaseTypeFilter(graphene.InputObjectType):
                     query, _clauses = field_filter_type.execute_filters(
                         query, model_field, field_filters
                     )
-                    print([str(cla) for cla in _clauses])
                     clauses.extend(_clauses)
 
         return query, clauses
@@ -484,14 +476,11 @@ class RelationshipFilter(graphene.InputObjectType):
     ):
         clauses = []
         for v in val:
-            print("executing contains filter", v)
             # Always alias the model
             joined_model_alias = aliased(relationship_prop)
 
             # Join the aliased model onto the query
             query = query.join(field.of_type(joined_model_alias)).distinct()
-            print("Joined model", relationship_prop)
-            print(query)
             # pass the alias so group can join group
             query, _clauses = cls._meta.base_type_filter.execute_filters(
                 query, v, model_alias=joined_model_alias
