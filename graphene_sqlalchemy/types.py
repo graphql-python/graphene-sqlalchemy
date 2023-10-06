@@ -32,7 +32,7 @@ from .enums import (
     sort_argument_for_object_type,
     sort_enum_for_object_type,
 )
-from .filters import BaseTypeFilter, FieldFilter, RelationshipFilter
+from .filters import BaseTypeFilter, FieldFilter, RelationshipFilter, SQLAlchemyFilterInputField
 from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (
@@ -151,13 +151,13 @@ def filter_field_from_field(
         type_,
         registry: Registry,
         model_attr: Any,
-) -> Optional[Union[graphene.InputField, graphene.Dynamic]]:
+        model_attr_name: str
+) -> Optional[graphene.InputField]:
     # Field might be a SQLAlchemyObjectType, due to hybrid properties
     if issubclass(type_, SQLAlchemyObjectType):
         filter_class = registry.get_filter_for_base_type(type_)
-        return graphene.InputField(filter_class)
     # Enum Special Case
-    if issubclass(type_, graphene.Enum) and isinstance(model_attr, ColumnProperty):
+    elif issubclass(type_, graphene.Enum) and isinstance(model_attr, ColumnProperty):
         column = model_attr.columns[0]
         model_enum_type: Optional[sqlalchemy.types.Enum] = getattr(column, "type", None)
         if not getattr(model_enum_type, "enum_class", None):
@@ -168,16 +168,16 @@ def filter_field_from_field(
         filter_class = registry.get_filter_for_scalar_type(type_)
     if not filter_class:
         warnings.warn(
-            f"No compatible filters found for {field.type}. Skipping field."
+            f"No compatible filters found for {field.type} with db name {model_attr_name}. Skipping field."
         )
         return None
-    return graphene.InputField(filter_class)
+    return SQLAlchemyFilterInputField(filter_class, model_attr_name)
 
 
 def resolve_dynamic_relationship_filter(
         field: graphene.Dynamic,
         registry: Registry,
-        model_attr: Any,
+        model_attr_name: str
 ) -> Optional[Union[graphene.InputField, graphene.Dynamic]]:
     # Resolve Dynamic Type
     type_ = get_nullable_type(field.get_type())
@@ -200,9 +200,12 @@ def resolve_dynamic_relationship_filter(
         reg_res = None
 
     if not reg_res:
+        warnings.warn(
+            f"No compatible filters found for {field} with db name {model_attr_name}. Skipping field."
+        )
         return None
 
-    return graphene.InputField(reg_res)
+    return SQLAlchemyFilterInputField(reg_res, model_attr_name)
 
 
 def filter_field_from_type_field(
@@ -210,22 +213,18 @@ def filter_field_from_type_field(
         registry: Registry,
         filter_type: Optional[Type],
         model_attr: Any,
+        model_attr_name: str
 ) -> Optional[Union[graphene.InputField, graphene.Dynamic]]:
     # If a custom filter type was set for this field, use it here
     if filter_type:
-        return graphene.InputField(filter_type)
+        return SQLAlchemyFilterInputField(filter_type, model_attr_name)
     elif issubclass(type(field), graphene.Scalar):
         filter_class = registry.get_filter_for_scalar_type(type(field))
-        return graphene.InputField(filter_class)
+        return SQLAlchemyFilterInputField(filter_class, model_attr_name)
     # If the generated field is Dynamic, it is always a relationship
     # (due to graphene-sqlalchemy's conversion mechanism).
     elif isinstance(field, graphene.Dynamic):
-        return Dynamic(partial(resolve_dynamic_relationship_filter, field, registry, model_attr))
-    elif isinstance(field, graphene.Field):
-        if inspect.isfunction(field._type) or isinstance(field._type, partial):
-            return Dynamic(lambda: filter_field_from_field(field, get_nullable_type(field.type), registry, model_attr))
-        else:
-            return filter_field_from_field(field, get_nullable_type(field.type), registry, model_attr)
+        return Dynamic(partial(resolve_dynamic_relationship_filter, field, registry, model_attr_name))
     # Unsupported but theoretically possible cases, please drop us an issue with reproduction if you need them
     elif isinstance(field, graphene.List) or isinstance(field._type, graphene.List):
         # Pure lists are not yet supported
@@ -233,6 +232,12 @@ def filter_field_from_type_field(
     elif isinstance(field._type, graphene.Dynamic):
         # Fields with nested dynamic Dynamic  are not yet supported
         pass
+    # Order matters, this comes last as field._type == list also matches Field
+    elif isinstance(field, graphene.Field):
+        if inspect.isfunction(field._type) or isinstance(field._type, partial):
+            return Dynamic(lambda: filter_field_from_field(field, get_nullable_type(field.type), registry, model_attr, model_attr_name))
+        else:
+            return filter_field_from_field(field, get_nullable_type(field.type), registry, model_attr, model_attr_name)
 
 
 def get_polymorphic_on(model):
@@ -372,7 +377,7 @@ def construct_fields_and_filters(
         fields[orm_field_name] = field
         if filtering_enabled_for_field:
             filters[orm_field_name] = filter_field_from_type_field(
-                field, registry, filter_type, attr
+                field, registry, filter_type, attr, attr_name
             )
 
     return fields, filters

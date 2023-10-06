@@ -1,12 +1,8 @@
+import graphene
 import pytest
+from graphene import Connection, relay
 from sqlalchemy.sql.operators import is_
 
-import graphene
-from graphene import Connection, relay
-
-from ..fields import SQLAlchemyConnectionField
-from ..filters import FloatFilter
-from ..types import ORMField, SQLAlchemyObjectType
 from .models import (
     Article,
     Editor,
@@ -20,6 +16,10 @@ from .models import (
     Tag,
 )
 from .utils import eventually_await_session, to_std_dicts
+from ..fields import SQLAlchemyConnectionField
+from ..filters import FloatFilter
+from ..types import ORMField, SQLAlchemyObjectType
+
 
 # TODO test that generated schema is correct for all examples with:
 # with open('schema.gql', 'w') as fp:
@@ -110,25 +110,12 @@ def create_schema(session):
 
     class Query(graphene.ObjectType):
         node = relay.Node.Field()
-        # # TODO how to create filterable singular field?
-        # article = graphene.Field(ArticleType)
         articles = SQLAlchemyConnectionField(ArticleType.connection)
-        # image = graphene.Field(ImageType)
         images = SQLAlchemyConnectionField(ImageType.connection)
         readers = SQLAlchemyConnectionField(ReaderType.connection)
-        # reporter = graphene.Field(ReporterType)
         reporters = SQLAlchemyConnectionField(ReporterType.connection)
         pets = SQLAlchemyConnectionField(PetType.connection)
         tags = SQLAlchemyConnectionField(TagType.connection)
-
-        # def resolve_article(self, _info):
-        #     return session.query(Article).first()
-
-        # def resolve_image(self, _info):
-        #     return session.query(Image).first()
-
-        # def resolve_reporter(self, _info):
-        #     return session.query(Reporter).first()
 
     return Query
 
@@ -143,6 +130,44 @@ async def test_filter_simple(session):
     query = """
         query {
           reporters (filter: {lastName: {eq: "Roe", like: "%oe"}}) {
+            edges {
+                node {
+                    firstName
+                }
+            }
+          }
+        }
+    """
+    expected = {
+        "reporters": {"edges": [{"node": {"firstName": "Jane"}}]},
+    }
+    schema = graphene.Schema(query=Query)
+    result = await schema.execute_async(query, context_value={"session": session})
+    assert_and_raise_result(result, expected)
+
+
+@pytest.mark.asyncio
+async def test_filter_alias(session):
+    """
+    Test aliasing of column names in the type
+    """
+    await add_test_data(session)
+
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+            name = "Reporter"
+            interfaces = (relay.Node,)
+
+        lastNameAlias = ORMField(model_attr="last_name")
+
+    class Query(graphene.ObjectType):
+        node = relay.Node.Field()
+        reporters = SQLAlchemyConnectionField(ReporterType.connection)
+
+    query = """
+        query {
+          reporters (filter: {lastNameAlias: {eq: "Roe", like: "%oe"}}) {
             edges {
                 node {
                     firstName
@@ -1084,7 +1109,7 @@ async def test_filter_hybrid_property(session):
     result = to_std_dicts(result.data)
     assert len(result["carts"]["edges"]) == 1
     assert (
-        len(result["carts"]["edges"][0]["node"]["hybridPropShoppingCartItemList"]) == 2
+            len(result["carts"]["edges"][0]["node"]["hybridPropShoppingCartItemList"]) == 2
     )
 
 
