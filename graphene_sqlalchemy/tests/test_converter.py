@@ -25,6 +25,7 @@ from .models import (
 )
 from .utils import wrap_select_func
 from ..converter import (
+    convert_sqlalchemy_association_proxy,
     convert_sqlalchemy_column,
     convert_sqlalchemy_composite,
     convert_sqlalchemy_hybrid_method,
@@ -41,6 +42,7 @@ from .models import (
     CompositeFullName,
     CustomColumnModel,
     Pet,
+    ProxiedReporter,
     Reporter,
     ShoppingCart,
     ShoppingCartItem,
@@ -672,6 +674,64 @@ def test_should_onetoone_convert_field():
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
     assert graphene_type.type == A
+
+
+def test_should_convert_association_proxy():
+    class ReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = Reporter
+
+    class ArticleType(SQLAlchemyObjectType):
+        class Meta:
+            model = Article
+
+    field = convert_sqlalchemy_association_proxy(
+        Reporter,
+        Reporter.headlines,
+        ReporterType,
+        get_global_registry(),
+        default_connection_field_factory,
+        True,
+        mock_resolver,
+    )
+    assert isinstance(field, graphene.Dynamic)
+    assert isinstance(field.get_type().type, graphene.List)
+    assert field.get_type().type.of_type == graphene.String
+
+    dynamic_field = convert_sqlalchemy_association_proxy(
+        Article,
+        Article.recommended_reads,
+        ArticleType,
+        get_global_registry(),
+        default_connection_field_factory,
+        True,
+        mock_resolver,
+    )
+    dynamic_field_type = dynamic_field.get_type().type
+    assert isinstance(dynamic_field, graphene.Dynamic)
+    assert isinstance(dynamic_field_type, graphene.NonNull)
+    assert isinstance(dynamic_field_type.of_type, graphene.List)
+    assert isinstance(dynamic_field_type.of_type.of_type, graphene.NonNull)
+    assert dynamic_field_type.of_type.of_type.of_type == ArticleType
+
+
+def test_should_throw_error_association_proxy_unsupported_target():
+    class ProxiedReporterType(SQLAlchemyObjectType):
+        class Meta:
+            model = ProxiedReporter
+
+    field = convert_sqlalchemy_association_proxy(
+        ProxiedReporter,
+        ProxiedReporter.composite_prop,
+        ProxiedReporterType,
+        get_global_registry(),
+        default_connection_field_factory,
+        True,
+        mock_resolver,
+    )
+
+    with pytest.raises(TypeError):
+        field.get_type()
 
 
 def test_should_postgresql_uuid_convert():

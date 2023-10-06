@@ -17,6 +17,7 @@ from sqlalchemy import (
     Table,
     func,
 )
+from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import backref, column_property, composite, mapper, relationship
@@ -77,6 +78,18 @@ class CompositeFullName(object):
         return "{} {}".format(self.first_name, self.last_name)
 
 
+class ProxiedReporter(Base):
+    __tablename__ = "reporters_error"
+    id = Column(Integer(), primary_key=True)
+    first_name = Column(String(30), doc="First name")
+    last_name = Column(String(30), doc="Last name")
+    reporter_id = Column(Integer(), ForeignKey("reporters.id"))
+    reporter = relationship("Reporter", uselist=False)
+
+    # This is a hybrid property, we don't support proxies on hybrids yet
+    composite_prop = association_proxy("reporter", "composite_prop")
+
+
 class Reporter(Base):
     __tablename__ = "reporters"
 
@@ -134,6 +147,8 @@ class Reporter(Base):
         CompositeFullName, first_name, last_name, doc="Composite"
     )
 
+    headlines = association_proxy("articles", "headline")
+
 
 class Article(Base):
     __tablename__ = "articles"
@@ -144,6 +159,7 @@ class Article(Base):
     readers = relationship(
         "Reader", secondary="articles_readers", back_populates="articles"
     )
+    recommended_reads = association_proxy("reporter", "articles")
 
 
 class Reader(Base):
