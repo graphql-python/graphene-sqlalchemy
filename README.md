@@ -73,6 +73,9 @@ engine = create_engine('sqlite:///database.sqlite3', convert_unicode=True)
 db_session = scoped_session(sessionmaker(autocommit=False,
                                          autoflush=False,
                                          bind=engine))
+# We will need this for querying, Graphene extracts the session from the base.
+# Alternatively it can be provided in the GraphQLResolveInfo.context dictionary under context["session"]
+Base.query = db_session.query_property()
 ```
 
 Then you can simply query the schema:
