@@ -11,10 +11,11 @@ from sqlalchemy import (
     String,
     Table,
     func,
-    select,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import column_property, relationship
+
+from graphene_sqlalchemy.tests.utils import wrap_select_func
 
 PetKind = Enum("cat", "dog", name="pet_kind")
 
@@ -61,7 +62,7 @@ class Reporter(Base):
     favorite_article = relationship("Article", uselist=False)
 
     column_prop = column_property(
-        select([func.cast(func.count(id), Integer)]), doc="Column property"
+        wrap_select_func(func.cast(func.count(id), Integer)), doc="Column property"
     )
 
 
