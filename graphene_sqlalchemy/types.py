@@ -1,4 +1,5 @@
 import inspect
+import logging
 import warnings
 from collections import OrderedDict
 from functools import partial
@@ -45,6 +46,8 @@ from .utils import (
 
 if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
     from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 
 class ORMField(OrderedType):
@@ -171,6 +174,37 @@ def filter_field_from_field(
     return graphene.InputField(filter_class)
 
 
+def resolve_dynamic_relationship_filter(
+        field: graphene.Dynamic,
+        registry: Registry,
+        model_attr: Any,
+) -> Optional[Union[graphene.InputField, graphene.Dynamic]]:
+    # Resolve Dynamic Type
+    type_ = get_nullable_type(field.get_type())
+    from graphene_sqlalchemy import SQLAlchemyConnectionField
+
+    # Connections always result in list filters
+    if isinstance(type_, SQLAlchemyConnectionField):
+        inner_type = get_nullable_type(type_.type.Edge.node._type)
+        reg_res = get_or_create_relationship_filter(inner_type, registry)
+    # Field relationships can either be a list or a single object
+    elif isinstance(type_, Field):
+        if isinstance(type_.type, graphene.List):
+            inner_type = get_nullable_type(type_.type.of_type)
+            reg_res = get_or_create_relationship_filter(inner_type, registry)
+        else:
+            reg_res = registry.get_filter_for_base_type(type_.type)
+    else:
+        # Other dynamic type constellation are not yet supported,
+        # please open an issue with reproduction if you need them
+        reg_res = None
+
+    if not reg_res:
+        return None
+
+    return graphene.InputField(reg_res)
+
+
 def filter_field_from_type_field(
         field: Union[graphene.Field, graphene.Dynamic, Type[UnmountedType]],
         registry: Registry,
@@ -180,63 +214,25 @@ def filter_field_from_type_field(
     # If a custom filter type was set for this field, use it here
     if filter_type:
         return graphene.InputField(filter_type)
-    if issubclass(type(field), graphene.Scalar):
+    elif issubclass(type(field), graphene.Scalar):
         filter_class = registry.get_filter_for_scalar_type(type(field))
         return graphene.InputField(filter_class)
-    # If the field is Dynamic, we don't know its type yet and can't select the right filter
-    if isinstance(field, graphene.Dynamic):
-
-        def resolve_dynamic():
-            # Resolve Dynamic Type
-            type_ = get_nullable_type(field.get_type())
-            from graphene_sqlalchemy import SQLAlchemyConnectionField
-
-            from .fields import UnsortedSQLAlchemyConnectionField
-
-            if isinstance(type_, SQLAlchemyConnectionField) or isinstance(
-                    type_, UnsortedSQLAlchemyConnectionField
-            ):
-                inner_type = get_nullable_type(type_.type.Edge.node._type)
-                reg_res = get_or_create_relationship_filter(inner_type, registry)
-                if not reg_res:
-                    print("filter class was none!!!")
-                    print(type_)
-                return graphene.InputField(reg_res)
-            elif isinstance(type_, Field):
-                if isinstance(type_.type, graphene.List):
-                    inner_type = get_nullable_type(type_.type.of_type)
-                    reg_res = get_or_create_relationship_filter(inner_type, registry)
-                    if not reg_res:
-                        print("filter class was none!!!")
-                        print(type_)
-                    return graphene.InputField(reg_res)
-                reg_res = registry.get_filter_for_base_type(type_.type)
-
-                return graphene.InputField(reg_res)
-            else:
-                warnings.warn(f"Unexpected Dynamic Type: {type_}")  # Investigate
-                # raise Exception(f"Unexpected Dynamic Type: {type_}")
-
-        return Dynamic(resolve_dynamic)
-
-    if isinstance(field, graphene.List):
-        print("Got list")
-        return
-    # if isinstance(field._type, types.FunctionType):
-    #     print("got field with function type")
-    #     return
-    if isinstance(field._type, graphene.Dynamic):
-        return
-    if isinstance(field._type, graphene.List):
-        print("got field with list type")
-        return
-    if isinstance(field, graphene.Field):
+    # If the generated field is Dynamic, it is always a relationship
+    # (due to graphene-sqlalchemy's conversion mechanism).
+    elif isinstance(field, graphene.Dynamic):
+        return Dynamic(partial(resolve_dynamic_relationship_filter, field, registry, model_attr))
+    elif isinstance(field, graphene.Field):
         if inspect.isfunction(field._type) or isinstance(field._type, partial):
             return Dynamic(lambda: filter_field_from_field(field, get_nullable_type(field.type), registry, model_attr))
         else:
             return filter_field_from_field(field, get_nullable_type(field.type), registry, model_attr)
-
-    raise Exception(f"Expected a graphene.Field or graphene.Dynamic, but got: {field}")
+    # Unsupported but theoretically possible cases, please drop us an issue with reproduction if you need them
+    elif isinstance(field, graphene.List) or isinstance(field._type, graphene.List):
+        # Pure lists are not yet supported
+        pass
+    elif isinstance(field._type, graphene.Dynamic):
+        # Fields with nested dynamic Dynamic  are not yet supported
+        pass
 
 
 def get_polymorphic_on(model):
