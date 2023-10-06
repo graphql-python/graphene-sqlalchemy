@@ -6,6 +6,7 @@ import uuid
 from decimal import Decimal
 from typing import List, Optional
 
+# fmt: off
 from sqlalchemy import (
     Column,
     Date,
@@ -23,14 +24,15 @@ from sqlalchemy.orm import backref, column_property, composite, mapper, relation
 from sqlalchemy.sql.type_api import TypeEngine
 
 from graphene_sqlalchemy.tests.utils import wrap_select_func
-from graphene_sqlalchemy.utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4, SQL_VERSION_HIGHER_EQUAL_THAN_2
+from graphene_sqlalchemy.utils import (
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4,
+    SQL_VERSION_HIGHER_EQUAL_THAN_2,
+)
 
-# fmt: off
-import sqlalchemy
 if SQL_VERSION_HIGHER_EQUAL_THAN_2:
-    from sqlalchemy.sql.sqltypes import HasExpressionLookup # noqa  # isort:skip
+    from sqlalchemy.sql.sqltypes import HasExpressionLookup  # noqa  # isort:skip
 else:
-    from sqlalchemy.sql.sqltypes import _LookupExpressionAdapter as HasExpressionLookup # noqa  # isort:skip
+    from sqlalchemy.sql.sqltypes import _LookupExpressionAdapter as HasExpressionLookup  # noqa  # isort:skip
 # fmt: on
 
 PetKind = Enum("cat", "dog", name="pet_kind")

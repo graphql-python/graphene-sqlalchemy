@@ -1,8 +1,12 @@
-import graphene
 import pytest
-from graphene import Connection, relay
 from sqlalchemy.sql.operators import is_
 
+import graphene
+from graphene import Connection, relay
+
+from ..fields import SQLAlchemyConnectionField
+from ..filters import FloatFilter
+from ..types import ORMField, SQLAlchemyObjectType
 from .models import (
     Article,
     Editor,
@@ -16,10 +20,6 @@ from .models import (
     Tag,
 )
 from .utils import eventually_await_session, to_std_dicts
-from ..fields import SQLAlchemyConnectionField
-from ..filters import FloatFilter
-from ..types import ORMField, SQLAlchemyObjectType
-
 
 # TODO test that generated schema is correct for all examples with:
 # with open('schema.gql', 'w') as fp:
@@ -257,7 +257,17 @@ async def test_filter_enum(session):
         }
     """
     expected = {
-        "reporters": {"edges": [{"node": {"firstName": "Jane", "lastName": "Roe", "favoritePetKind": "DOG"}}]},
+        "reporters": {
+            "edges": [
+                {
+                    "node": {
+                        "firstName": "Jane",
+                        "lastName": "Roe",
+                        "favoritePetKind": "DOG",
+                    }
+                }
+            ]
+        },
     }
     schema = graphene.Schema(query=Query)
     result = await schema.execute_async(query, context_value={"session": session})
@@ -916,8 +926,20 @@ async def test_filter_logic_or(session):
     expected = {
         "reporters": {
             "edges": [
-                {"node": {"firstName": "John", "lastName": "Woe", "favoritePetKind": "CAT"}},
-                {"node": {"firstName": "Jane", "lastName": "Roe", "favoritePetKind": "DOG"}},
+                {
+                    "node": {
+                        "firstName": "John",
+                        "lastName": "Woe",
+                        "favoritePetKind": "CAT",
+                    }
+                },
+                {
+                    "node": {
+                        "firstName": "Jane",
+                        "lastName": "Roe",
+                        "favoritePetKind": "DOG",
+                    }
+                },
             ]
         }
     }
@@ -1109,7 +1131,7 @@ async def test_filter_hybrid_property(session):
     result = to_std_dicts(result.data)
     assert len(result["carts"]["edges"]) == 1
     assert (
-            len(result["carts"]["edges"][0]["node"]["hybridPropShoppingCartItemList"]) == 2
+        len(result["carts"]["edges"][0]["node"]["hybridPropShoppingCartItemList"]) == 2
     )
 
 

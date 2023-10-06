@@ -3,7 +3,7 @@ import sys
 import typing
 import uuid
 from decimal import Decimal
-from typing import Any, Optional, Union, cast, Dict, TypeVar
+from typing import Any, Dict, Optional, TypeVar, Union, cast
 
 from sqlalchemy import types as sqa_types
 from sqlalchemy.dialects import postgresql
@@ -101,12 +101,12 @@ def is_column_nullable(column):
 
 
 def convert_sqlalchemy_relationship(
-        relationship_prop,
-        obj_type,
-        connection_field_factory,
-        batching,
-        orm_field_name,
-        **field_kwargs,
+    relationship_prop,
+    obj_type,
+    connection_field_factory,
+    batching,
+    orm_field_name,
+    **field_kwargs,
 ):
     """
     :param sqlalchemy.RelationshipProperty relationship_prop:
@@ -147,7 +147,7 @@ def convert_sqlalchemy_relationship(
 
 
 def _convert_o2o_or_m2o_relationship(
-        relationship_prop, obj_type, batching, orm_field_name, **field_kwargs
+    relationship_prop, obj_type, batching, orm_field_name, **field_kwargs
 ):
     """
     Convert one-to-one or many-to-one relationshsip. Return an object field.
@@ -175,7 +175,7 @@ def _convert_o2o_or_m2o_relationship(
 
 
 def _convert_o2m_or_m2m_relationship(
-        relationship_prop, obj_type, batching, connection_field_factory, **field_kwargs
+    relationship_prop, obj_type, batching, connection_field_factory, **field_kwargs
 ):
     """
     Convert one-to-many or many-to-many relationshsip. Return a list field or a connection field.
@@ -281,11 +281,11 @@ def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
 
 @singledispatchbymatchfunction
 def convert_sqlalchemy_type(  # noqa
-        type_arg: Any,
-        column: Optional[Union[MapperProperty, hybrid_property]] = None,
-        registry: Registry = None,
-        replace_type_vars: typing.Dict[str, Any] = None,
-        **kwargs,
+    type_arg: Any,
+    column: Optional[Union[MapperProperty, hybrid_property]] = None,
+    registry: Registry = None,
+    replace_type_vars: typing.Dict[str, Any] = None,
+    **kwargs,
 ):
     if replace_type_vars and type_arg in replace_type_vars:
         return replace_type_vars[type_arg]
@@ -301,7 +301,7 @@ def convert_sqlalchemy_type(  # noqa
 
 @convert_sqlalchemy_type.register(safe_isinstance(DeclarativeMeta))
 def convert_sqlalchemy_model_using_registry(
-        type_arg: Any, registry: Registry = None, **kwargs
+    type_arg: Any, registry: Registry = None, **kwargs
 ):
     registry_ = registry or get_global_registry()
 
@@ -353,8 +353,8 @@ def convert_column_to_string(type_arg: Any, **kwargs):
 @convert_sqlalchemy_type.register(column_type_eq(sqa_utils.UUIDType))
 @convert_sqlalchemy_type.register(column_type_eq(uuid.UUID))
 def convert_column_to_uuid(
-        type_arg: Any,
-        **kwargs,
+    type_arg: Any,
+    **kwargs,
 ):
     return graphene.UUID
 
@@ -362,8 +362,8 @@ def convert_column_to_uuid(
 @convert_sqlalchemy_type.register(column_type_eq(sqa_types.DateTime))
 @convert_sqlalchemy_type.register(column_type_eq(datetime.datetime))
 def convert_column_to_datetime(
-        type_arg: Any,
-        **kwargs,
+    type_arg: Any,
+    **kwargs,
 ):
     return graphene.DateTime
 
@@ -371,8 +371,8 @@ def convert_column_to_datetime(
 @convert_sqlalchemy_type.register(column_type_eq(sqa_types.Time))
 @convert_sqlalchemy_type.register(column_type_eq(datetime.time))
 def convert_column_to_time(
-        type_arg: Any,
-        **kwargs,
+    type_arg: Any,
+    **kwargs,
 ):
     return graphene.Time
 
@@ -380,8 +380,8 @@ def convert_column_to_time(
 @convert_sqlalchemy_type.register(column_type_eq(sqa_types.Date))
 @convert_sqlalchemy_type.register(column_type_eq(datetime.date))
 def convert_column_to_date(
-        type_arg: Any,
-        **kwargs,
+    type_arg: Any,
+    **kwargs,
 ):
     return graphene.Date
 
@@ -390,10 +390,10 @@ def convert_column_to_date(
 @convert_sqlalchemy_type.register(column_type_eq(sqa_types.Integer))
 @convert_sqlalchemy_type.register(column_type_eq(int))
 def convert_column_to_int_or_id(
-        type_arg: Any,
-        column: Optional[Union[MapperProperty, hybrid_property]] = None,
-        registry: Registry = None,
-        **kwargs,
+    type_arg: Any,
+    column: Optional[Union[MapperProperty, hybrid_property]] = None,
+    registry: Registry = None,
+    **kwargs,
 ):
     # fixme drop the primary key processing from here in another pr
     if column is not None:
@@ -405,8 +405,8 @@ def convert_column_to_int_or_id(
 @convert_sqlalchemy_type.register(column_type_eq(sqa_types.Boolean))
 @convert_sqlalchemy_type.register(column_type_eq(bool))
 def convert_column_to_boolean(
-        type_arg: Any,
-        **kwargs,
+    type_arg: Any,
+    **kwargs,
 ):
     return graphene.Boolean
 
@@ -416,8 +416,8 @@ def convert_column_to_boolean(
 @convert_sqlalchemy_type.register(column_type_eq(sqa_types.Numeric))
 @convert_sqlalchemy_type.register(column_type_eq(sqa_types.BigInteger))
 def convert_column_to_float(
-        type_arg: Any,
-        **kwargs,
+    type_arg: Any,
+    **kwargs,
 ):
     return graphene.Float
 
@@ -425,10 +425,10 @@ def convert_column_to_float(
 @convert_sqlalchemy_type.register(column_type_eq(postgresql.ENUM))
 @convert_sqlalchemy_type.register(column_type_eq(sqa_types.Enum))
 def convert_enum_to_enum(
-        type_arg: Any,
-        column: Optional[Union[MapperProperty, hybrid_property]] = None,
-        registry: Registry = None,
-        **kwargs,
+    type_arg: Any,
+    column: Optional[Union[MapperProperty, hybrid_property]] = None,
+    registry: Registry = None,
+    **kwargs,
 ):
     if column is None or isinstance(column, hybrid_property):
         raise Exception("SQL-Enum conversion requires a column")
@@ -439,9 +439,9 @@ def convert_enum_to_enum(
 # TODO Make ChoiceType conversion consistent with other enums
 @convert_sqlalchemy_type.register(column_type_eq(sqa_utils.ChoiceType))
 def convert_choice_to_enum(
-        type_arg: sqa_utils.ChoiceType,
-        column: Optional[Union[MapperProperty, hybrid_property]] = None,
-        **kwargs,
+    type_arg: sqa_utils.ChoiceType,
+    column: Optional[Union[MapperProperty, hybrid_property]] = None,
+    **kwargs,
 ):
     if column is None or isinstance(column, hybrid_property):
         raise Exception("ChoiceType conversion requires a column")
@@ -457,8 +457,8 @@ def convert_choice_to_enum(
 
 @convert_sqlalchemy_type.register(column_type_eq(sqa_utils.ScalarListType))
 def convert_scalar_list_to_list(
-        type_arg: Any,
-        **kwargs,
+    type_arg: Any,
+    **kwargs,
 ):
     return graphene.List(graphene.String)
 
@@ -474,10 +474,10 @@ def init_array_list_recursive(inner_type, n):
 @convert_sqlalchemy_type.register(column_type_eq(sqa_types.ARRAY))
 @convert_sqlalchemy_type.register(column_type_eq(postgresql.ARRAY))
 def convert_array_to_list(
-        type_arg: Any,
-        column: Optional[Union[MapperProperty, hybrid_property]] = None,
-        registry: Registry = None,
-        **kwargs,
+    type_arg: Any,
+    column: Optional[Union[MapperProperty, hybrid_property]] = None,
+    registry: Registry = None,
+    **kwargs,
 ):
     if column is None or isinstance(column, hybrid_property):
         raise Exception("SQL-Array conversion requires a column")
@@ -496,8 +496,8 @@ def convert_array_to_list(
 @convert_sqlalchemy_type.register(column_type_eq(postgresql.JSON))
 @convert_sqlalchemy_type.register(column_type_eq(postgresql.JSONB))
 def convert_json_to_string(
-        type_arg: Any,
-        **kwargs,
+    type_arg: Any,
+    **kwargs,
 ):
     return JSONString
 
@@ -505,18 +505,18 @@ def convert_json_to_string(
 @convert_sqlalchemy_type.register(column_type_eq(sqa_utils.JSONType))
 @convert_sqlalchemy_type.register(column_type_eq(sqa_types.JSON))
 def convert_json_type_to_string(
-        type_arg: Any,
-        **kwargs,
+    type_arg: Any,
+    **kwargs,
 ):
     return JSONString
 
 
 @convert_sqlalchemy_type.register(column_type_eq(sqa_types.Variant))
 def convert_variant_to_impl_type(
-        type_arg: sqa_types.Variant,
-        column: Optional[Union[MapperProperty, hybrid_property]] = None,
-        registry: Registry = None,
-        **kwargs,
+    type_arg: sqa_types.Variant,
+    column: Optional[Union[MapperProperty, hybrid_property]] = None,
+    registry: Registry = None,
+    **kwargs,
 ):
     if column is None or isinstance(column, hybrid_property):
         raise Exception("Vaiant conversion requires a column")
@@ -547,7 +547,7 @@ def is_union(type_arg: Any, **kwargs) -> bool:
 
 
 def graphene_union_for_py_union(
-        obj_types: typing.List[graphene.ObjectType], registry
+    obj_types: typing.List[graphene.ObjectType], registry
 ) -> graphene.Union:
     union_type = registry.get_union_for_object_types(obj_types)
 
@@ -590,8 +590,8 @@ def convert_sqlalchemy_hybrid_property_union(type_arg: Any, **kwargs):
 
     # Now check if every type is instance of an ObjectType
     if not all(
-            isinstance(graphene_type, type(graphene.ObjectType))
-            for graphene_type in graphene_types
+        isinstance(graphene_type, type(graphene.ObjectType))
+        for graphene_type in graphene_types
     ):
         raise ValueError(
             "Cannot convert hybrid_property Union to graphene.Union: the Union contains scalars. "

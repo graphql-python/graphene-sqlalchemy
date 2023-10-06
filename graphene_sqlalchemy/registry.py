@@ -2,16 +2,14 @@ import inspect
 from collections import defaultdict
 from typing import TYPE_CHECKING, List, Type
 
+from sqlalchemy.types import Enum as SQLAlchemyEnumType
+
 import graphene
 from graphene import Enum
 from graphene.types.base import BaseType
-from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
 if TYPE_CHECKING:  # pragma: no_cover
-    from .filters import (
-        FieldFilter,
-        BaseTypeFilter,
-        RelationshipFilter, )
+    from .filters import BaseTypeFilter, FieldFilter, RelationshipFilter
 
 
 class Registry(object):
@@ -32,14 +30,15 @@ class Registry(object):
     def _init_base_filters(self):
         import graphene_sqlalchemy.filters as gsqa_filters
 
-        from .filters import (FieldFilter)
+        from .filters import FieldFilter
+
         field_filter_classes = [
             filter_cls[1]
             for filter_cls in inspect.getmembers(gsqa_filters, inspect.isclass)
             if (
-                    filter_cls[1] is not FieldFilter
-                    and FieldFilter in filter_cls[1].__mro__
-                    and getattr(filter_cls[1]._meta, "graphene_type", False)
+                filter_cls[1] is not FieldFilter
+                and FieldFilter in filter_cls[1].__mro__
+                and getattr(filter_cls[1]._meta, "graphene_type", False)
             )
         ]
         for field_filter_class in field_filter_classes:
@@ -100,7 +99,7 @@ class Registry(object):
         from .types import SQLAlchemyObjectType
 
         if not isinstance(obj_type, type) or not issubclass(
-                obj_type, SQLAlchemyObjectType
+            obj_type, SQLAlchemyObjectType
         ):
             raise TypeError(
                 "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
@@ -113,7 +112,7 @@ class Registry(object):
         return self._registry_sort_enums.get(obj_type)
 
     def register_union_type(
-            self, union: Type[graphene.Union], obj_types: List[Type[graphene.ObjectType]]
+        self, union: Type[graphene.Union], obj_types: List[Type[graphene.ObjectType]]
     ):
         if not issubclass(union, graphene.Union):
             raise TypeError("Expected graphene.Union, but got: {!r}".format(union))
@@ -131,7 +130,7 @@ class Registry(object):
 
     # Filter Scalar Fields of Object Types
     def register_filter_for_scalar_type(
-            self, scalar_type: Type[graphene.Scalar], filter_obj: Type["FieldFilter"]
+        self, scalar_type: Type[graphene.Scalar], filter_obj: Type["FieldFilter"]
     ):
         from .filters import FieldFilter
 
@@ -143,7 +142,7 @@ class Registry(object):
         self._registry_scalar_filters[scalar_type] = filter_obj
 
     def get_filter_for_sql_enum_type(
-            self, enum_type: Type[graphene.Enum]
+        self, enum_type: Type[graphene.Enum]
     ) -> Type["FieldFilter"]:
         from .filters import SQLEnumFilter
 
@@ -156,7 +155,7 @@ class Registry(object):
         return filter_type
 
     def get_filter_for_py_enum_type(
-            self, enum_type: Type[graphene.Enum]
+        self, enum_type: Type[graphene.Enum]
     ) -> Type["FieldFilter"]:
         from .filters import PyEnumFilter
 
@@ -169,7 +168,7 @@ class Registry(object):
         return filter_type
 
     def get_filter_for_scalar_type(
-            self, scalar_type: Type[graphene.Scalar]
+        self, scalar_type: Type[graphene.Scalar]
     ) -> Type["FieldFilter"]:
         from .filters import FieldFilter
 
@@ -184,7 +183,7 @@ class Registry(object):
 
     # TODO register enums automatically
     def register_filter_for_enum_type(
-            self, enum_type: Type[graphene.Enum], filter_obj: Type["FieldFilter"]
+        self, enum_type: Type[graphene.Enum], filter_obj: Type["FieldFilter"]
     ):
         from .filters import FieldFilter
 
@@ -197,9 +196,9 @@ class Registry(object):
 
     # Filter Base Types
     def register_filter_for_base_type(
-            self,
-            base_type: Type[BaseType],
-            filter_obj: Type["BaseTypeFilter"],
+        self,
+        base_type: Type[BaseType],
+        filter_obj: Type["BaseTypeFilter"],
     ):
         from .filters import BaseTypeFilter
 
@@ -207,9 +206,7 @@ class Registry(object):
             raise TypeError("Expected BaseType, but got: {!r}".format(base_type))
 
         if not issubclass(filter_obj, BaseTypeFilter):
-            raise TypeError(
-                "Expected BaseTypeFilter, but got: {!r}".format(filter_obj)
-            )
+            raise TypeError("Expected BaseTypeFilter, but got: {!r}".format(filter_obj))
         self._registry_base_type_filters[base_type] = filter_obj
 
     def get_filter_for_base_type(self, base_type: Type[BaseType]):
@@ -217,7 +214,7 @@ class Registry(object):
 
     # Filter Relationships between base types
     def register_relationship_filter_for_base_type(
-            self, base_type: BaseType, filter_obj: Type["RelationshipFilter"]
+        self, base_type: BaseType, filter_obj: Type["RelationshipFilter"]
     ):
         from .filters import RelationshipFilter
 
@@ -231,7 +228,7 @@ class Registry(object):
         self._registry_relationship_filters[base_type] = filter_obj
 
     def get_relationship_filter_for_base_type(
-            self, base_type: Type[BaseType]
+        self, base_type: Type[BaseType]
     ) -> "RelationshipFilter":
         return self._registry_relationship_filters.get(base_type)
 

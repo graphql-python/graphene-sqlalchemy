@@ -1,15 +1,15 @@
-from typing_extensions import Literal
-
-import graphene
 import pytest
 import pytest_asyncio
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from typing_extensions import Literal
 
+import graphene
 from graphene_sqlalchemy.utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4
-from .models import Base, CompositeFullName
+
 from ..converter import convert_sqlalchemy_composite
 from ..registry import reset_global_registry
+from .models import Base, CompositeFullName
 
 if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine

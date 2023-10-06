@@ -16,6 +16,7 @@ BaseTypeFilterSelf = TypeVar(
     "BaseTypeFilterSelf", Dict[str, Any], InputObjectTypeContainer
 )
 
+
 class SQLAlchemyFilterInputField(graphene.InputField):
     def __init__(
         self,
@@ -41,6 +42,7 @@ class SQLAlchemyFilterInputField(graphene.InputField):
         )
 
         self.model_attr = model_attr
+
 
 def _get_functions_by_regex(
     regex: str, subtract_regex: str, class_: Type
@@ -305,11 +307,13 @@ class FieldFilter(graphene.InputObjectType):
 
         return query, clauses
 
+
 class SQLEnumFilter(FieldFilter):
     """Basic Filter for Scalars in Graphene.
     We want this filter to use Dynamic fields so it provides the base
     filtering methods ("eq, nEq") for different types of scalars.
     The Dynamic fields will resolve to Meta.filtered_type"""
+
     class Meta:
         graphene_type = graphene.Enum
 
@@ -326,11 +330,13 @@ class SQLEnumFilter(FieldFilter):
     ) -> Union[Tuple[Query, Any], Any]:
         return not_(field == val.value)
 
+
 class PyEnumFilter(FieldFilter):
     """Basic Filter for Scalars in Graphene.
     We want this filter to use Dynamic fields so it provides the base
     filtering methods ("eq, nEq") for different types of scalars.
     The Dynamic fields will resolve to Meta.filtered_type"""
+
     class Meta:
         graphene_type = graphene.Enum
 
