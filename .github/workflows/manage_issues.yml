@@ -1,0 +1,49 @@
+name: Issue Manager
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  issue_comment:
+    types:
+      - created
+  issues:
+    types:
+      - labeled
+  pull_request_target:
+    types:
+      - labeled
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: lock
+
+jobs:
+  lock-old-closed-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dessant/lock-threads@v4
+        with:
+          issue-inactive-days: '180'
+          process-only: 'issues'
+          issue-comment: >
+            This issue has been automatically locked since there
+            has not been any recent activity after it was closed.
+            Please open a new issue for related topics referencing
+            this issue.
+  close-labelled-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: tiangolo/issue-manager@0.4.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config: >
+            {
+              "needs-reply": {
+                "delay": 2200000,
+                "message": "This issue was closed due to inactivity. If your request is still relevant, please open a new issue referencing this one and provide all of the requested information."
+              }
+            }

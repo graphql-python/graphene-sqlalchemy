@@ -1,9 +1,13 @@
 Inheritance Examples
 ====================
 
+
 Create interfaces from inheritance relationships
 ------------------------------------------------
-.. note:: If you're using `AsyncSession`, please check the chapter `Eager Loading & Using with AsyncSession`_.
+
+.. note::
+    If you're using `AsyncSession`, please check the chapter `Eager Loading & Using with AsyncSession`_.
+
 SQLAlchemy has excellent support for class inheritance hierarchies.
 These hierarchies can be represented in your GraphQL schema by means
 of interfaces_.  Much like ObjectTypes, Interfaces in
@@ -111,13 +115,16 @@ class to the Schema constructor via the `types=` argument:
 
 See also: `Graphene Interfaces <https://docs.graphene-python.org/en/latest/types/interfaces/>`_
 
+
 Eager Loading & Using with AsyncSession
---------------------
+----------------------------------------
+
 When querying the base type in multi-table inheritance or joined table inheritance, you can only directly refer to polymorphic fields when they are loaded eagerly.
 This restricting is in place because AsyncSessions don't allow implicit async operations such as the loads of the joined tables.
 To load the polymorphic fields eagerly, you can use the `with_polymorphic` attribute of the mapper args in the base model:
 
 .. code:: python
+
     class Person(Base):
         id = Column(Integer(), primary_key=True)
         type = Column(String())

@@ -2,31 +2,40 @@ import enum
 import sys
 from typing import Dict, Tuple, Union
 
+import graphene
 import pytest
 import sqlalchemy
 import sqlalchemy_utils as sqa_utils
-from sqlalchemy import Column, ForeignKey, func, select, types
+from graphene.relay import Node
+from graphene.types.structures import Structure
+from sqlalchemy import Column, func, types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import column_property, composite
 
-import graphene
-from graphene.relay import Node
-from graphene.types.structures import Structure
-
+from .models import (
+    Article,
+    CompositeFullName,
+    Pet,
+    Reporter,
+    ShoppingCart,
+    ShoppingCartItem,
+)
+from .utils import wrap_select_func
 from ..converter import (
     convert_sqlalchemy_column,
     convert_sqlalchemy_composite,
     convert_sqlalchemy_hybrid_method,
     convert_sqlalchemy_relationship,
     convert_sqlalchemy_type,
-    set_non_null_many_relationships,
+    set_non_null_many_relationships, set_id_for_keys,
 )
 from ..fields import UnsortedSQLAlchemyConnectionField, default_connection_field_factory
 from ..registry import Registry, get_global_registry
 from ..types import ORMField, SQLAlchemyObjectType
+from ..utils import is_sqlalchemy_version_less_than
 from .models import (
     Article,
     CompositeFullName,
@@ -206,9 +215,9 @@ def test_hybrid_prop_scalar_union_310():
         return "not allowed in gql schema"
 
     with pytest.raises(
-        ValueError,
-        match=r"Cannot convert hybrid_property Union to "
-        r"graphene.Union: the Union contains scalars. \.*",
+            ValueError,
+            match=r"Cannot convert hybrid_property Union to "
+                  r"graphene.Union: the Union contains scalars. \.*",
     ):
         get_hybrid_property_type(prop_method)
 
@@ -389,6 +398,12 @@ def test_should_key_integer_convert_id():
     )
 
 
+def test_should_key_integer_convert_integer_with_setting():
+    set_id_for_keys(False)
+    assert get_field(types.Integer(), primary_key=True).type == graphene.NonNull(
+        graphene.Int
+    )
+
 def test_should_primary_string_convert_id():
     assert get_field(types.String(), primary_key=True).type == graphene.NonNull(
         graphene.ID
@@ -478,7 +493,7 @@ def test_should_intenum_choice_convert_enum():
 
 def test_should_columproperty_convert():
     field = get_field_from_column(
-        column_property(select([func.sum(func.cast(id, types.Integer))]).where(id == 1))
+        column_property(wrap_select_func(func.sum(func.cast(id, types.Integer))).where(id == 1))
     )
 
     assert field.type == graphene.Int
@@ -495,10 +510,18 @@ def test_should_jsontype_convert_jsonstring():
     assert get_field(types.JSON).type == graphene.JSONString
 
 
+@pytest.mark.skipif(
+    (not is_sqlalchemy_version_less_than("2.0.0b1")),
+    reason="SQLAlchemy >=2.0 does not support this: Variant is no longer used in SQLAlchemy",
+)
 def test_should_variant_int_convert_int():
     assert get_field(types.Variant(types.Integer(), {})).type == graphene.Int
 
 
+@pytest.mark.skipif(
+    (not is_sqlalchemy_version_less_than("2.0.0b1")),
+    reason="SQLAlchemy >=2.0 does not support this: Variant is no longer used in SQLAlchemy",
+)
 def test_should_variant_string_convert_string():
     assert get_field(types.Variant(types.String(), {})).type == graphene.String
 
@@ -829,8 +852,8 @@ def test_sqlalchemy_hybrid_property_type_inference():
     )
 
     for (
-        hybrid_prop_name,
-        hybrid_prop_expected_return_type,
+            hybrid_prop_name,
+            hybrid_prop_expected_return_type,
     ) in shopping_cart_item_expected_types.items():
         hybrid_prop_field = ShoppingCartItemType._meta.fields[hybrid_prop_name]
 
@@ -841,7 +864,7 @@ def test_sqlalchemy_hybrid_property_type_inference():
             str(hybrid_prop_expected_return_type),
         )
         assert (
-            hybrid_prop_field.description is None
+                hybrid_prop_field.description is None
         )  # "doc" is ignored by hybrid property
 
     ###################################################
@@ -888,8 +911,8 @@ def test_sqlalchemy_hybrid_property_type_inference():
     )
 
     for (
-        hybrid_prop_name,
-        hybrid_prop_expected_return_type,
+            hybrid_prop_name,
+            hybrid_prop_expected_return_type,
     ) in shopping_cart_expected_types.items():
         hybrid_prop_field = ShoppingCartType._meta.fields[hybrid_prop_name]
 
@@ -900,5 +923,5 @@ def test_sqlalchemy_hybrid_property_type_inference():
             str(hybrid_prop_expected_return_type),
         )
         assert (
-            hybrid_prop_field.description is None
+                hybrid_prop_field.description is None
         )  # "doc" is ignored by hybrid property
