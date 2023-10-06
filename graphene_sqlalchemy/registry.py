@@ -1,7 +1,9 @@
 from collections import defaultdict
+from typing import List, Type
 
 from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
+import graphene
 from graphene import Enum
 
 
@@ -13,16 +15,13 @@ class Registry(object):
         self._registry_composites = {}
         self._registry_enums = {}
         self._registry_sort_enums = {}
+        self._registry_unions = {}
 
     def register(self, obj_type):
-        from .types import SQLAlchemyObjectType
+        from .types import SQLAlchemyBase
 
-        if not isinstance(obj_type, type) or not issubclass(
-            obj_type, SQLAlchemyObjectType
-        ):
-            raise TypeError(
-                "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
-            )
+        if not isinstance(obj_type, type) or not issubclass(obj_type, SQLAlchemyBase):
+            raise TypeError("Expected SQLAlchemyBase, but got: {!r}".format(obj_type))
         assert obj_type._meta.registry == self, "Registry for a Model have to match."
         # assert self.get_type_for_model(cls._meta.model) in [None, cls], (
         #     'SQLAlchemy model "{}" already associated with '
@@ -34,14 +33,10 @@ class Registry(object):
         return self._registry.get(model)
 
     def register_orm_field(self, obj_type, field_name, orm_field):
-        from .types import SQLAlchemyObjectType
+        from .types import SQLAlchemyBase
 
-        if not isinstance(obj_type, type) or not issubclass(
-            obj_type, SQLAlchemyObjectType
-        ):
-            raise TypeError(
-                "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
-            )
+        if not isinstance(obj_type, type) or not issubclass(obj_type, SQLAlchemyBase):
+            raise TypeError("Expected SQLAlchemyBase, but got: {!r}".format(obj_type))
         if not field_name or not isinstance(field_name, str):
             raise TypeError("Expected a field name, but got: {!r}".format(field_name))
         self._registry_orm_fields[obj_type][field_name] = orm_field
@@ -55,7 +50,7 @@ class Registry(object):
     def get_converter_for_composite(self, composite):
         return self._registry_composites.get(composite)
 
-    def register_enum(self, sa_enum, graphene_enum):
+    def register_enum(self, sa_enum: SQLAlchemyEnumType, graphene_enum: Enum):
         if not isinstance(sa_enum, SQLAlchemyEnumType):
             raise TypeError(
                 "Expected SQLAlchemyEnumType, but got: {!r}".format(sa_enum)
@@ -67,10 +62,11 @@ class Registry(object):
 
         self._registry_enums[sa_enum] = graphene_enum
 
-    def get_graphene_enum_for_sa_enum(self, sa_enum):
+    def get_graphene_enum_for_sa_enum(self, sa_enum: SQLAlchemyEnumType):
         return self._registry_enums.get(sa_enum)
 
-    def register_sort_enum(self, obj_type, sort_enum):
+    def register_sort_enum(self, obj_type, sort_enum: Enum):
+
         from .types import SQLAlchemyObjectType
 
         if not isinstance(obj_type, type) or not issubclass(
@@ -83,8 +79,25 @@ class Registry(object):
             raise TypeError("Expected Graphene Enum, but got: {!r}".format(sort_enum))
         self._registry_sort_enums[obj_type] = sort_enum
 
-    def get_sort_enum_for_object_type(self, obj_type):
+    def get_sort_enum_for_object_type(self, obj_type: graphene.ObjectType):
         return self._registry_sort_enums.get(obj_type)
+
+    def register_union_type(
+        self, union: Type[graphene.Union], obj_types: List[Type[graphene.ObjectType]]
+    ):
+        if not issubclass(union, graphene.Union):
+            raise TypeError("Expected graphene.Union, but got: {!r}".format(union))
+
+        for obj_type in obj_types:
+            if not issubclass(obj_type, graphene.ObjectType):
+                raise TypeError(
+                    "Expected Graphene ObjectType, but got: {!r}".format(obj_type)
+                )
+
+        self._registry_unions[frozenset(obj_types)] = union
+
+    def get_union_for_object_types(self, obj_types: List[Type[graphene.ObjectType]]):
+        return self._registry_unions.get(frozenset(obj_types))
 
 
 registry = None

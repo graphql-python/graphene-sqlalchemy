@@ -1,26 +1,43 @@
 from collections import OrderedDict
+from inspect import isawaitable
+from typing import Any
 
 import sqlalchemy
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import (ColumnProperty, CompositeProperty,
-                            RelationshipProperty)
+from sqlalchemy.orm import ColumnProperty, CompositeProperty, RelationshipProperty
 from sqlalchemy.orm.exc import NoResultFound
 
 from graphene import Field
 from graphene.relay import Connection, Node
+from graphene.types.base import BaseType
+from graphene.types.interface import Interface, InterfaceOptions
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 from graphene.types.utils import yank_fields_from_attrs
 from graphene.utils.orderedtype import OrderedType
 
-from .converter import (convert_sqlalchemy_column,
-                        convert_sqlalchemy_composite,
-                        convert_sqlalchemy_hybrid_method,
-                        convert_sqlalchemy_relationship)
-from .enums import (enum_for_field, sort_argument_for_object_type,
-                    sort_enum_for_object_type)
+from .converter import (
+    convert_sqlalchemy_column,
+    convert_sqlalchemy_composite,
+    convert_sqlalchemy_hybrid_method,
+    convert_sqlalchemy_relationship,
+)
+from .enums import (
+    enum_for_field,
+    sort_argument_for_object_type,
+    sort_enum_for_object_type,
+)
 from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
-from .utils import get_query, is_mapped_class, is_mapped_instance
+from .utils import (
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4,
+    get_query,
+    get_session,
+    is_mapped_class,
+    is_mapped_instance,
+)
+
+if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class ORMField(OrderedType):
@@ -76,20 +93,40 @@ class ORMField(OrderedType):
         super(ORMField, self).__init__(_creation_counter=_creation_counter)
         # The is only useful for documentation and auto-completion
         common_kwargs = {
-            'model_attr': model_attr,
-            'type_': type_,
-            'required': required,
-            'description': description,
-            'deprecation_reason': deprecation_reason,
-            'batching': batching,
+            "model_attr": model_attr,
+            "type_": type_,
+            "required": required,
+            "description": description,
+            "deprecation_reason": deprecation_reason,
+            "batching": batching,
         }
-        common_kwargs = {kwarg: value for kwarg, value in common_kwargs.items() if value is not None}
+        common_kwargs = {
+            kwarg: value for kwarg, value in common_kwargs.items() if value is not None
+        }
         self.kwargs = field_kwargs
         self.kwargs.update(common_kwargs)
 
 
+def get_polymorphic_on(model):
+    """
+    Check whether this model is a polymorphic type, and if so return the name
+    of the discriminator field (`polymorphic_on`), so that it won't be automatically
+    generated as an ORMField.
+    """
+    if hasattr(model, "__mapper__") and model.__mapper__.polymorphic_on is not None:
+        polymorphic_on = model.__mapper__.polymorphic_on
+        if isinstance(polymorphic_on, sqlalchemy.Column):
+            return polymorphic_on.name
+
+
 def construct_fields(
-    obj_type, model, registry, only_fields, exclude_fields, batching, connection_field_factory
+    obj_type,
+    model,
+    registry,
+    only_fields,
+    exclude_fields,
+    batching,
+    connection_field_factory,
 ):
     """
     Construct all the fields for a SQLAlchemyObjectType.
@@ -110,17 +147,25 @@ def construct_fields(
     inspected_model = sqlalchemy.inspect(model)
     # Gather all the relevant attributes from the SQLAlchemy model in order
     all_model_attrs = OrderedDict(
-        inspected_model.column_attrs.items() +
-        inspected_model.composites.items() +
-        [(name, item) for name, item in inspected_model.all_orm_descriptors.items()
-            if isinstance(item, hybrid_property)] +
-        inspected_model.relationships.items()
+        inspected_model.column_attrs.items()
+        + inspected_model.composites.items()
+        + [
+            (name, item)
+            for name, item in inspected_model.all_orm_descriptors.items()
+            if isinstance(item, hybrid_property)
+        ]
+        + inspected_model.relationships.items()
     )
 
     # Filter out excluded fields
+    polymorphic_on = get_polymorphic_on(model)
     auto_orm_field_names = []
     for attr_name, attr in all_model_attrs.items():
-        if (only_fields and attr_name not in only_fields) or (attr_name in exclude_fields):
+        if (
+            (only_fields and attr_name not in only_fields)
+            or (attr_name in exclude_fields)
+            or attr_name == polymorphic_on
+        ):
             continue
         auto_orm_field_names.append(attr_name)
 
@@ -135,13 +180,15 @@ def construct_fields(
 
     # Set the model_attr if not set
     for orm_field_name, orm_field in custom_orm_fields_items:
-        attr_name = orm_field.kwargs.get('model_attr', orm_field_name)
+        attr_name = orm_field.kwargs.get("model_attr", orm_field_name)
         if attr_name not in all_model_attrs:
-            raise ValueError((
-                "Cannot map ORMField to a model attribute.\n"
-                "Field: '{}.{}'"
-            ).format(obj_type.__name__, orm_field_name,))
-        orm_field.kwargs['model_attr'] = attr_name
+            raise ValueError(
+                ("Cannot map ORMField to a model attribute.\n" "Field: '{}.{}'").format(
+                    obj_type.__name__,
+                    orm_field_name,
+                )
+            )
+        orm_field.kwargs["model_attr"] = attr_name
 
     # Merge automatic fields with custom ORM fields
     orm_fields = OrderedDict(custom_orm_fields_items)
@@ -153,27 +200,38 @@ def construct_fields(
     # Build all the field dictionary
     fields = OrderedDict()
     for orm_field_name, orm_field in orm_fields.items():
-        attr_name = orm_field.kwargs.pop('model_attr')
+        attr_name = orm_field.kwargs.pop("model_attr")
         attr = all_model_attrs[attr_name]
-        resolver = get_custom_resolver(obj_type, orm_field_name) or get_attr_resolver(obj_type, attr_name)
+        resolver = get_custom_resolver(obj_type, orm_field_name) or get_attr_resolver(
+            obj_type, attr_name
+        )
 
         if isinstance(attr, ColumnProperty):
-            field = convert_sqlalchemy_column(attr, registry, resolver, **orm_field.kwargs)
+            field = convert_sqlalchemy_column(
+                attr, registry, resolver, **orm_field.kwargs
+            )
         elif isinstance(attr, RelationshipProperty):
-            batching_ = orm_field.kwargs.pop('batching', batching)
+            batching_ = orm_field.kwargs.pop("batching", batching)
             field = convert_sqlalchemy_relationship(
-                attr, obj_type, connection_field_factory, batching_, orm_field_name, **orm_field.kwargs)
+                attr,
+                obj_type,
+                connection_field_factory,
+                batching_,
+                orm_field_name,
+                **orm_field.kwargs
+            )
         elif isinstance(attr, CompositeProperty):
             if attr_name != orm_field_name or orm_field.kwargs:
                 # TODO Add a way to override composite property fields
                 raise ValueError(
                     "ORMField kwargs for composite fields must be empty. "
-                    "Field: {}.{}".format(obj_type.__name__, orm_field_name))
+                    "Field: {}.{}".format(obj_type.__name__, orm_field_name)
+                )
             field = convert_sqlalchemy_composite(attr, registry, resolver)
         elif isinstance(attr, hybrid_property):
             field = convert_sqlalchemy_hybrid_method(attr, resolver, **orm_field.kwargs)
         else:
-            raise Exception('Property type is not supported')  # Should never happen
+            raise Exception("Property type is not supported")  # Should never happen
 
         registry.register_orm_field(obj_type, orm_field_name, attr)
         fields[orm_field_name] = field
@@ -181,14 +239,12 @@ def construct_fields(
     return fields
 
 
-class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
-    model = None  # type: sqlalchemy.Model
-    registry = None  # type: sqlalchemy.Registry
-    connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
-    id = None  # type: str
+class SQLAlchemyBase(BaseType):
+    """
+    This class contains initialization code that is common to both ObjectTypes
+    and Interfaces.  You typically don't need to use it directly.
+    """
 
-
-class SQLAlchemyObjectType(ObjectType):
     @classmethod
     def __init_subclass_with_meta__(
         cls,
@@ -207,9 +263,17 @@ class SQLAlchemyObjectType(ObjectType):
         _meta=None,
         **options
     ):
-        assert is_mapped_class(model), (
-            "You need to pass a valid SQLAlchemy Model in " '{}.Meta, received "{}".'
-        ).format(cls.__name__, model)
+        # We always want to bypass this hook unless we're defining a concrete
+        # `SQLAlchemyObjectType` or `SQLAlchemyInterface`.
+        if not _meta:
+            return
+
+        # Make sure model is a valid SQLAlchemy model
+        if not is_mapped_class(model):
+            raise ValueError(
+                "You need to pass a valid SQLAlchemy Model in "
+                '{}.Meta, received "{}".'.format(cls.__name__, model)
+            )
 
         if not registry:
             registry = get_global_registry()
@@ -220,7 +284,9 @@ class SQLAlchemyObjectType(ObjectType):
         ).format(cls.__name__, registry)
 
         if only_fields and exclude_fields:
-            raise ValueError("The options 'only_fields' and 'exclude_fields' cannot be both set on the same type.")
+            raise ValueError(
+                "The options 'only_fields' and 'exclude_fields' cannot be both set on the same type."
+            )
 
         sqla_fields = yank_fields_from_attrs(
             construct_fields(
@@ -238,7 +304,7 @@ class SQLAlchemyObjectType(ObjectType):
 
         if use_connection is None and interfaces:
             use_connection = any(
-                (issubclass(interface, Node) for interface in interfaces)
+                issubclass(interface, Node) for interface in interfaces
             )
 
         if use_connection and not connection:
@@ -255,9 +321,6 @@ class SQLAlchemyObjectType(ObjectType):
                 "The connection must be a Connection. Received {}"
             ).format(connection.__name__)
 
-        if not _meta:
-            _meta = SQLAlchemyObjectTypeOptions(cls)
-
         _meta.model = model
         _meta.registry = registry
 
@@ -271,7 +334,7 @@ class SQLAlchemyObjectType(ObjectType):
 
         cls.connection = connection  # Public way to get the connection
 
-        super(SQLAlchemyObjectType, cls).__init_subclass_with_meta__(
+        super(SQLAlchemyBase, cls).__init_subclass_with_meta__(
             _meta=_meta, interfaces=interfaces, **options
         )
 
@@ -282,6 +345,11 @@ class SQLAlchemyObjectType(ObjectType):
     def is_type_of(cls, root, info):
         if isinstance(root, cls):
             return True
+        if isawaitable(root):
+            raise Exception(
+                "Received coroutine instead of sql alchemy model. "
+                "You seem to use an async engine with synchronous schema execution"
+            )
         if not is_mapped_instance(root):
             raise Exception(('Received incompatible instance "{}".').format(root))
         return isinstance(root, cls._meta.model)
@@ -293,6 +361,19 @@ class SQLAlchemyObjectType(ObjectType):
 
     @classmethod
     def get_node(cls, info, id):
+        if not SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
+            try:
+                return cls.get_query(info).get(id)
+            except NoResultFound:
+                return None
+
+        session = get_session(info.context)
+        if isinstance(session, AsyncSession):
+
+            async def get_result() -> Any:
+                return await session.get(cls._meta.model, id)
+
+            return get_result()
         try:
             return cls.get_query(info).get(id)
         except NoResultFound:
@@ -310,3 +391,109 @@ class SQLAlchemyObjectType(ObjectType):
     sort_enum = classmethod(sort_enum_for_object_type)
 
     sort_argument = classmethod(sort_argument_for_object_type)
+
+
+class SQLAlchemyObjectTypeOptions(ObjectTypeOptions):
+    model = None  # type: sqlalchemy.Model
+    registry = None  # type: sqlalchemy.Registry
+    connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
+    id = None  # type: str
+
+
+class SQLAlchemyObjectType(SQLAlchemyBase, ObjectType):
+    """
+    This type represents the GraphQL ObjectType. It reflects on the
+    given SQLAlchemy model, and automatically generates an ObjectType
+    using the column and relationship information defined there.
+
+    Usage:
+
+        .. code-block:: python
+
+            class MyModel(Base):
+                id = Column(Integer(), primary_key=True)
+                name = Column(String())
+
+            class MyType(SQLAlchemyObjectType):
+                class Meta:
+                    model = MyModel
+    """
+
+    @classmethod
+    def __init_subclass_with_meta__(cls, _meta=None, **options):
+        if not _meta:
+            _meta = SQLAlchemyObjectTypeOptions(cls)
+
+        super(SQLAlchemyObjectType, cls).__init_subclass_with_meta__(
+            _meta=_meta, **options
+        )
+
+
+class SQLAlchemyInterfaceOptions(InterfaceOptions):
+    model = None  # type: sqlalchemy.Model
+    registry = None  # type: sqlalchemy.Registry
+    connection = None  # type: sqlalchemy.Type[sqlalchemy.Connection]
+    id = None  # type: str
+
+
+class SQLAlchemyInterface(SQLAlchemyBase, Interface):
+    """
+    This type represents the GraphQL Interface. It reflects on the
+    given SQLAlchemy model, and automatically generates an Interface
+    using the column and relationship information defined there. This
+    is used to construct interface relationships based on polymorphic
+    inheritance hierarchies in SQLAlchemy.
+
+    Please note that by default, the "polymorphic_on" column is *not*
+    generated as a field on types that use polymorphic inheritance, as
+    this is considered an implentation detail. The idiomatic way to
+    retrieve the concrete GraphQL type of an object is to query for the
+    `__typename` field.
+
+    Usage (using joined table inheritance):
+
+        .. code-block:: python
+
+            class MyBaseModel(Base):
+                id = Column(Integer(), primary_key=True)
+                type = Column(String())
+                name = Column(String())
+
+            __mapper_args__ = {
+                "polymorphic_on": type,
+            }
+
+            class MyChildModel(Base):
+                date = Column(Date())
+
+            __mapper_args__ = {
+                "polymorphic_identity": "child",
+            }
+
+            class MyBaseType(SQLAlchemyInterface):
+                class Meta:
+                    model = MyBaseModel
+
+            class MyChildType(SQLAlchemyObjectType):
+                class Meta:
+                    model = MyChildModel
+                    interfaces = (MyBaseType,)
+    """
+
+    @classmethod
+    def __init_subclass_with_meta__(cls, _meta=None, **options):
+        if not _meta:
+            _meta = SQLAlchemyInterfaceOptions(cls)
+
+        super(SQLAlchemyInterface, cls).__init_subclass_with_meta__(
+            _meta=_meta, **options
+        )
+
+        # make sure that the model doesn't have a polymorphic_identity defined
+        if hasattr(_meta.model, "__mapper__"):
+            polymorphic_identity = _meta.model.__mapper__.polymorphic_identity
+            assert (
+                polymorphic_identity is None
+            ), '{}: An interface cannot map to a concrete type (polymorphic_identity is "{}")'.format(
+                cls.__name__, polymorphic_identity
+            )

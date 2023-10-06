@@ -1,26 +1,50 @@
 import enum
-
-import pytest
-from sqlalchemy import Column, func, select, types
-from sqlalchemy.dialects import postgresql
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.inspection import inspect
-from sqlalchemy.orm import column_property, composite
-from sqlalchemy_utils import ChoiceType, JSONType, ScalarListType
+import sys
+from typing import Dict, Tuple, Union
 
 import graphene
+import pytest
+import sqlalchemy
+import sqlalchemy_utils as sqa_utils
 from graphene.relay import Node
-from graphene.types.datetime import DateTime
-from graphene.types.json import JSONString
+from graphene.types.structures import Structure
+from sqlalchemy import Column, func, types
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.inspection import inspect
+from sqlalchemy.orm import column_property, composite
 
-from ..converter import (convert_sqlalchemy_column,
-                         convert_sqlalchemy_composite,
-                         convert_sqlalchemy_relationship)
-from ..fields import (UnsortedSQLAlchemyConnectionField,
-                      default_connection_field_factory)
+from .models import (
+    Article,
+    CompositeFullName,
+    Pet,
+    Reporter,
+    ShoppingCart,
+    ShoppingCartItem,
+)
+from .utils import wrap_select_func
+from ..converter import (
+    convert_sqlalchemy_column,
+    convert_sqlalchemy_composite,
+    convert_sqlalchemy_hybrid_method,
+    convert_sqlalchemy_relationship,
+    convert_sqlalchemy_type,
+    set_non_null_many_relationships,
+)
+from ..fields import UnsortedSQLAlchemyConnectionField, default_connection_field_factory
 from ..registry import Registry, get_global_registry
-from ..types import SQLAlchemyObjectType
-from .models import Article, CompositeFullName, Pet, Reporter
+from ..types import ORMField, SQLAlchemyObjectType
+from ..utils import is_sqlalchemy_version_less_than
+from .models import (
+    Article,
+    CompositeFullName,
+    CustomColumnModel,
+    Pet,
+    Reporter,
+    ShoppingCart,
+    ShoppingCartItem,
+)
 
 
 def mock_resolver():
@@ -29,41 +53,262 @@ def mock_resolver():
 
 def get_field(sqlalchemy_type, **column_kwargs):
     class Model(declarative_base()):
-        __tablename__ = 'model'
+        __tablename__ = "model"
         id_ = Column(types.Integer, primary_key=True)
         column = Column(sqlalchemy_type, doc="Custom Help Text", **column_kwargs)
 
-    column_prop = inspect(Model).column_attrs['column']
+    column_prop = inspect(Model).column_attrs["column"]
     return convert_sqlalchemy_column(column_prop, get_global_registry(), mock_resolver)
 
 
 def get_field_from_column(column_):
     class Model(declarative_base()):
-        __tablename__ = 'model'
+        __tablename__ = "model"
         id_ = Column(types.Integer, primary_key=True)
         column = column_
 
-    column_prop = inspect(Model).column_attrs['column']
+    column_prop = inspect(Model).column_attrs["column"]
     return convert_sqlalchemy_column(column_prop, get_global_registry(), mock_resolver)
 
 
-def test_should_unknown_sqlalchemy_field_raise_exception():
-    re_err = "Don't know how to convert the SQLAlchemy field"
-    with pytest.raises(Exception, match=re_err):
-        # support legacy Binary type and subsequent LargeBinary
-        get_field(getattr(types, 'LargeBinary', types.BINARY)())
+def get_hybrid_property_type(prop_method):
+    class Model(declarative_base()):
+        __tablename__ = "model"
+        id_ = Column(types.Integer, primary_key=True)
+        prop = prop_method
+
+    column_prop = inspect(Model).all_orm_descriptors["prop"]
+    return convert_sqlalchemy_hybrid_method(
+        column_prop, mock_resolver(), **ORMField().kwargs
+    )
 
 
-def test_should_date_convert_string():
-    assert get_field(types.Date()).type == graphene.String
+@pytest.fixture
+def use_legacy_many_relationships():
+    set_non_null_many_relationships(False)
+    try:
+        yield
+    finally:
+        set_non_null_many_relationships(True)
+
+
+def test_hybrid_prop_int():
+    @hybrid_property
+    def prop_method() -> int:
+        return 42
+
+    assert get_hybrid_property_type(prop_method).type == graphene.Int
+
+
+def test_hybrid_unknown_annotation():
+    @hybrid_property
+    def hybrid_prop(self):
+        return "This should fail"
+
+    with pytest.raises(
+        TypeError,
+        match=r"(.*)Please make sure to annotate the return type of the hybrid property or use the "
+        "type_ attribute of ORMField to set the type.(.*)",
+    ):
+        get_hybrid_property_type(hybrid_prop)
+
+
+def test_hybrid_prop_no_type_annotation():
+    @hybrid_property
+    def hybrid_prop(self) -> Tuple[str, str]:
+        return "This should Fail because", "we don't support Tuples in GQL"
+
+    with pytest.raises(
+        TypeError, match=r"(.*)Don't know how to convert the SQLAlchemy field(.*)"
+    ):
+        get_hybrid_property_type(hybrid_prop)
+
+
+def test_hybrid_invalid_forward_reference():
+    class MyTypeNotInRegistry:
+        pass
+
+    @hybrid_property
+    def hybrid_prop(self) -> "MyTypeNotInRegistry":
+        return MyTypeNotInRegistry()
+
+    with pytest.raises(
+        TypeError,
+        match=r"(.*)Only forward references to other SQLAlchemy Models mapped to "
+        "SQLAlchemyObjectTypes are allowed.(.*)",
+    ):
+        get_hybrid_property_type(hybrid_prop).type
+
+
+def test_hybrid_prop_object_type():
+    class MyObjectType(graphene.ObjectType):
+        string = graphene.String()
+
+    @hybrid_property
+    def hybrid_prop(self) -> MyObjectType:
+        return MyObjectType()
+
+    assert get_hybrid_property_type(hybrid_prop).type == MyObjectType
+
+
+def test_hybrid_prop_scalar_type():
+    @hybrid_property
+    def hybrid_prop(self) -> graphene.String:
+        return "This should work"
+
+    assert get_hybrid_property_type(hybrid_prop).type == graphene.String
+
+
+def test_hybrid_prop_not_mapped_to_graphene_type():
+    @hybrid_property
+    def hybrid_prop(self) -> ShoppingCartItem:
+        return "This shouldn't work"
+
+    with pytest.raises(TypeError, match=r"(.*)No model found in Registry for type(.*)"):
+        get_hybrid_property_type(hybrid_prop).type
+
+
+def test_hybrid_prop_mapped_to_graphene_type():
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCartItem
+
+    @hybrid_property
+    def hybrid_prop(self) -> ShoppingCartItem:
+        return "Dummy return value"
+
+    get_hybrid_property_type(hybrid_prop).type == ShoppingCartType
+
+
+def test_hybrid_prop_forward_ref_not_mapped_to_graphene_type():
+    @hybrid_property
+    def hybrid_prop(self) -> "ShoppingCartItem":
+        return "This shouldn't work"
+
+    with pytest.raises(
+        TypeError,
+        match=r"(.*)No model found in Registry for forward reference for type(.*)",
+    ):
+        get_hybrid_property_type(hybrid_prop).type
+
+
+def test_hybrid_prop_forward_ref_mapped_to_graphene_type():
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCartItem
+
+    @hybrid_property
+    def hybrid_prop(self) -> "ShoppingCartItem":
+        return "Dummy return value"
+
+    get_hybrid_property_type(hybrid_prop).type == ShoppingCartType
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 10), reason="|-Style Unions are unsupported in python < 3.10"
+)
+def test_hybrid_prop_scalar_union_310():
+    @hybrid_property
+    def prop_method() -> int | str:
+        return "not allowed in gql schema"
+
+    with pytest.raises(
+            ValueError,
+            match=r"Cannot convert hybrid_property Union to "
+                  r"graphene.Union: the Union contains scalars. \.*",
+    ):
+        get_hybrid_property_type(prop_method)
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 10), reason="|-Style Unions are unsupported in python < 3.10"
+)
+def test_hybrid_prop_scalar_union_and_optional_310():
+    """Checks if the use of Optionals does not interfere with non-conform scalar return types"""
+
+    @hybrid_property
+    def prop_method() -> int | None:
+        return 42
+
+    assert get_hybrid_property_type(prop_method).type == graphene.Int
+
+
+def test_should_union_work():
+    reg = Registry()
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            registry = reg
+
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCartItem
+            registry = reg
+
+    @hybrid_property
+    def prop_method() -> Union[PetType, ShoppingCartType]:
+        return None
+
+    @hybrid_property
+    def prop_method_2() -> Union[ShoppingCartType, PetType]:
+        return None
+
+    field_type_1 = get_hybrid_property_type(prop_method).type
+    field_type_2 = get_hybrid_property_type(prop_method_2).type
+
+    assert issubclass(field_type_1, graphene.Union)
+    assert field_type_1._meta.types == [PetType, ShoppingCartType]
+    assert field_type_1 is field_type_2
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 10), reason="|-Style Unions are unsupported in python < 3.10"
+)
+def test_should_union_work_310():
+    reg = Registry()
+
+    class PetType(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+            registry = reg
+
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCartItem
+            registry = reg
+
+    @hybrid_property
+    def prop_method() -> PetType | ShoppingCartType:
+        return None
+
+    @hybrid_property
+    def prop_method_2() -> ShoppingCartType | PetType:
+        return None
+
+    field_type_1 = get_hybrid_property_type(prop_method).type
+    field_type_2 = get_hybrid_property_type(prop_method_2).type
+
+    assert issubclass(field_type_1, graphene.Union)
+    assert field_type_1._meta.types == [PetType, ShoppingCartType]
+    assert field_type_1 is field_type_2
+
+
+def test_should_unknown_type_raise_error():
+    with pytest.raises(Exception):
+        converted_type = convert_sqlalchemy_type(ZeroDivisionError)  # noqa
 
 
 def test_should_datetime_convert_datetime():
-    assert get_field(types.DateTime()).type == DateTime
+    assert get_field(types.DateTime()).type == graphene.DateTime
 
 
-def test_should_time_convert_string():
-    assert get_field(types.Time()).type == graphene.String
+def test_should_time_convert_time():
+    assert get_field(types.Time()).type == graphene.Time
+
+
+def test_should_date_convert_date():
+    assert get_field(types.Date()).type == graphene.Date
 
 
 def test_should_string_convert_string():
@@ -80,6 +325,30 @@ def test_should_unicode_convert_string():
 
 def test_should_unicodetext_convert_string():
     assert get_field(types.UnicodeText()).type == graphene.String
+
+
+def test_should_tsvector_convert_string():
+    assert get_field(sqa_utils.TSVectorType()).type == graphene.String
+
+
+def test_should_email_convert_string():
+    assert get_field(sqa_utils.EmailType()).type == graphene.String
+
+
+def test_should_URL_convert_string():
+    assert get_field(sqa_utils.URLType()).type == graphene.String
+
+
+def test_should_IPaddress_convert_string():
+    assert get_field(sqa_utils.IPAddressType()).type == graphene.String
+
+
+def test_should_inet_convert_string():
+    assert get_field(postgresql.INET()).type == graphene.String
+
+
+def test_should_cidr_convert_string():
+    assert get_field(postgresql.CIDR()).type == graphene.String
 
 
 def test_should_enum_convert_enum():
@@ -122,7 +391,9 @@ def test_should_integer_convert_int():
 
 
 def test_should_primary_integer_convert_id():
-    assert get_field(types.Integer(), primary_key=True).type == graphene.NonNull(graphene.ID)
+    assert get_field(types.Integer(), primary_key=True).type == graphene.NonNull(
+        graphene.ID
+    )
 
 
 def test_should_boolean_convert_boolean():
@@ -138,7 +409,7 @@ def test_should_numeric_convert_float():
 
 
 def test_should_choice_convert_enum():
-    field = get_field(ChoiceType([(u"es", u"Spanish"), (u"en", u"English")]))
+    field = get_field(sqa_utils.ChoiceType([("es", "Spanish"), ("en", "English")]))
     graphene_type = field.type
     assert issubclass(graphene_type, graphene.Enum)
     assert graphene_type._meta.name == "MODEL_COLUMN"
@@ -148,13 +419,37 @@ def test_should_choice_convert_enum():
 
 def test_should_enum_choice_convert_enum():
     class TestEnum(enum.Enum):
-        es = u"Spanish"
-        en = u"English"
+        es = "Spanish"
+        en = "English"
 
-    field = get_field(ChoiceType(TestEnum, impl=types.String()))
+    field = get_field(sqa_utils.ChoiceType(TestEnum, impl=types.String()))
     graphene_type = field.type
     assert issubclass(graphene_type, graphene.Enum)
     assert graphene_type._meta.name == "MODEL_COLUMN"
+    assert graphene_type._meta.enum.__members__["es"].value == "Spanish"
+    assert graphene_type._meta.enum.__members__["en"].value == "English"
+
+
+def test_choice_enum_column_key_name_issue_301():
+    """
+    Verifies that the sort enum name is generated from the column key instead of the name,
+    in case the column has an invalid enum name. See #330
+    """
+
+    class TestEnum(enum.Enum):
+        es = "Spanish"
+        en = "English"
+
+    testChoice = Column(
+        "% descuento1",
+        sqa_utils.ChoiceType(TestEnum, impl=types.String()),
+        key="descuento1",
+    )
+    field = get_field_from_column(testChoice)
+
+    graphene_type = field.type
+    assert issubclass(graphene_type, graphene.Enum)
+    assert graphene_type._meta.name == "MODEL_DESCUENTO1"
     assert graphene_type._meta.enum.__members__["es"].value == "Spanish"
     assert graphene_type._meta.enum.__members__["en"].value == "English"
 
@@ -164,7 +459,7 @@ def test_should_intenum_choice_convert_enum():
         one = 1
         two = 2
 
-    field = get_field(ChoiceType(TestEnum, impl=types.String()))
+    field = get_field(sqa_utils.ChoiceType(TestEnum, impl=types.String()))
     graphene_type = field.type
     assert issubclass(graphene_type, graphene.Enum)
     assert graphene_type._meta.name == "MODEL_COLUMN"
@@ -173,21 +468,38 @@ def test_should_intenum_choice_convert_enum():
 
 
 def test_should_columproperty_convert():
-    field = get_field_from_column(column_property(
-        select([func.sum(func.cast(id, types.Integer))]).where(id == 1)
-    ))
+    field = get_field_from_column(
+        column_property(wrap_select_func(func.sum(func.cast(id, types.Integer))).where(id == 1))
+    )
 
     assert field.type == graphene.Int
 
 
 def test_should_scalar_list_convert_list():
-    field = get_field(ScalarListType())
+    field = get_field(sqa_utils.ScalarListType())
     assert isinstance(field.type, graphene.List)
     assert field.type.of_type == graphene.String
 
 
 def test_should_jsontype_convert_jsonstring():
-    assert get_field(JSONType()).type == JSONString
+    assert get_field(sqa_utils.JSONType()).type == graphene.JSONString
+    assert get_field(types.JSON).type == graphene.JSONString
+
+
+@pytest.mark.skipif(
+    (not is_sqlalchemy_version_less_than("2.0.0b1")),
+    reason="SQLAlchemy >=2.0 does not support this: Variant is no longer used in SQLAlchemy",
+)
+def test_should_variant_int_convert_int():
+    assert get_field(types.Variant(types.Integer(), {})).type == graphene.Int
+
+
+@pytest.mark.skipif(
+    (not is_sqlalchemy_version_less_than("2.0.0b1")),
+    reason="SQLAlchemy >=2.0 does not support this: Variant is no longer used in SQLAlchemy",
+)
+def test_should_variant_string_convert_string():
+    assert get_field(types.Variant(types.String(), {})).type == graphene.String
 
 
 def test_should_manytomany_convert_connectionorlist():
@@ -196,7 +508,11 @@ def test_should_manytomany_convert_connectionorlist():
             model = Article
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.pets.property, A, default_connection_field_factory, True, 'orm_field_name',
+        Reporter.pets.property,
+        A,
+        default_connection_field_factory,
+        True,
+        "orm_field_name",
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     assert not dynamic_field.get_type()
@@ -208,8 +524,36 @@ def test_should_manytomany_convert_connectionorlist_list():
             model = Pet
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.pets.property, A, default_connection_field_factory, True, 'orm_field_name',
+        Reporter.pets.property,
+        A,
+        default_connection_field_factory,
+        True,
+        "orm_field_name",
     )
+    # field should be [A!]!
+    assert isinstance(dynamic_field, graphene.Dynamic)
+    graphene_type = dynamic_field.get_type()
+    assert isinstance(graphene_type, graphene.Field)
+    assert isinstance(graphene_type.type, graphene.NonNull)
+    assert isinstance(graphene_type.type.of_type, graphene.List)
+    assert isinstance(graphene_type.type.of_type.of_type, graphene.NonNull)
+    assert graphene_type.type.of_type.of_type.of_type == A
+
+
+@pytest.mark.usefixtures("use_legacy_many_relationships")
+def test_should_manytomany_convert_connectionorlist_list_legacy():
+    class A(SQLAlchemyObjectType):
+        class Meta:
+            model = Pet
+
+    dynamic_field = convert_sqlalchemy_relationship(
+        Reporter.pets.property,
+        A,
+        default_connection_field_factory,
+        True,
+        "orm_field_name",
+    )
+    # field should be [A]
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
     assert isinstance(graphene_type, graphene.Field)
@@ -224,7 +568,11 @@ def test_should_manytomany_convert_connectionorlist_connection():
             interfaces = (Node,)
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.pets.property, A, default_connection_field_factory, True, 'orm_field_name',
+        Reporter.pets.property,
+        A,
+        default_connection_field_factory,
+        True,
+        "orm_field_name",
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     assert isinstance(dynamic_field.get_type(), UnsortedSQLAlchemyConnectionField)
@@ -236,7 +584,11 @@ def test_should_manytoone_convert_connectionorlist():
             model = Article
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.pets.property, A, default_connection_field_factory, True, 'orm_field_name',
+        Reporter.pets.property,
+        A,
+        default_connection_field_factory,
+        True,
+        "orm_field_name",
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     assert not dynamic_field.get_type()
@@ -248,7 +600,11 @@ def test_should_manytoone_convert_connectionorlist_list():
             model = Reporter
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Article.reporter.property, A, default_connection_field_factory, True, 'orm_field_name',
+        Article.reporter.property,
+        A,
+        default_connection_field_factory,
+        True,
+        "orm_field_name",
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
@@ -263,7 +619,11 @@ def test_should_manytoone_convert_connectionorlist_connection():
             interfaces = (Node,)
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Article.reporter.property, A, default_connection_field_factory, True, 'orm_field_name',
+        Article.reporter.property,
+        A,
+        default_connection_field_factory,
+        True,
+        "orm_field_name",
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
@@ -278,7 +638,11 @@ def test_should_onetoone_convert_field():
             interfaces = (Node,)
 
     dynamic_field = convert_sqlalchemy_relationship(
-        Reporter.favorite_article.property, A, default_connection_field_factory, True, 'orm_field_name',
+        Reporter.favorite_article.property,
+        A,
+        default_connection_field_factory,
+        True,
+        "orm_field_name",
     )
     assert isinstance(dynamic_field, graphene.Dynamic)
     graphene_type = dynamic_field.get_type()
@@ -287,7 +651,11 @@ def test_should_onetoone_convert_field():
 
 
 def test_should_postgresql_uuid_convert():
-    assert get_field(postgresql.UUID()).type == graphene.String
+    assert get_field(postgresql.UUID()).type == graphene.UUID
+
+
+def test_should_sqlalchemy_utils_uuid_convert():
+    assert get_field(sqa_utils.UUIDType()).type == graphene.UUID
 
 
 def test_should_postgresql_enum_convert():
@@ -302,7 +670,9 @@ def test_should_postgresql_enum_convert():
 
 
 def test_should_postgresql_py_enum_convert():
-    field = get_field(postgresql.ENUM(enum.Enum("TwoNumbers", "one two"), name="two_numbers"))
+    field = get_field(
+        postgresql.ENUM(enum.Enum("TwoNumbers", "one two"), name="two_numbers")
+    )
     field_type = field.type()
     assert field_type._meta.name == "TwoNumbers"
     assert isinstance(field_type, graphene.Enum)
@@ -364,7 +734,11 @@ def test_should_composite_convert():
         return graphene.String(description=composite.doc)
 
     field = convert_sqlalchemy_composite(
-        composite(CompositeClass, (Column(types.Unicode(50)), Column(types.Unicode(50))), doc="Custom Help Text"),
+        composite(
+            CompositeClass,
+            (Column(types.Unicode(50)), Column(types.Unicode(50))),
+            doc="Custom Help Text",
+        ),
         registry,
         mock_resolver,
     )
@@ -380,7 +754,150 @@ def test_should_unknown_sqlalchemy_composite_raise_exception():
     re_err = "Don't know how to convert the composite field"
     with pytest.raises(Exception, match=re_err):
         convert_sqlalchemy_composite(
-            composite(CompositeFullName, (Column(types.Unicode(50)), Column(types.Unicode(50)))),
+            composite(
+                CompositeFullName,
+                (Column(types.Unicode(50)), Column(types.Unicode(50))),
+            ),
             Registry(),
             mock_resolver,
         )
+
+
+def test_raise_exception_unkown_column_type():
+    with pytest.raises(
+        Exception,
+        match="Don't know how to convert the SQLAlchemy field customcolumnmodel.custom_col",
+    ):
+
+        class A(SQLAlchemyObjectType):
+            class Meta:
+                model = CustomColumnModel
+
+
+def test_prioritize_orm_field_unkown_column_type():
+    class A(SQLAlchemyObjectType):
+        class Meta:
+            model = CustomColumnModel
+
+        custom_col = ORMField(type_=graphene.Int)
+
+    assert A._meta.fields["custom_col"].type == graphene.Int
+
+
+def test_match_supertype_from_mro_correct_order():
+    """
+    BigInt and Integer are both superclasses of BIGINT, but a custom converter exists for BigInt that maps to Float.
+    We expect the correct MRO order to be used and conversion by the nearest match. BIGINT should be converted to Float,
+    just like BigInt, not to Int like integer which is further up in the MRO.
+    """
+
+    class BIGINT(sqlalchemy.types.BigInteger):
+        pass
+
+    field = get_field_from_column(Column(BIGINT))
+
+    assert field.type == graphene.Float
+
+
+def test_sqlalchemy_hybrid_property_type_inference():
+    class ShoppingCartItemType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCartItem
+            interfaces = (Node,)
+
+    class ShoppingCartType(SQLAlchemyObjectType):
+        class Meta:
+            model = ShoppingCart
+            interfaces = (Node,)
+
+    #######################################################
+    # Check ShoppingCartItem's Properties and Return Types
+    #######################################################
+
+    shopping_cart_item_expected_types: Dict[str, Union[graphene.Scalar, Structure]] = {
+        "hybrid_prop_shopping_cart": graphene.List(ShoppingCartType)
+    }
+
+    assert sorted(list(ShoppingCartItemType._meta.fields.keys())) == sorted(
+        [
+            # Columns
+            "id",
+            # Append Hybrid Properties from Above
+            *shopping_cart_item_expected_types.keys(),
+        ]
+    )
+
+    for (
+            hybrid_prop_name,
+            hybrid_prop_expected_return_type,
+    ) in shopping_cart_item_expected_types.items():
+        hybrid_prop_field = ShoppingCartItemType._meta.fields[hybrid_prop_name]
+
+        # this is a simple way of showing the failed property name
+        # instead of having to unroll the loop.
+        assert (hybrid_prop_name, str(hybrid_prop_field.type)) == (
+            hybrid_prop_name,
+            str(hybrid_prop_expected_return_type),
+        )
+        assert (
+                hybrid_prop_field.description is None
+        )  # "doc" is ignored by hybrid property
+
+    ###################################################
+    # Check ShoppingCart's Properties and Return Types
+    ###################################################
+
+    shopping_cart_expected_types: Dict[str, Union[graphene.Scalar, Structure]] = {
+        # Basic types
+        "hybrid_prop_str": graphene.String,
+        "hybrid_prop_int": graphene.Int,
+        "hybrid_prop_float": graphene.Float,
+        "hybrid_prop_bool": graphene.Boolean,
+        "hybrid_prop_decimal": graphene.String,  # Decimals should be serialized Strings
+        "hybrid_prop_date": graphene.Date,
+        "hybrid_prop_time": graphene.Time,
+        "hybrid_prop_datetime": graphene.DateTime,
+        # Lists and Nested Lists
+        "hybrid_prop_list_int": graphene.List(graphene.Int),
+        "hybrid_prop_list_date": graphene.List(graphene.Date),
+        "hybrid_prop_nested_list_int": graphene.List(graphene.List(graphene.Int)),
+        "hybrid_prop_deeply_nested_list_int": graphene.List(
+            graphene.List(graphene.List(graphene.Int))
+        ),
+        "hybrid_prop_first_shopping_cart_item": ShoppingCartItemType,
+        "hybrid_prop_shopping_cart_item_list": graphene.List(ShoppingCartItemType),
+        # Self Referential List
+        "hybrid_prop_self_referential": ShoppingCartType,
+        "hybrid_prop_self_referential_list": graphene.List(ShoppingCartType),
+        # Optionals
+        "hybrid_prop_optional_self_referential": ShoppingCartType,
+        # UUIDs
+        "hybrid_prop_uuid": graphene.UUID,
+        "hybrid_prop_optional_uuid": graphene.UUID,
+        "hybrid_prop_uuid_list": graphene.List(graphene.UUID),
+    }
+
+    assert sorted(list(ShoppingCartType._meta.fields.keys())) == sorted(
+        [
+            # Columns
+            "id",
+            # Append Hybrid Properties from Above
+            *shopping_cart_expected_types.keys(),
+        ]
+    )
+
+    for (
+            hybrid_prop_name,
+            hybrid_prop_expected_return_type,
+    ) in shopping_cart_expected_types.items():
+        hybrid_prop_field = ShoppingCartType._meta.fields[hybrid_prop_name]
+
+        # this is a simple way of showing the failed property name
+        # instead of having to unroll the loop.
+        assert (hybrid_prop_name, str(hybrid_prop_field.type)) == (
+            hybrid_prop_name,
+            str(hybrid_prop_expected_return_type),
+        )
+        assert (
+                hybrid_prop_field.description is None
+        )  # "doc" is ignored by hybrid property
