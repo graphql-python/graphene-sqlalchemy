@@ -1,3 +1,4 @@
+import inspect
 from collections import defaultdict
 from typing import TYPE_CHECKING, List, Type
 
@@ -7,7 +8,7 @@ from graphene.types.base import BaseType
 from sqlalchemy.types import Enum as SQLAlchemyEnumType
 
 if TYPE_CHECKING:  # pragma: no_cover
-    from graphene_sqlalchemy.filters import (
+    from .filters import (
         FieldFilter,
         BaseTypeFilter,
         RelationshipFilter, )
@@ -25,6 +26,26 @@ class Registry(object):
         self._registry_scalar_filters = {}
         self._registry_base_type_filters = {}
         self._registry_relationship_filters = {}
+
+        self._init_base_filters()
+
+    def _init_base_filters(self):
+        import graphene_sqlalchemy.filters as gsqa_filters
+
+        from .filters import (FieldFilter)
+        field_filter_classes = [
+            filter_cls[1]
+            for filter_cls in inspect.getmembers(gsqa_filters, inspect.isclass)
+            if (
+                    filter_cls[1] is not FieldFilter
+                    and FieldFilter in filter_cls[1].__mro__
+                    and getattr(filter_cls[1]._meta, "graphene_type", False)
+            )
+        ]
+        for field_filter_class in field_filter_classes:
+            self.register_filter_for_scalar_type(
+                field_filter_class._meta.graphene_type, field_filter_class
+            )
 
     def register(self, obj_type):
         from .types import SQLAlchemyBase

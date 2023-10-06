@@ -20,7 +20,6 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import ColumnProperty, CompositeProperty, RelationshipProperty
 from sqlalchemy.orm.exc import NoResultFound
 
-import graphene_sqlalchemy.filters as gsa_filters
 from .converter import (
     convert_sqlalchemy_column,
     convert_sqlalchemy_composite,
@@ -420,21 +419,7 @@ class SQLAlchemyBase(BaseType):
             )
 
         if not registry:
-            # TODO add documentation for users to register their own filters
             registry = get_global_registry()
-            field_filter_classes = [
-                filter_cls[1]
-                for filter_cls in inspect.getmembers(gsa_filters, inspect.isclass)
-                if (
-                        filter_cls[1] is not FieldFilter
-                        and FieldFilter in filter_cls[1].__mro__
-                        and getattr(filter_cls[1]._meta, "graphene_type", False)
-                )
-            ]
-            for field_filter_class in field_filter_classes:
-                get_global_registry().register_filter_for_scalar_type(
-                    field_filter_class._meta.graphene_type, field_filter_class
-                )
 
         assert isinstance(registry, Registry), (
             "The attribute registry in {} needs to be an instance of "
