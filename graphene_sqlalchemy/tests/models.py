@@ -18,6 +18,7 @@ from sqlalchemy import (
     Table,
     func,
 )
+from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import backref, column_property, composite, mapper, relationship
@@ -29,6 +30,7 @@ from graphene_sqlalchemy.utils import (
     SQL_VERSION_HIGHER_EQUAL_THAN_2,
 )
 
+# fmt: off
 if SQL_VERSION_HIGHER_EQUAL_THAN_2:
     from sqlalchemy.sql.sqltypes import HasExpressionLookup  # noqa  # isort:skip
 else:
@@ -79,6 +81,18 @@ class CompositeFullName(object):
 
     def __repr__(self):
         return "{} {}".format(self.first_name, self.last_name)
+
+
+class ProxiedReporter(Base):
+    __tablename__ = "reporters_error"
+    id = Column(Integer(), primary_key=True)
+    first_name = Column(String(30), doc="First name")
+    last_name = Column(String(30), doc="Last name")
+    reporter_id = Column(Integer(), ForeignKey("reporters.id"))
+    reporter = relationship("Reporter", uselist=False)
+
+    # This is a hybrid property, we don't support proxies on hybrids yet
+    composite_prop = association_proxy("reporter", "composite_prop")
 
 
 class Reporter(Base):
@@ -138,6 +152,8 @@ class Reporter(Base):
         CompositeFullName, first_name, last_name, doc="Composite"
     )
 
+    headlines = association_proxy("articles", "headline")
+
 
 articles_tags_table = Table(
     "articles_tags",
@@ -169,6 +185,7 @@ class Article(Base):
     readers = relationship(
         "Reader", secondary="articles_readers", back_populates="articles"
     )
+    recommended_reads = association_proxy("reporter", "articles")
 
     # one-to-one relationship with image
     image_id = Column(Integer(), ForeignKey("images.id"), unique=True)

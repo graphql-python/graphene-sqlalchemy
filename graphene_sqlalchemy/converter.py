@@ -7,8 +7,14 @@ from typing import Any, Dict, Optional, TypeVar, Union, cast
 
 from sqlalchemy import types as sqa_types
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.orm import (
+    ColumnProperty,
+    RelationshipProperty,
+    class_mapper,
+    interfaces,
+    strategies,
+)
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import interfaces, strategies
 
 import graphene
 from graphene.types.json import JSONString
@@ -98,6 +104,49 @@ def get_column_doc(column):
 
 def is_column_nullable(column):
     return bool(getattr(column, "nullable", True))
+
+
+def convert_sqlalchemy_association_proxy(
+    parent,
+    assoc_prop,
+    obj_type,
+    registry,
+    connection_field_factory,
+    batching,
+    resolver,
+    **field_kwargs,
+):
+    def dynamic_type():
+        prop = class_mapper(parent).attrs[assoc_prop.target_collection]
+        scalar = not prop.uselist
+        model = prop.mapper.class_
+        attr = class_mapper(model).attrs[assoc_prop.value_attr]
+
+        if isinstance(attr, ColumnProperty):
+            field = convert_sqlalchemy_column(attr, registry, resolver, **field_kwargs)
+            if not scalar:
+                # repackage as List
+                field.__dict__["_type"] = graphene.List(field.type)
+            return field
+        elif isinstance(attr, RelationshipProperty):
+            return convert_sqlalchemy_relationship(
+                attr,
+                obj_type,
+                connection_field_factory,
+                field_kwargs.pop("batching", batching),
+                assoc_prop.value_attr,
+                **field_kwargs,
+            ).get_type()
+        else:
+            raise TypeError(
+                "Unsupported association proxy target type: {} for prop {} on type {}. "
+                "Please disable the conversion of this field using an ORMField.".format(
+                    type(attr), assoc_prop, obj_type
+                )
+            )
+        # else, not supported
+
+    return graphene.Dynamic(dynamic_type)
 
 
 def convert_sqlalchemy_relationship(

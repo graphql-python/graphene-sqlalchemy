@@ -80,6 +80,7 @@ async def test_query_fields(session):
             columnProp
             hybridProp
             compositeProp
+            headlines
           }
           reporters {
             firstName
@@ -92,6 +93,7 @@ async def test_query_fields(session):
             "hybridProp": "John",
             "columnProp": 2,
             "compositeProp": "John Doe",
+            "headlines": ["Hi!"],
         },
         "reporters": [{"firstName": "John"}, {"firstName": "Jane"}],
     }

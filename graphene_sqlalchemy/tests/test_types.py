@@ -138,6 +138,8 @@ def test_sqlalchemy_default_fields():
             "pets",
             "articles",
             "favorite_article",
+            # AssociationProxy
+            "headlines",
         ]
     )
 
@@ -205,6 +207,16 @@ def test_sqlalchemy_default_fields():
     assert isinstance(favorite_article_field, Dynamic)
     assert favorite_article_field.type().type == ArticleType
     assert favorite_article_field.type().description is None
+
+    # assocation proxy
+    assoc_field = ReporterType._meta.fields["headlines"]
+    assert isinstance(assoc_field, Dynamic)
+    assert isinstance(assoc_field.type().type, List)
+    assert assoc_field.type().type.of_type == String
+
+    assoc_field = ArticleType._meta.fields["recommended_reads"]
+    assert isinstance(assoc_field, Dynamic)
+    assert assoc_field.type().type == ArticleType.connection
 
 
 def test_sqlalchemy_override_fields():
@@ -275,6 +287,7 @@ def test_sqlalchemy_override_fields():
             "hybrid_prop_float",
             "hybrid_prop_bool",
             "hybrid_prop_list",
+            "headlines",
         ]
     )
 
@@ -390,6 +403,7 @@ def test_exclude_fields():
             "pets",
             "articles",
             "favorite_article",
+            "headlines",
         ]
     )
 
@@ -510,7 +524,7 @@ def test_custom_objecttype_registered():
 
     assert issubclass(CustomReporterType, ObjectType)
     assert CustomReporterType._meta.model == Reporter
-    assert len(CustomReporterType._meta.fields) == 17
+    assert len(CustomReporterType._meta.fields) == 18
 
 
 # Test Custom SQLAlchemyObjectType with Custom Options

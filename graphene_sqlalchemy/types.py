@@ -7,6 +7,7 @@ from inspect import isawaitable
 from typing import Any, Optional, Type, Union
 
 import sqlalchemy
+from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import ColumnProperty, CompositeProperty, RelationshipProperty
 from sqlalchemy.orm.exc import NoResultFound
@@ -22,6 +23,7 @@ from graphene.types.utils import yank_fields_from_attrs
 from graphene.utils.orderedtype import OrderedType
 
 from .converter import (
+    convert_sqlalchemy_association_proxy,
     convert_sqlalchemy_column,
     convert_sqlalchemy_composite,
     convert_sqlalchemy_hybrid_method,
@@ -303,7 +305,7 @@ def construct_fields_and_filters(
         + [
             (name, item)
             for name, item in inspected_model.all_orm_descriptors.items()
-            if isinstance(item, hybrid_property)
+            if isinstance(item, hybrid_property) or isinstance(item, AssociationProxy)
         ]
         + inspected_model.relationships.items()
     )
@@ -386,6 +388,17 @@ def construct_fields_and_filters(
             field = convert_sqlalchemy_composite(attr, registry, resolver)
         elif isinstance(attr, hybrid_property):
             field = convert_sqlalchemy_hybrid_method(attr, resolver, **orm_field.kwargs)
+        elif isinstance(attr, AssociationProxy):
+            field = convert_sqlalchemy_association_proxy(
+                model,
+                attr,
+                obj_type,
+                registry,
+                connection_field_factory,
+                batching,
+                resolver,
+                **orm_field.kwargs
+            )
         else:
             raise Exception("Property type is not supported")  # Should never happen
 
