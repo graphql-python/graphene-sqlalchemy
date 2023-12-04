@@ -135,15 +135,19 @@ def get_or_create_relationship_filter(
     relationship_filter = registry.get_relationship_filter_for_base_type(base_type)
 
     if not relationship_filter:
-        base_type_filter = registry.get_filter_for_base_type(base_type)
-        relationship_filter = RelationshipFilter.create_type(
-            f"{base_type.__name__}RelationshipFilter",
-            base_type_filter=base_type_filter,
-            model=base_type._meta.model,
-        )
-        registry.register_relationship_filter_for_base_type(
-            base_type, relationship_filter
-        )
+        try:
+            base_type_filter = registry.get_filter_for_base_type(base_type)
+            relationship_filter = RelationshipFilter.create_type(
+                f"{base_type.__name__}RelationshipFilter",
+                base_type_filter=base_type_filter,
+                model=base_type._meta.model,
+            )
+            registry.register_relationship_filter_for_base_type(
+                base_type, relationship_filter
+            )
+        except Exception as e:
+            print("e")
+            raise e
 
     return relationship_filter
 
@@ -397,14 +401,16 @@ def construct_fields_and_filters(
                 connection_field_factory,
                 batching,
                 resolver,
-                **orm_field.kwargs
+                **orm_field.kwargs,
             )
         else:
             raise Exception("Property type is not supported")  # Should never happen
 
         registry.register_orm_field(obj_type, orm_field_name, attr)
         fields[orm_field_name] = field
-        if filtering_enabled_for_field:
+        if filtering_enabled_for_field and not isinstance(attr, AssociationProxy):
+            # we don't support filtering on association proxies yet.
+            # Support will be patched in a future release of graphene-sqlalchemy
             filters[orm_field_name] = filter_field_from_type_field(
                 field, registry, filter_type, attr, attr_name
             )
