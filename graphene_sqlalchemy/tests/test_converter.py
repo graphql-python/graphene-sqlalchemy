@@ -1,13 +1,10 @@
 import enum
 import sys
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple, TypeVar, Union
 
-import graphene
 import pytest
 import sqlalchemy
 import sqlalchemy_utils as sqa_utils
-from graphene.relay import Node
-from graphene.types.structures import Structure
 from sqlalchemy import Column, func, types
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
@@ -15,15 +12,10 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import column_property, composite
 
-from .models import (
-    Article,
-    CompositeFullName,
-    Pet,
-    Reporter,
-    ShoppingCart,
-    ShoppingCartItem,
-)
-from .utils import wrap_select_func
+import graphene
+from graphene.relay import Node
+from graphene.types.structures import Structure
+
 from ..converter import (
     convert_sqlalchemy_association_proxy,
     convert_sqlalchemy_column,
@@ -47,6 +39,7 @@ from .models import (
     ShoppingCart,
     ShoppingCartItem,
 )
+from .utils import wrap_select_func
 
 
 def mock_resolver():
@@ -208,6 +201,17 @@ def test_hybrid_prop_forward_ref_mapped_to_graphene_type():
     get_hybrid_property_type(hybrid_prop).type == ShoppingCartType
 
 
+def test_converter_replace_type_var():
+
+    T = TypeVar("T")
+
+    replace_type_vars = {T: graphene.String}
+
+    field_type = convert_sqlalchemy_type(T, replace_type_vars=replace_type_vars)
+
+    assert field_type == graphene.String
+
+
 @pytest.mark.skipif(
     sys.version_info < (3, 10), reason="|-Style Unions are unsupported in python < 3.10"
 )
@@ -217,9 +221,9 @@ def test_hybrid_prop_scalar_union_310():
         return "not allowed in gql schema"
 
     with pytest.raises(
-            ValueError,
-            match=r"Cannot convert hybrid_property Union to "
-                  r"graphene.Union: the Union contains scalars. \.*",
+        ValueError,
+        match=r"Cannot convert hybrid_property Union to "
+        r"graphene.Union: the Union contains scalars. \.*",
     ):
         get_hybrid_property_type(prop_method)
 
@@ -495,7 +499,9 @@ def test_should_intenum_choice_convert_enum():
 
 def test_should_columproperty_convert():
     field = get_field_from_column(
-        column_property(wrap_select_func(func.sum(func.cast(id, types.Integer))).where(id == 1))
+        column_property(
+            wrap_select_func(func.sum(func.cast(id, types.Integer))).where(id == 1)
+        )
     )
 
     assert field.type == graphene.Int
@@ -912,8 +918,8 @@ def test_sqlalchemy_hybrid_property_type_inference():
     )
 
     for (
-            hybrid_prop_name,
-            hybrid_prop_expected_return_type,
+        hybrid_prop_name,
+        hybrid_prop_expected_return_type,
     ) in shopping_cart_item_expected_types.items():
         hybrid_prop_field = ShoppingCartItemType._meta.fields[hybrid_prop_name]
 
@@ -924,7 +930,7 @@ def test_sqlalchemy_hybrid_property_type_inference():
             str(hybrid_prop_expected_return_type),
         )
         assert (
-                hybrid_prop_field.description is None
+            hybrid_prop_field.description is None
         )  # "doc" is ignored by hybrid property
 
     ###################################################
@@ -949,6 +955,7 @@ def test_sqlalchemy_hybrid_property_type_inference():
             graphene.List(graphene.List(graphene.Int))
         ),
         "hybrid_prop_first_shopping_cart_item": ShoppingCartItemType,
+        "hybrid_prop_first_shopping_cart_item_expression": ShoppingCartItemType,
         "hybrid_prop_shopping_cart_item_list": graphene.List(ShoppingCartItemType),
         # Self Referential List
         "hybrid_prop_self_referential": ShoppingCartType,
@@ -971,8 +978,8 @@ def test_sqlalchemy_hybrid_property_type_inference():
     )
 
     for (
-            hybrid_prop_name,
-            hybrid_prop_expected_return_type,
+        hybrid_prop_name,
+        hybrid_prop_expected_return_type,
     ) in shopping_cart_expected_types.items():
         hybrid_prop_field = ShoppingCartType._meta.fields[hybrid_prop_name]
 
@@ -983,5 +990,5 @@ def test_sqlalchemy_hybrid_property_type_inference():
             str(hybrid_prop_expected_return_type),
         )
         assert (
-                hybrid_prop_field.description is None
+            hybrid_prop_field.description is None
         )  # "doc" is ignored by hybrid property

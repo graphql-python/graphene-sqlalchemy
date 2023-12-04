@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from graphene import (
     Boolean,
+    DefaultGlobalIDType,
     Dynamic,
     Field,
     Float,
@@ -42,6 +43,7 @@ from ..utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4
 from .models import (
     Article,
     CompositeFullName,
+    CompositePrimaryKeyTestModel,
     Employee,
     NonAbstractPerson,
     Person,
@@ -511,6 +513,55 @@ async def test_resolvers(session):
 
 
 # Test Custom SQLAlchemyObjectType Implementation
+
+
+@pytest.mark.asyncio
+async def test_composite_id_resolver(session):
+    """Test that the correct resolver functions are called"""
+
+    composite_reporter = CompositePrimaryKeyTestModel(
+        first_name="graphql", last_name="foundation"
+    )
+
+    session.add(composite_reporter)
+    await eventually_await_session(session, "commit")
+
+    class CompositePrimaryKeyTestModelType(SQLAlchemyObjectType):
+        class Meta:
+            model = CompositePrimaryKeyTestModel
+            interfaces = (Node,)
+
+    class Query(ObjectType):
+        composite_reporter = Field(CompositePrimaryKeyTestModelType)
+
+        async def resolve_composite_reporter(self, _info):
+            session = utils.get_session(_info.context)
+            if SQL_VERSION_HIGHER_EQUAL_THAN_1_4 and isinstance(session, AsyncSession):
+                return (
+                    (await session.scalars(select(CompositePrimaryKeyTestModel)))
+                    .unique()
+                    .first()
+                )
+            return session.query(CompositePrimaryKeyTestModel).first()
+
+    schema = Schema(query=Query)
+    result = await schema.execute_async(
+        """
+        query {
+            compositeReporter {
+                id
+                firstName
+                lastName
+            }
+        }
+    """,
+        context_value={"session": session},
+    )
+
+    assert not result.errors
+    assert result.data["compositeReporter"]["id"] == DefaultGlobalIDType.to_global_id(
+        CompositePrimaryKeyTestModelType, str(("graphql", "foundation"))
+    )
 
 
 def test_custom_objecttype_registered():

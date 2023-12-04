@@ -6,6 +6,7 @@ import uuid
 from decimal import Decimal
 from typing import List, Optional
 
+# fmt: off
 from sqlalchemy import (
     Column,
     Date,
@@ -24,7 +25,10 @@ from sqlalchemy.orm import backref, column_property, composite, mapper, relation
 from sqlalchemy.sql.type_api import TypeEngine
 
 from graphene_sqlalchemy.tests.utils import wrap_select_func
-from graphene_sqlalchemy.utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4, SQL_VERSION_HIGHER_EQUAL_THAN_2
+from graphene_sqlalchemy.utils import (
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4,
+    SQL_VERSION_HIGHER_EQUAL_THAN_2,
+)
 
 # fmt: off
 if SQL_VERSION_HIGHER_EQUAL_THAN_2:
@@ -64,6 +68,7 @@ class Pet(Base):
     pet_kind = Column(PetKind, nullable=False)
     hair_kind = Column(Enum(HairKind, name="hair_kind"), nullable=False)
     reporter_id = Column(Integer(), ForeignKey("reporters.id"))
+    legs = Column(Integer(), default=4)
 
 
 class CompositeFullName(object):
@@ -150,6 +155,27 @@ class Reporter(Base):
     headlines = association_proxy("articles", "headline")
 
 
+articles_tags_table = Table(
+    "articles_tags",
+    Base.metadata,
+    Column("article_id", ForeignKey("articles.id")),
+    Column("tag_id", ForeignKey("tags.id")),
+)
+
+
+class Image(Base):
+    __tablename__ = "images"
+    id = Column(Integer(), primary_key=True)
+    external_id = Column(Integer())
+    description = Column(String(30))
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+    id = Column(Integer(), primary_key=True)
+    name = Column(String(30))
+
+
 class Article(Base):
     __tablename__ = "articles"
     id = Column(Integer(), primary_key=True)
@@ -160,6 +186,13 @@ class Article(Base):
         "Reader", secondary="articles_readers", back_populates="articles"
     )
     recommended_reads = association_proxy("reporter", "articles")
+
+    # one-to-one relationship with image
+    image_id = Column(Integer(), ForeignKey("images.id"), unique=True)
+    image = relationship("Image", backref=backref("articles", uselist=False))
+
+    # many-to-many relationship with tags
+    tags = relationship("Tag", secondary=articles_tags_table, backref="articles")
 
 
 class Reader(Base):
@@ -273,10 +306,19 @@ class ShoppingCart(Base):
             ],
         ]
 
-    # Other SQLAlchemy Instances
+    # Other SQLAlchemy Instance
     @hybrid_property
     def hybrid_prop_first_shopping_cart_item(self) -> ShoppingCartItem:
         return ShoppingCartItem(id=1)
+
+    # Other SQLAlchemy Instance with expression
+    @hybrid_property
+    def hybrid_prop_first_shopping_cart_item_expression(self) -> ShoppingCartItem:
+        return ShoppingCartItem(id=1)
+
+    @hybrid_prop_first_shopping_cart_item_expression.expression
+    def hybrid_prop_first_shopping_cart_item_expression(cls):
+        return ShoppingCartItem
 
     # Other SQLAlchemy Instances
     @hybrid_property
@@ -394,3 +436,10 @@ class CustomColumnModel(Base):
 
     id = Column(Integer(), primary_key=True)
     custom_col = Column(CustomIntegerColumn)
+
+
+class CompositePrimaryKeyTestModel(Base):
+    __tablename__ = "compositekeytestmodel"
+
+    first_name = Column(String(30), primary_key=True)
+    last_name = Column(String(30), primary_key=True)
