@@ -2,6 +2,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from typing_extensions import Literal
 
 import graphene
 from graphene_sqlalchemy.utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4
@@ -25,14 +26,23 @@ def reset_registry():
         return graphene.Field(graphene.Int)
 
 
-@pytest.fixture(params=[False, True])
-def async_session(request):
+# make a typed literal for session one is sync and one is async
+SESSION_TYPE = Literal["sync", "session_factory"]
+
+
+@pytest.fixture(params=["sync", "async"])
+def session_type(request) -> SESSION_TYPE:
     return request.param
 
 
 @pytest.fixture
-def test_db_url(async_session: bool):
-    if async_session:
+def async_session(session_type):
+    return session_type == "async"
+
+
+@pytest.fixture
+def test_db_url(session_type: SESSION_TYPE):
+    if session_type == "async":
         return "sqlite+aiosqlite://"
     else:
         return "sqlite://"
@@ -40,8 +50,8 @@ def test_db_url(async_session: bool):
 
 @pytest.mark.asyncio
 @pytest_asyncio.fixture(scope="function")
-async def session_factory(async_session: bool, test_db_url: str):
-    if async_session:
+async def session_factory(session_type: SESSION_TYPE, test_db_url: str):
+    if session_type == "async":
         if not SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
             pytest.skip("Async Sessions only work in sql alchemy 1.4 and above")
         engine = create_async_engine(test_db_url)

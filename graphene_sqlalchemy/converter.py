@@ -3,7 +3,7 @@ import sys
 import typing
 import uuid
 from decimal import Decimal
-from typing import Any, Optional, Union, cast
+from typing import Any, Dict, Optional, TypeVar, Union, cast
 
 from sqlalchemy import types as sqa_types
 from sqlalchemy.dialects import postgresql
@@ -21,7 +21,6 @@ from graphene.types.json import JSONString
 
 from .batching import get_batch_resolver
 from .enums import enum_for_sa_enum
-from .fields import BatchSQLAlchemyConnectionField, default_connection_field_factory
 from .registry import Registry, get_global_registry
 from .resolvers import get_attr_resolver, get_custom_resolver
 from .utils import (
@@ -237,6 +236,8 @@ def _convert_o2m_or_m2m_relationship(
     :param dict field_kwargs:
     :rtype: Field
     """
+    from .fields import BatchSQLAlchemyConnectionField, default_connection_field_factory
+
     child_type = obj_type._meta.registry.get_type_for_model(
         relationship_prop.mapper.entity
     )
@@ -332,8 +333,12 @@ def convert_sqlalchemy_type(  # noqa
     type_arg: Any,
     column: Optional[Union[MapperProperty, hybrid_property]] = None,
     registry: Registry = None,
+    replace_type_vars: typing.Dict[str, Any] = None,
     **kwargs,
 ):
+    if replace_type_vars and type_arg in replace_type_vars:
+        return replace_type_vars[type_arg]
+
     # No valid type found, raise an error
 
     raise TypeError(
@@ -371,6 +376,11 @@ def convert_object_type(type_arg: Any, **kwargs):
 @convert_sqlalchemy_type.register(safe_issubclass(graphene.Scalar))
 def convert_scalar_type(type_arg: Any, **kwargs):
     return type_arg
+
+
+@convert_sqlalchemy_type.register(safe_isinstance(TypeVar))
+def convert_type_var(type_arg: Any, replace_type_vars: Dict[TypeVar, Any], **kwargs):
+    return replace_type_vars[type_arg]
 
 
 @convert_sqlalchemy_type.register(column_type_eq(str))
@@ -618,6 +628,7 @@ def convert_sqlalchemy_hybrid_property_union(type_arg: Any, **kwargs):
     # Just get the T out of the list of arguments by filtering out the NoneType
     nested_types = list(filter(lambda x: not type(None) == x, type_arg.__args__))
 
+    # TODO redo this for , *args, **kwargs
     # Map the graphene types to the nested types.
     # We use convert_sqlalchemy_hybrid_property_type instead of the registry to account for ForwardRefs, Lists,...
     graphene_types = list(map(convert_sqlalchemy_type, nested_types))

@@ -5,13 +5,19 @@ from functools import partial
 from promise import Promise, is_thenable
 from sqlalchemy.orm.query import Query
 
-from graphene import NonNull
 from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import connection_adapter, page_info_adapter
 from graphql_relay import connection_from_array_slice
 
 from .batching import get_batch_resolver
-from .utils import SQL_VERSION_HIGHER_EQUAL_THAN_1_4, EnumValue, get_query, get_session
+from .filters import BaseTypeFilter
+from .utils import (
+    SQL_VERSION_HIGHER_EQUAL_THAN_1_4,
+    EnumValue,
+    get_nullable_type,
+    get_query,
+    get_session,
+)
 
 if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,6 +46,7 @@ class SQLAlchemyConnectionField(ConnectionField):
 
     def __init__(self, type_, *args, **kwargs):
         nullable_type = get_nullable_type(type_)
+        # Handle Sorting and Filtering
         if (
             "sort" not in kwargs
             and nullable_type
@@ -57,6 +64,19 @@ class SQLAlchemyConnectionField(ConnectionField):
                 )
         elif "sort" in kwargs and kwargs["sort"] is None:
             del kwargs["sort"]
+
+        if (
+            "filter" not in kwargs
+            and nullable_type
+            and issubclass(nullable_type, Connection)
+        ):
+            # Only add filtering if a filter argument exists on the object type
+            filter_argument = nullable_type.Edge.node._type.get_filter_argument()
+            if filter_argument:
+                kwargs.setdefault("filter", filter_argument)
+        elif "filter" in kwargs and kwargs["filter"] is None:
+            del kwargs["filter"]
+
         super(SQLAlchemyConnectionField, self).__init__(type_, *args, **kwargs)
 
     @property
@@ -64,7 +84,7 @@ class SQLAlchemyConnectionField(ConnectionField):
         return get_nullable_type(self.type)._meta.node._meta.model
 
     @classmethod
-    def get_query(cls, model, info, sort=None, **args):
+    def get_query(cls, model, info, sort=None, filter=None, **args):
         query = get_query(model, info.context)
         if sort is not None:
             if not isinstance(sort, list):
@@ -80,6 +100,12 @@ class SQLAlchemyConnectionField(ConnectionField):
                 else:
                     sort_args.append(item)
             query = query.order_by(*sort_args)
+
+        if filter is not None:
+            assert isinstance(filter, dict)
+            filter_type: BaseTypeFilter = type(filter)
+            query, clauses = filter_type.execute_filters(query, filter)
+            query = query.filter(*clauses)
         return query
 
     @classmethod
@@ -264,9 +290,3 @@ def unregisterConnectionFieldFactory():
     )
     global __connectionFactory
     __connectionFactory = UnsortedSQLAlchemyConnectionField
-
-
-def get_nullable_type(_type):
-    if isinstance(_type, NonNull):
-        return _type.of_type
-    return _type

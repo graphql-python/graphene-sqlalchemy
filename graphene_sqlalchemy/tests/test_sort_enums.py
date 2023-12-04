@@ -41,6 +41,8 @@ def test_sort_enum():
         "HAIR_KIND_DESC",
         "REPORTER_ID_ASC",
         "REPORTER_ID_DESC",
+        "LEGS_ASC",
+        "LEGS_DESC",
     ]
     assert str(sort_enum.ID_ASC.value.value) == "pets.id ASC"
     assert str(sort_enum.ID_DESC.value.value) == "pets.id DESC"
@@ -95,6 +97,8 @@ def test_sort_enum_with_excluded_field_in_object_type():
         "PET_KIND_DESC",
         "HAIR_KIND_ASC",
         "HAIR_KIND_DESC",
+        "LEGS_ASC",
+        "LEGS_DESC",
     ]
 
 
@@ -135,6 +139,8 @@ def test_sort_argument():
         "HAIR_KIND_DESC",
         "REPORTER_ID_ASC",
         "REPORTER_ID_DESC",
+        "LEGS_ASC",
+        "LEGS_DESC",
     ]
     assert str(sort_enum.ID_ASC.value.value) == "pets.id ASC"
     assert str(sort_enum.ID_DESC.value.value) == "pets.id DESC"
@@ -149,7 +155,7 @@ def test_sort_argument_with_excluded_fields_in_object_type():
     class PetType(SQLAlchemyObjectType):
         class Meta:
             model = Pet
-            exclude_fields = ["hair_kind", "reporter_id"]
+            exclude_fields = ["hair_kind", "reporter_id", "legs"]
 
     sort_arg = PetType.sort_argument()
     sort_enum = sort_arg.type._of_type
@@ -238,6 +244,8 @@ def test_sort_argument_with_custom_symbol_names():
         "HairKindDown",
         "ReporterIdUp",
         "ReporterIdDown",
+        "LegsUp",
+        "LegsDown",
     ]
     assert sort_arg.default_value == ["IdUp"]
 

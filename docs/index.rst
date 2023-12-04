@@ -10,6 +10,7 @@ Contents:
    inheritance
    relay
    tips
+   filters
    examples
    tutorial
    api

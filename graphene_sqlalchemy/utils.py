@@ -1,4 +1,5 @@
 import re
+import typing
 import warnings
 from collections import OrderedDict
 from functools import _c3_mro
@@ -9,6 +10,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm import class_mapper, object_mapper
 from sqlalchemy.orm.exc import UnmappedClassError, UnmappedInstanceError
+
+from graphene import NonNull
+
+
+def get_nullable_type(_type):
+    if isinstance(_type, NonNull):
+        return _type.of_type
+    return _type
 
 
 def is_sqlalchemy_version_less_than(version_string):
@@ -257,6 +266,10 @@ def registry_sqlalchemy_model_from_str(model_name: str) -> Optional[Any]:
         )
     except StopIteration:
         pass
+
+
+def is_list(x):
+    return getattr(x, "__origin__", None) in [list, typing.List]
 
 
 class DummyImport:
