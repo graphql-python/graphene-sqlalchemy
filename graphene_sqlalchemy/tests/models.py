@@ -436,3 +436,10 @@ class CustomColumnModel(Base):
 
     id = Column(Integer(), primary_key=True)
     custom_col = Column(CustomIntegerColumn)
+
+
+class CompositePrimaryKeyTestModel(Base):
+    __tablename__ = "compositekeytestmodel"
+
+    first_name = Column(String(30), primary_key=True)
+    last_name = Column(String(30), primary_key=True)
