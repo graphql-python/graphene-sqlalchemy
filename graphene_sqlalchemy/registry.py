@@ -95,15 +95,10 @@ class Registry(object):
         return self._registry_enums.get(sa_enum)
 
     def register_sort_enum(self, obj_type, sort_enum: Enum):
+        from .types import SQLAlchemyBase
 
-        from .types import SQLAlchemyObjectType
-
-        if not isinstance(obj_type, type) or not issubclass(
-            obj_type, SQLAlchemyObjectType
-        ):
-            raise TypeError(
-                "Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type)
-            )
+        if not isinstance(obj_type, type) or not issubclass(obj_type, SQLAlchemyBase):
+            raise TypeError("Expected SQLAlchemyBase, but got: {!r}".format(obj_type))
         if not isinstance(sort_enum, type(Enum)):
             raise TypeError("Expected Graphene Enum, but got: {!r}".format(sort_enum))
         self._registry_sort_enums[obj_type] = sort_enum
