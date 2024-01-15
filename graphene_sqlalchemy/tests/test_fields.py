@@ -51,7 +51,7 @@ def test_promise_connection_resolver():
 
 
 def test_type_assert_sqlalchemy_object_type():
-    with pytest.raises(AssertionError, match="only accepts SQLAlchemyObjectType"):
+    with pytest.raises(AssertionError, match="only accepts SQLAlchemyBase types"):
         SQLAlchemyConnectionField(ObjectType).type
 
 

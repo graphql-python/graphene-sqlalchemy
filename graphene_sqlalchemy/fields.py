@@ -26,14 +26,14 @@ if SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
 class SQLAlchemyConnectionField(ConnectionField):
     @property
     def type(self):
-        from .types import SQLAlchemyObjectType
+        from .types import SQLAlchemyBase
 
         type_ = super(ConnectionField, self).type
         nullable_type = get_nullable_type(type_)
         if issubclass(nullable_type, Connection):
             return type_
-        assert issubclass(nullable_type, SQLAlchemyObjectType), (
-            "SQLALchemyConnectionField only accepts SQLAlchemyObjectType types, not {}"
+        assert issubclass(nullable_type, SQLAlchemyBase), (
+            "SQLALchemyConnectionField only accepts SQLAlchemyBase types, not {}"
         ).format(nullable_type.__name__)
         assert nullable_type.connection, "The type {} doesn't have a connection".format(
             nullable_type.__name__
