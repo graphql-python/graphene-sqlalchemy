@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, TypeVar, Union, cast
 
 from sqlalchemy import types as sqa_types
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
     ColumnProperty,
     RelationshipProperty,
@@ -14,7 +15,6 @@ from sqlalchemy.orm import (
     interfaces,
     strategies,
 )
-from sqlalchemy.ext.hybrid import hybrid_property
 
 import graphene
 from graphene.types.json import JSONString
@@ -159,7 +159,7 @@ def convert_sqlalchemy_relationship(
 ):
     """
     :param sqlalchemy.RelationshipProperty relationship_prop:
-    :param SQLAlchemyObjectType obj_type:
+    :param SQLAlchemyBase obj_type:
     :param function|None connection_field_factory:
     :param bool batching:
     :param str orm_field_name:
@@ -202,7 +202,7 @@ def _convert_o2o_or_m2o_relationship(
     Convert one-to-one or many-to-one relationshsip. Return an object field.
 
     :param sqlalchemy.RelationshipProperty relationship_prop:
-    :param SQLAlchemyObjectType obj_type:
+    :param SQLAlchemyBase obj_type:
     :param bool batching:
     :param str orm_field_name:
     :param dict field_kwargs:
@@ -230,7 +230,7 @@ def _convert_o2m_or_m2m_relationship(
     Convert one-to-many or many-to-many relationshsip. Return a list field or a connection field.
 
     :param sqlalchemy.RelationshipProperty relationship_prop:
-    :param SQLAlchemyObjectType obj_type:
+    :param SQLAlchemyBase obj_type:
     :param bool batching:
     :param function|None connection_field_factory:
     :param dict field_kwargs:
@@ -362,7 +362,7 @@ def convert_sqlalchemy_model_using_registry(
         raise TypeError(
             "No model found in Registry for type %s. "
             "Only references to SQLAlchemy Models mapped to "
-            "SQLAlchemyObjectTypes are allowed." % type_arg
+            "SQLAlchemyBase types are allowed." % type_arg
         )
 
     return get_type_from_registry()
@@ -680,7 +680,7 @@ def convert_sqlalchemy_hybrid_property_forwardref(type_arg: Any, **kwargs):
             raise TypeError(
                 "No model found in Registry for forward reference for type %s. "
                 "Only forward references to other SQLAlchemy Models mapped to "
-                "SQLAlchemyObjectTypes are allowed." % type_arg
+                "SQLAlchemyBase types are allowed." % type_arg
             )
         # Always fall back to string if no ForwardRef type found.
         return get_global_registry().get_type_for_model(model)

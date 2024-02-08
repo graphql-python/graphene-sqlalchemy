@@ -19,7 +19,7 @@ def get_attr_resolver(obj_type, model_attr):
     In order to support field renaming via `ORMField.model_attr`,
     we need to define resolver functions for each field.
 
-    :param SQLAlchemyObjectType obj_type:
+    :param SQLAlchemyBase obj_type:
     :param str model_attr: the name of the SQLAlchemy attribute
     :rtype: Callable
     """

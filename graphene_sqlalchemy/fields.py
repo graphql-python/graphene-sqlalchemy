@@ -39,8 +39,8 @@ class SQLAlchemyConnectionField(ConnectionField):
             nullable_type.__name__
         )
         assert type_ == nullable_type, (
-            "Passing a SQLAlchemyObjectType instance is deprecated. "
-            "Pass the connection type instead accessible via SQLAlchemyObjectType.connection"
+            "Passing a SQLAlchemyBase instance is deprecated. "
+            "Pass the connection type instead accessible via SQLAlchemyBase.connection"
         )
         return nullable_type.connection
 
@@ -266,7 +266,7 @@ __connectionFactory = UnsortedSQLAlchemyConnectionField
 def createConnectionField(type_, **field_kwargs):
     warnings.warn(
         "createConnectionField is deprecated and will be removed in the next "
-        "major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.",
+        "major version. Use SQLAlchemyBase.Meta.connection_field_factory instead.",
         DeprecationWarning,
     )
     return __connectionFactory(type_, **field_kwargs)
@@ -275,7 +275,7 @@ def createConnectionField(type_, **field_kwargs):
 def registerConnectionFieldFactory(factoryMethod):
     warnings.warn(
         "registerConnectionFieldFactory is deprecated and will be removed in the next "
-        "major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.",
+        "major version. Use SQLAlchemyBase.Meta.connection_field_factory instead.",
         DeprecationWarning,
     )
     global __connectionFactory
@@ -285,7 +285,7 @@ def registerConnectionFieldFactory(factoryMethod):
 def unregisterConnectionFieldFactory():
     warnings.warn(
         "registerConnectionFieldFactory is deprecated and will be removed in the next "
-        "major version. Use SQLAlchemyObjectType.Meta.connection_field_factory instead.",
+        "major version. Use SQLAlchemyBase.Meta.connection_field_factory instead.",
         DeprecationWarning,
     )
     global __connectionFactory
