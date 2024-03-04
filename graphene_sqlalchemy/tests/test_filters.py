@@ -1214,7 +1214,7 @@ async def test_filter_relationship_no_base_type(session):
 
 
 @pytest.mark.asyncio
-async def test_filter_(session):
+async def test_filter_invalid_filter_method(session):
     with pytest.raises(
         TypeError,
         match=r"(.*)Each filter method must have a 'val' field with valid type annotations.(.*)",

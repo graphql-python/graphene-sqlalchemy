@@ -79,9 +79,11 @@ class BaseTypeFilter(graphene.InputObjectType):
         new_filter_fields = {}
         # Generate Graphene Fields from the filter functions based on type hints
         for field_name, _annotations in logic_functions:
-            assert (
-                "val" in _annotations
-            ), "Each filter method must have a value field with valid type annotations"
+            if "val" not in _annotations:
+                raise TypeError(
+                    "Each filter method must have a 'val' field with valid type annotations."
+                )
+
             # If type is generic, replace with actual type of filter class
 
             replace_type_vars = {BaseTypeFilterSelf: cls}
@@ -252,9 +254,11 @@ class FieldFilter(graphene.InputObjectType):
         new_filter_fields = {}
         # Generate Graphene Fields from the filter functions based on type hints
         for field_name, _annotations in filter_functions:
-            assert (
-                "val" in _annotations
-            ), "Each filter method must have a value field with valid type annotations"
+            if "val" not in _annotations:
+                raise TypeError(
+                    "Each filter method must have a 'val' field with valid type annotations."
+                )
+
             # If type is generic, replace with actual type of filter class
             replace_type_vars = {ScalarFilterInputType: _meta.graphene_type}
             field_type = convert_sqlalchemy_type(
