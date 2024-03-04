@@ -79,13 +79,7 @@ class BaseTypeFilter(graphene.InputObjectType):
         new_filter_fields = {}
         # Generate Graphene Fields from the filter functions based on type hints
         for field_name, _annotations in logic_functions:
-            if "val" not in _annotations:
-                raise TypeError(
-                    "Each filter method must have a 'val' field with valid type annotations."
-                )
-
             # If type is generic, replace with actual type of filter class
-
             replace_type_vars = {BaseTypeFilterSelf: cls}
             field_type = convert_sqlalchemy_type(
                 _annotations.get("val", str), replace_type_vars=replace_type_vars
@@ -445,11 +439,6 @@ class RelationshipFilter(graphene.InputObjectType):
 
         # Generate Graphene Fields from the filter functions based on type hints
         for field_name, _annotations in filter_functions:
-            if "val" not in _annotations:
-                raise TypeError(
-                    "Each filter method must have a 'val' field with valid type annotations."
-                )
-
             # If type is generic, replace with actual type of filter class
             if is_list(_annotations["val"]):
                 relationship_filters.update(

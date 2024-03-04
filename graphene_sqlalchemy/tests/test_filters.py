@@ -1215,12 +1215,14 @@ async def test_filter_relationship_no_base_type(session):
 
 @pytest.mark.asyncio
 async def test_filter_invalid_filter_method(session):
+
+    # Field filter
     with pytest.raises(
         TypeError,
         match=r"(.*)Each filter method must have a 'val' field with valid type annotations.(.*)",
     ):
 
-        class InvalidFilter(FloatFilter):
+        class InvalidFieldFilter(FloatFilter):
             class Meta:
                 graphene_type = graphene.Float
 
