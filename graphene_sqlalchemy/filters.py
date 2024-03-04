@@ -309,10 +309,7 @@ class FieldFilter(graphene.InputObjectType):
 
 
 class SQLEnumFilter(FieldFilter):
-    """Basic Filter for Scalars in Graphene.
-    We want this filter to use Dynamic fields so it provides the base
-    filtering methods ("eq, nEq") for different types of scalars.
-    The Dynamic fields will resolve to Meta.filtered_type"""
+    """Basic Filter for SQL Enums in Graphene."""
 
     class Meta:
         graphene_type = graphene.Enum
@@ -332,10 +329,7 @@ class SQLEnumFilter(FieldFilter):
 
 
 class PyEnumFilter(FieldFilter):
-    """Basic Filter for Scalars in Graphene.
-    We want this filter to use Dynamic fields so it provides the base
-    filtering methods ("eq, nEq") for different types of scalars.
-    The Dynamic fields will resolve to Meta.filtered_type"""
+    """Basic Filter for Python Enums in Graphene."""
 
     class Meta:
         graphene_type = graphene.Enum
