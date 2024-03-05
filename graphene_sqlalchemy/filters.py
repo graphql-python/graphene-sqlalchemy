@@ -415,6 +415,13 @@ class DateFilter(OrderedFilter):
         graphene_type = graphene.Date
 
 
+class DateTimeFilter(OrderedFilter):
+    """Concrete Filter Class which specifies a type for all the abstract filter methods defined in the super classes"""
+
+    class Meta:
+        graphene_type = graphene.DateTime
+
+
 class IdFilter(FieldFilter):
     class Meta:
         graphene_type = graphene.ID
