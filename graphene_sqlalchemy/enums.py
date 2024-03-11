@@ -53,10 +53,10 @@ def enum_for_sa_enum(sa_enum, registry):
 
 def enum_for_field(obj_type, field_name):
     """Return the Graphene Enum type for the specified Graphene field."""
-    from .types import SQLAlchemyObjectType
+    from .types import SQLAlchemyBase
 
-    if not isinstance(obj_type, type) or not issubclass(obj_type, SQLAlchemyObjectType):
-        raise TypeError("Expected SQLAlchemyObjectType, but got: {!r}".format(obj_type))
+    if not isinstance(obj_type, type) or not issubclass(obj_type, SQLAlchemyBase):
+        raise TypeError("Expected SQLAlchemyBase, but got: {!r}".format(obj_type))
     if not field_name or not isinstance(field_name, str):
         raise TypeError("Expected a field name, but got: {!r}".format(field_name))
     registry = obj_type._meta.registry
@@ -88,10 +88,10 @@ def _default_sort_enum_symbol_name(column_name, sort_asc=True):
 def sort_enum_for_object_type(
     obj_type, name=None, only_fields=None, only_indexed=None, get_symbol_name=None
 ):
-    """Return Graphene Enum for sorting the given SQLAlchemyObjectType.
+    """Return Graphene Enum for sorting the given SQLAlchemyBase.
 
     Parameters
-    - obj_type : SQLAlchemyObjectType
+    - obj_type : SQLAlchemyBase
         The object type for which the sort Enum shall be generated.
     - name : str, optional, default None
         Name to use for the sort Enum.
@@ -160,10 +160,10 @@ def sort_argument_for_object_type(
     get_symbol_name=None,
     has_default=True,
 ):
-    """ "Returns Graphene Argument for sorting the given SQLAlchemyObjectType.
+    """ "Returns Graphene Argument for sorting the given SQLAlchemyBase.
 
     Parameters
-    - obj_type : SQLAlchemyObjectType
+    - obj_type : SQLAlchemyBase
         The object type for which the sort Argument shall be generated.
     - enum_name : str, optional, default None
         Name to use for the sort Enum.

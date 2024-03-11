@@ -120,7 +120,7 @@ def test_register_sort_enum_incorrect_types():
         [("ID", EnumValue("id", Pet.id)), ("NAME", EnumValue("name", Pet.name))],
     )
 
-    re_err = r"Expected SQLAlchemyObjectType, but got: .*PetSort.*"
+    re_err = r"Expected SQLAlchemyBase, but got: .*PetSort.*"
     with pytest.raises(TypeError, match=re_err):
         reg.register_sort_enum(sort_enum, sort_enum)
 

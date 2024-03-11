@@ -402,6 +402,46 @@ class Employee(Person):
     }
 
 
+class Owner(Base):
+    id = Column(Integer(), primary_key=True)
+    name = Column(String())
+
+    accounts = relationship(lambda: Account, back_populates="owner", lazy="selectin")
+
+    __tablename__ = "owner"
+
+
+class Account(Base):
+    id = Column(Integer(), primary_key=True)
+    type = Column(String())
+
+    owner_id = Column(Integer(), ForeignKey(Owner.__table__.c.id))
+    owner = relationship(Owner, back_populates="accounts")
+
+    balance = Column(Integer())
+
+    __tablename__ = "account"
+    __mapper_args__ = {
+        "polymorphic_on": type,
+    }
+
+
+class CurrentAccount(Account):
+    overdraft = Column(Integer())
+
+    __mapper_args__ = {
+        "polymorphic_identity": "current",
+    }
+
+
+class SavingsAccount(Account):
+    interest_rate = Column(Integer())
+
+    __mapper_args__ = {
+        "polymorphic_identity": "savings",
+    }
+
+
 ############################################
 # Custom Test Models
 ############################################

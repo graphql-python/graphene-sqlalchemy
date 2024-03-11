@@ -130,7 +130,7 @@ def test_hybrid_invalid_forward_reference():
     with pytest.raises(
         TypeError,
         match=r"(.*)Only forward references to other SQLAlchemy Models mapped to "
-        "SQLAlchemyObjectTypes are allowed.(.*)",
+        "SQLAlchemyBase types are allowed.(.*)",
     ):
         get_hybrid_property_type(hybrid_prop).type
 

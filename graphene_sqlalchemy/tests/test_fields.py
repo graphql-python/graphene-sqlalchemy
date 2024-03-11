@@ -5,8 +5,10 @@ from graphene import NonNull, ObjectType
 from graphene.relay import Connection, Node
 
 from ..fields import SQLAlchemyConnectionField, UnsortedSQLAlchemyConnectionField
-from ..types import SQLAlchemyObjectType
+from ..types import SQLAlchemyInterface, SQLAlchemyObjectType
 from .models import Editor as EditorModel
+from .models import Employee as EmployeeModel
+from .models import Person as PersonModel
 from .models import Pet as PetModel
 
 
@@ -19,6 +21,18 @@ class Pet(SQLAlchemyObjectType):
 class Editor(SQLAlchemyObjectType):
     class Meta:
         model = EditorModel
+
+
+class Person(SQLAlchemyInterface):
+    class Meta:
+        model = PersonModel
+        use_connection = True
+
+
+class Employee(SQLAlchemyObjectType):
+    class Meta:
+        model = EmployeeModel
+        interfaces = (Person, Node)
 
 
 ##
@@ -51,7 +65,7 @@ def test_promise_connection_resolver():
 
 
 def test_type_assert_sqlalchemy_object_type():
-    with pytest.raises(AssertionError, match="only accepts SQLAlchemyObjectType"):
+    with pytest.raises(AssertionError, match="only accepts SQLAlchemyBase types"):
         SQLAlchemyConnectionField(ObjectType).type
 
 
@@ -91,3 +105,10 @@ def test_custom_sort():
 def test_sort_init_raises():
     with pytest.raises(TypeError, match="Cannot create sort"):
         SQLAlchemyConnectionField(Connection)
+
+
+def test_interface_required_sqlalachemy_connection():
+    field = SQLAlchemyConnectionField(Person.connection, required=True)
+    assert isinstance(field.type, NonNull)
+    assert issubclass(field.type.of_type, Connection)
+    assert field.type.of_type._meta.node is Person

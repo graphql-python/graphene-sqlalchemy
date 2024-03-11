@@ -6,15 +6,19 @@ from graphene import Connection, relay
 
 from ..fields import SQLAlchemyConnectionField
 from ..filters import FloatFilter
-from ..types import ORMField, SQLAlchemyObjectType
+from ..types import ORMField, SQLAlchemyInterface, SQLAlchemyObjectType
 from .models import (
+    Account,
     Article,
+    CurrentAccount,
     Editor,
     HairKind,
     Image,
+    Owner,
     Pet,
     Reader,
     Reporter,
+    SavingsAccount,
     ShoppingCart,
     ShoppingCartItem,
     Tag,
@@ -1197,5 +1201,151 @@ async def test_additional_filters(session):
         "pets": {"edges": [{"node": {"name": "Snoopy"}}]},
     }
     schema = graphene.Schema(query=Query)
+    result = await schema.execute_async(query, context_value={"session": session})
+    assert_and_raise_result(result, expected)
+
+
+# Test relationship filter for interface fields
+async def add_relationship_interface_test_data(session):
+    owner1 = Owner(name="John Doe")
+    owner2 = Owner(name="Jane Doe")
+    session.add_all([owner1, owner2])
+
+    o1_account1 = CurrentAccount(owner=owner1, balance=1000, overdraft=100)
+    o1_account2 = CurrentAccount(owner=owner1, balance=2000, overdraft=50)
+    o1_account3 = SavingsAccount(owner=owner1, balance=300, interest_rate=3)
+
+    o2_account1 = CurrentAccount(owner=owner2, balance=1000, overdraft=100)
+    o2_account2 = SavingsAccount(owner=owner2, balance=300, interest_rate=3)
+    session.add_all([o1_account1, o1_account2, o1_account3, o2_account1, o2_account2])
+
+    await eventually_await_session(session, "commit")
+
+
+def create_relationship_interface_schema(session):
+    class OwnerType(SQLAlchemyObjectType):
+        class Meta:
+            model = Owner
+            interfaces = (relay.Node,)
+
+    class AccountType(SQLAlchemyInterface):
+        class Meta:
+            model = Account
+            use_connection = True
+
+    class CurrentAccountType(SQLAlchemyObjectType):
+        class Meta:
+            model = CurrentAccount
+            interfaces = (
+                AccountType,
+                relay.Node,
+            )
+
+    class SavingsAccountType(SQLAlchemyObjectType):
+        class Meta:
+            model = SavingsAccount
+            interfaces = (
+                AccountType,
+                relay.Node,
+            )
+
+    class Query(graphene.ObjectType):
+        node = relay.Node.Field()
+        owners = SQLAlchemyConnectionField(OwnerType.connection)
+        accounts = SQLAlchemyConnectionField(AccountType.connection)
+
+    return (Query, [CurrentAccountType, SavingsAccountType])
+
+
+@pytest.mark.asyncio
+async def test_filter_relationship_interface(session):
+    await add_relationship_interface_test_data(session)
+
+    (Query, types) = create_relationship_interface_schema(session)
+
+    query = """
+        query {
+          owners(filter: { accounts: { contains: [{balance: {gte: 2000}}]}}) {
+            edges {
+              node {
+                name
+                accounts {
+                  edges {
+                    node {
+                      __typename
+                      balance
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "owners": {
+            "edges": [
+                {
+                    "node": {
+                        "name": "John Doe",
+                        "accounts": {
+                            "edges": [
+                                {
+                                    "node": {
+                                        "__typename": "CurrentAccountType",
+                                        "balance": 1000,
+                                    },
+                                },
+                                {
+                                    "node": {
+                                        "__typename": "CurrentAccountType",
+                                        "balance": 2000,
+                                    },
+                                },
+                                {
+                                    "node": {
+                                        "__typename": "SavingsAccountType",
+                                        "balance": 300,
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
+            ],
+        },
+    }
+    schema = graphene.Schema(query=Query, types=types)
+    result = await schema.execute_async(query, context_value={"session": session})
+    assert_and_raise_result(result, expected)
+
+    query = """
+        query {
+          owners(filter: { accounts: { contains: [{balance: {gte: 1000}}]}}) {
+            edges {
+              node {
+                name
+              }
+            }
+          }
+        }
+    """
+    expected = {
+        "owners": {
+            "edges": [
+                {
+                    "node": {
+                        "name": "John Doe",
+                    },
+                },
+                {
+                    "node": {
+                        "name": "Jane Doe",
+                    },
+                },
+            ]
+        },
+    }
+
     result = await schema.execute_async(query, context_value={"session": session})
     assert_and_raise_result(result, expected)
