@@ -440,6 +440,7 @@ class SQLAlchemyBase(BaseType):
         batching=False,
         connection_field_factory=None,
         _meta=None,
+        create_filters=True,
         **options,
     ):
         # We always want to bypass this hook unless we're defining a concrete
@@ -474,7 +475,7 @@ class SQLAlchemyBase(BaseType):
             only_fields=only_fields,
             exclude_fields=exclude_fields,
             batching=batching,
-            create_filters=True,
+            create_filters=create_filters,
             connection_field_factory=connection_field_factory,
         )
 
