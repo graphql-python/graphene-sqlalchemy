@@ -119,6 +119,6 @@ def test_enum_for_field():
     with pytest.raises(TypeError, match=re_err):
         PetType.enum_for_field(None)
 
-    re_err = "Expected SQLAlchemyObjectType, but got: None"
+    re_err = "Expected SQLAlchemyBase, but got: None"
     with pytest.raises(TypeError, match=re_err):
         enum_for_field(None, "other_kind")
