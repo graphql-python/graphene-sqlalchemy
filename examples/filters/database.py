@@ -26,8 +26,8 @@ def init_db():
     person1 = Person(name="A")
     person2 = Person(name="B")
 
-    pet1 = Pet(name="Spot")
-    pet2 = Pet(name="Milo")
+    pet1 = Pet(name="Spot", kind="dog")
+    pet2 = Pet(name="Milo", kind="cat")
 
     toy1 = Toy(name="disc")
     toy2 = Toy(name="ball")
