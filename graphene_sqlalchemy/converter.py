@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, TypeVar, Union, cast
 
 from sqlalchemy import types as sqa_types
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
     ColumnProperty,
     RelationshipProperty,
@@ -14,7 +15,6 @@ from sqlalchemy.orm import (
     interfaces,
     strategies,
 )
-from sqlalchemy.ext.hybrid import hybrid_property
 
 import graphene
 from graphene.types.json import JSONString

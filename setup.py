@@ -17,6 +17,7 @@ requirements = [
     "promise>=2.3",
     "SQLAlchemy>=1.1",
     "aiodataloader>=0.2.0,<1.0",
+    "packaging>=23.0",
 ]
 
 tests_require = [
