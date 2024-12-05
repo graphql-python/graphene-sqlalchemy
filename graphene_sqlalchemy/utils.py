@@ -3,9 +3,10 @@ import typing
 import warnings
 from collections import OrderedDict
 from functools import _c3_mro
+from importlib.metadata import version as get_version
 from typing import Any, Callable, Dict, Optional
 
-import pkg_resources
+from packaging import version
 from sqlalchemy import select
 from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm import class_mapper, object_mapper
@@ -22,16 +23,12 @@ def get_nullable_type(_type):
 
 def is_sqlalchemy_version_less_than(version_string):
     """Check the installed SQLAlchemy version"""
-    return pkg_resources.get_distribution(
-        "SQLAlchemy"
-    ).parsed_version < pkg_resources.parse_version(version_string)
+    return version.parse(get_version("SQLAlchemy")) < version.parse(version_string)
 
 
 def is_graphene_version_less_than(version_string):  # pragma: no cover
     """Check the installed graphene version"""
-    return pkg_resources.get_distribution(
-        "graphene"
-    ).parsed_version < pkg_resources.parse_version(version_string)
+    return version.parse(get_version("graphene")) < version.parse(version_string)
 
 
 SQL_VERSION_HIGHER_EQUAL_THAN_1_4 = False
