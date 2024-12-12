@@ -98,6 +98,14 @@ def set_non_null_many_relationships(non_null_flag):
     use_non_null_many_relationships = non_null_flag
 
 
+use_id_type_for_keys = True
+
+
+def set_id_for_keys(id_flag):
+    global use_id_type_for_keys
+    use_id_type_for_keys = id_flag
+
+
 def get_column_doc(column):
     return getattr(column, "doc", None)
 
@@ -309,18 +317,34 @@ def _register_composite_class(cls, registry=None):
 convert_sqlalchemy_composite.register = _register_composite_class
 
 
+def _is_primary_or_foreign_key(column):
+    return getattr(column, "primary_key", False) or (
+        len(getattr(column, "foreign_keys", [])) > 0
+    )
+
+
 def convert_sqlalchemy_column(column_prop, registry, resolver, **field_kwargs):
     column = column_prop.columns[0]
-    # The converter expects a type to find the right conversion function.
-    # If we get an instance instead, we need to convert it to a type.
-    # The conversion function will still be able to access the instance via the column argument.
+    # We only use the converter if no type was specified using the ORMField
     if "type_" not in field_kwargs:
-        column_type = getattr(column, "type", None)
-        if not isinstance(column_type, type):
-            column_type = type(column_type)
+        # If the column is a primary key, we use the ID typ
+        if use_id_type_for_keys and _is_primary_or_foreign_key(column):
+            field_type = graphene.ID
+        else:
+            # The converter expects a type to find the right conversion function.
+            # If we get an instance instead, we need to convert it to a type.
+            # The conversion function will still be able to access the instance via the column argument.
+            column_type = getattr(column, "type", None)
+            if not isinstance(column_type, type):
+                column_type = type(column_type)
+
+            field_type = convert_sqlalchemy_type(
+                column_type, column=column, registry=registry
+            )
+
         field_kwargs.setdefault(
             "type_",
-            convert_sqlalchemy_type(column_type, column=column, registry=registry),
+            field_type,
         )
     field_kwargs.setdefault("required", not is_column_nullable(column))
     field_kwargs.setdefault("description", get_column_doc(column))
@@ -444,10 +468,6 @@ def convert_column_to_int_or_id(
     registry: Registry = None,
     **kwargs,
 ):
-    # fixme drop the primary key processing from here in another pr
-    if column is not None:
-        if getattr(column, "primary_key", False) is True:
-            return graphene.ID
     return graphene.Int
 
 
