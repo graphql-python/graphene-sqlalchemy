@@ -135,19 +135,15 @@ def get_or_create_relationship_filter(
     relationship_filter = registry.get_relationship_filter_for_base_type(base_type)
 
     if not relationship_filter:
-        try:
-            base_type_filter = registry.get_filter_for_base_type(base_type)
-            relationship_filter = RelationshipFilter.create_type(
-                f"{base_type.__name__}RelationshipFilter",
-                base_type_filter=base_type_filter,
-                model=base_type._meta.model,
-            )
-            registry.register_relationship_filter_for_base_type(
-                base_type, relationship_filter
-            )
-        except Exception as e:
-            print("e")
-            raise e
+        base_type_filter = registry.get_filter_for_base_type(base_type)
+        relationship_filter = RelationshipFilter.create_type(
+            f"{base_type.__name__}RelationshipFilter",
+            base_type_filter=base_type_filter,
+            model=base_type._meta.model,
+        )
+        registry.register_relationship_filter_for_base_type(
+            base_type, relationship_filter
+        )
 
     return relationship_filter
 

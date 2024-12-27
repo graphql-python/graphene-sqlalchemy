@@ -79,11 +79,7 @@ class BaseTypeFilter(graphene.InputObjectType):
         new_filter_fields = {}
         # Generate Graphene Fields from the filter functions based on type hints
         for field_name, _annotations in logic_functions:
-            assert (
-                "val" in _annotations
-            ), "Each filter method must have a value field with valid type annotations"
             # If type is generic, replace with actual type of filter class
-
             replace_type_vars = {BaseTypeFilterSelf: cls}
             field_type = convert_sqlalchemy_type(
                 _annotations.get("val", str), replace_type_vars=replace_type_vars
@@ -170,7 +166,7 @@ class BaseTypeFilter(graphene.InputObjectType):
                 field_filter_type = input_field.type
             else:
                 field_filter_type = cls._meta.fields[field].type
-            # raise Exception
+
             # TODO we need to save the relationship props in the meta fields array
             #  to conduct joins and alias the joins (in case there are duplicate joins: A->B A->C B->C)
             if field == "and":
@@ -252,9 +248,11 @@ class FieldFilter(graphene.InputObjectType):
         new_filter_fields = {}
         # Generate Graphene Fields from the filter functions based on type hints
         for field_name, _annotations in filter_functions:
-            assert (
-                "val" in _annotations
-            ), "Each filter method must have a value field with valid type annotations"
+            if "val" not in _annotations:
+                raise TypeError(
+                    "Each filter method must have a 'val' field with valid type annotations."
+                )
+
             # If type is generic, replace with actual type of filter class
             replace_type_vars = {ScalarFilterInputType: _meta.graphene_type}
             field_type = convert_sqlalchemy_type(
@@ -309,10 +307,7 @@ class FieldFilter(graphene.InputObjectType):
 
 
 class SQLEnumFilter(FieldFilter):
-    """Basic Filter for Scalars in Graphene.
-    We want this filter to use Dynamic fields so it provides the base
-    filtering methods ("eq, nEq") for different types of scalars.
-    The Dynamic fields will resolve to Meta.filtered_type"""
+    """Basic Filter for SQL Enums in Graphene."""
 
     class Meta:
         graphene_type = graphene.Enum
@@ -332,10 +327,7 @@ class SQLEnumFilter(FieldFilter):
 
 
 class PyEnumFilter(FieldFilter):
-    """Basic Filter for Scalars in Graphene.
-    We want this filter to use Dynamic fields so it provides the base
-    filtering methods ("eq, nEq") for different types of scalars.
-    The Dynamic fields will resolve to Meta.filtered_type"""
+    """Basic Filter for Python Enums in Graphene."""
 
     class Meta:
         graphene_type = graphene.Enum
@@ -441,7 +433,8 @@ class RelationshipFilter(graphene.InputObjectType):
         cls, base_type_filter=None, model=None, _meta=None, **options
     ):
         if not base_type_filter:
-            raise Exception("Relationship Filters must be specific to an object type")
+            raise TypeError("Relationship Filters must be specific to an object type.")
+
         # Init meta options class if it doesn't exist already
         if not _meta:
             _meta = InputObjectTypeOptions(cls)
@@ -453,9 +446,6 @@ class RelationshipFilter(graphene.InputObjectType):
 
         # Generate Graphene Fields from the filter functions based on type hints
         for field_name, _annotations in filter_functions:
-            assert (
-                "val" in _annotations
-            ), "Each filter method must have a value field with valid type annotations"
             # If type is generic, replace with actual type of filter class
             if is_list(_annotations["val"]):
                 relationship_filters.update(

@@ -1,7 +1,9 @@
 import sqlalchemy
 from database import Base
-from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy import Column, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
+
+PetKind = Enum("cat", "dog", name="pet_kind")
 
 
 class Pet(Base):
@@ -9,6 +11,7 @@ class Pet(Base):
     id = Column(Integer(), primary_key=True)
     name = Column(String(30))
     age = Column(Integer())
+    kind = Column(PetKind)
     person_id = Column(Integer(), ForeignKey("people.id"))
 
 

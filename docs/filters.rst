@@ -152,7 +152,7 @@ this query will return all pets which have a person named "Ben" in their ``peopl
     }
 
 
-and this one will return all pets which hvae a person list that contains exactly the people "Ada" and "Ben" and no fewer or people with other names.
+and this one will return all pets which have a person list that contains exactly the people "Ada" and "Ben" and no fewer or people with other names.
 
 .. code::
 

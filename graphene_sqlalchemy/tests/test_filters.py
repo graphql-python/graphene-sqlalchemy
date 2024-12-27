@@ -5,7 +5,7 @@ import graphene
 from graphene import Connection, relay
 
 from ..fields import SQLAlchemyConnectionField
-from ..filters import FloatFilter
+from ..filters import FloatFilter, RelationshipFilter
 from ..types import ORMField, SQLAlchemyObjectType
 from .models import (
     Article,
@@ -1199,3 +1199,33 @@ async def test_additional_filters(session):
     schema = graphene.Schema(query=Query)
     result = await schema.execute_async(query, context_value={"session": session})
     assert_and_raise_result(result, expected)
+
+
+# Test that exceptions are called correctly
+@pytest.mark.asyncio
+async def test_filter_relationship_no_base_type(session):
+    with pytest.raises(
+        TypeError,
+        match=r"(.*)Relationship Filters must be specific to an object type.(.*)",
+    ):
+        RelationshipFilter.create_type(
+            "InvalidRelationshipFilter", base_type_filter=None, model=Article
+        )
+
+
+@pytest.mark.asyncio
+async def test_filter_invalid_filter_method(session):
+
+    # Field filter
+    with pytest.raises(
+        TypeError,
+        match=r"(.*)Each filter method must have a 'val' field with valid type annotations.(.*)",
+    ):
+
+        class InvalidFieldFilter(FloatFilter):
+            class Meta:
+                graphene_type = graphene.Float
+
+            @classmethod
+            def invalid_filter(cls, query, field) -> bool:
+                return False

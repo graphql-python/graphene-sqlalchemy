@@ -181,19 +181,6 @@ class Registry(object):
 
         return filter_type
 
-    # TODO register enums automatically
-    def register_filter_for_enum_type(
-        self, enum_type: Type[graphene.Enum], filter_obj: Type["FieldFilter"]
-    ):
-        from .filters import FieldFilter
-
-        if not issubclass(enum_type, graphene.Enum):
-            raise TypeError("Expected Enum, but got: {!r}".format(enum_type))
-
-        if not issubclass(filter_obj, FieldFilter):
-            raise TypeError("Expected FieldFilter, but got: {!r}".format(filter_obj))
-        self._registry_scalar_filters[enum_type] = filter_obj
-
     # Filter Base Types
     def register_filter_for_base_type(
         self,
