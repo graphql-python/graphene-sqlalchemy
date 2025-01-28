@@ -1199,3 +1199,30 @@ async def test_additional_filters(session):
     schema = graphene.Schema(query=Query)
     result = await schema.execute_async(query, context_value={"session": session})
     assert_and_raise_result(result, expected)
+
+
+@pytest.mark.asyncio
+async def test_do_not_create_filters():
+    class WithoutFilters(SQLAlchemyObjectType):
+        class Meta:
+            abstract = True
+
+        @classmethod
+        def __init_subclass_with_meta__(cls, _meta=None, **options):
+            super().__init_subclass_with_meta__(
+                _meta=_meta, create_filters=False, **options
+            )
+
+    class PetType(WithoutFilters):
+        class Meta:
+            model = Pet
+            name = "Pet"
+            interfaces = (relay.Node,)
+            connection_class = Connection
+
+    class Query(graphene.ObjectType):
+        pets = SQLAlchemyConnectionField(PetType.connection)
+
+    schema = graphene.Schema(query=Query)
+
+    assert "filter" not in str(schema).lower()

@@ -513,7 +513,7 @@ class SQLAlchemyBase(BaseType):
             _meta.fields = sqla_fields
 
         # Save Generated filter class in Meta Class
-        if not _meta.filter_class:
+        if create_filters and not _meta.filter_class:
             # Map graphene fields to filters
             # TODO we might need to pass the ORMFields containing the SQLAlchemy models
             #  to the scalar filters here (to generate expressions from the model)
