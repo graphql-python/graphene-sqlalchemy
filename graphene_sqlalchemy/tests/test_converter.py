@@ -23,7 +23,7 @@ from ..converter import (
     convert_sqlalchemy_hybrid_method,
     convert_sqlalchemy_relationship,
     convert_sqlalchemy_type,
-    set_non_null_many_relationships,
+    set_non_null_many_relationships, set_id_for_keys,
 )
 from ..fields import UnsortedSQLAlchemyConnectionField, default_connection_field_factory
 from ..registry import Registry, get_global_registry
@@ -46,11 +46,13 @@ def mock_resolver():
     pass
 
 
-def get_field(sqlalchemy_type, **column_kwargs):
+def get_field(sqlalchemy_type, *column_args, **column_kwargs):
     class Model(declarative_base()):
         __tablename__ = "model"
         id_ = Column(types.Integer, primary_key=True)
-        column = Column(sqlalchemy_type, doc="Custom Help Text", **column_kwargs)
+        column = Column(
+            sqlalchemy_type, *column_args, doc="Custom Help Text", **column_kwargs
+        )
 
     column_prop = inspect(Model).column_attrs["column"]
     return convert_sqlalchemy_column(column_prop, get_global_registry(), mock_resolver)
@@ -396,10 +398,32 @@ def test_should_integer_convert_int():
     assert get_field(types.Integer()).type == graphene.Int
 
 
-def test_should_primary_integer_convert_id():
+def test_should_key_integer_convert_id():
     assert get_field(types.Integer(), primary_key=True).type == graphene.NonNull(
         graphene.ID
     )
+
+
+def test_should_key_integer_convert_integer_with_setting():
+    set_id_for_keys(False)
+    assert get_field(types.Integer(), primary_key=True).type == graphene.NonNull(
+        graphene.Int
+    )
+
+def test_should_primary_string_convert_id():
+    assert get_field(types.String(), primary_key=True).type == graphene.NonNull(
+        graphene.ID
+    )
+
+
+def test_should_primary_uuid_convert_id():
+    assert get_field(sqa_utils.UUIDType, primary_key=True).type == graphene.NonNull(
+        graphene.ID
+    )
+
+
+def test_should_foreign_key_convert_id():
+    assert get_field(types.Integer(), ForeignKey("model.id_")).type == graphene.ID
 
 
 def test_should_boolean_convert_boolean():
