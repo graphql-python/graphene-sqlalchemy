@@ -1,4 +1,5 @@
 import inspect
+import json
 import logging
 import warnings
 from collections import OrderedDict
@@ -557,9 +558,15 @@ class SQLAlchemyBase(BaseType):
 
     @classmethod
     def get_node(cls, info, id):
+        try:
+            key = json.loads(id)
+
+        except json.decoder.JSONDecodeError:
+            return None
+
         if not SQL_VERSION_HIGHER_EQUAL_THAN_1_4:
             try:
-                return cls.get_query(info).get(id)
+                return cls.get_query(info).get(key)
             except NoResultFound:
                 return None
 
@@ -571,14 +578,14 @@ class SQLAlchemyBase(BaseType):
 
             return get_result()
         try:
-            return cls.get_query(info).get(id)
+            return cls.get_query(info).get(key)
         except NoResultFound:
             return None
 
     def resolve_id(self, info):
         # graphene_type = info.parent_type.graphene_type
         keys = self.__mapper__.primary_key_from_instance(self)
-        return str(tuple(keys)) if len(keys) > 1 else keys[0]
+        return json.dumps(keys if len(keys) > 1 else keys[0])
 
     @classmethod
     def enum_for_field(cls, field_name):
