@@ -607,11 +607,11 @@ class SQLAlchemyBase(BaseType):
             return None
 
     def resolve_id(self, info):
-        # graphene_type = info.parent_type.graphene_type
+        graphene_type = info.parent_type.graphene_type
         keys = self.__mapper__.primary_key_from_instance(self)
 
         try:
-            return self.serializer.serialize(keys if len(keys) > 1 else keys[0])
+            return graphene_type.serializer.serialize(keys)
 
         except Exception as e:
             raise ValueError(f"Non-serializable primary key: {e}") from e
